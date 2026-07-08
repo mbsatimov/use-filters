@@ -1,0 +1,52 @@
+{
+  "name": "@mbsatimov/use-filters",
+  "version": "0.1.0",
+  "description": "Headless, URL-synced filter state for React. Declare filters once, get typed params, resolved filter state, and nuqs-backed URL sync back — bring your own UI.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbsatimov/use-filters.git"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "peerDependencies": {
+    "nuqs": ">=2",
+    "react": ">=18"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "lodash": "^4.18.1"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "nuqs": "^2.6.0",
+    "react": "^19.2.0",
+    "tsup": "^8.3.5",
+    "typescript": "~5.9.3"
+  }
+}

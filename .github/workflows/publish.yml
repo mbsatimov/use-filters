@@ -1,0 +1,31 @@
+name: Publish package
+
+# Publishes on every GitHub Release. Bump "version" in package.json first,
+# then cut a release (tag it e.g. v0.2.0) — this workflow builds and
+# publishes that version to GitHub Packages automatically.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@mbsatimov'
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
