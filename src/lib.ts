@@ -1,6 +1,5 @@
 import type { SingleParserBuilder } from 'nuqs';
 
-import { format, isValid, parse } from 'date-fns';
 import {
   parseAsArrayOf,
   parseAsBoolean,
@@ -14,12 +13,13 @@ import type { FilterConfig, MultiSelectFilterConfig, SelectFilterConfig } from '
 /** Every non-null value one of our parsers can produce/serialize. */
 export type FilterParserValue = boolean | number | string | number[] | string[];
 
-/** Default date storage/serialization format (matches the common API `yyyy-MM-dd`). */
+/** The fixed format `date` filters serialize to. Override `serializeDate` / `parseDate` to change it. */
 export const DATE_FORMAT = 'yyyy-MM-dd';
 
 /**
- * Default datetime storage/serialization format (date + time, no timezone) —
- * used by `date` / `dateRange` filters declared with `precision: 'datetime'`.
+ * The fixed format datetime filters serialize to (date + time, local, no
+ * timezone) — used by `date` / `dateRange` filters with `precision: 'datetime'`.
+ * Override `serializeDateTime` / `parseDateTime` to change it.
  */
 export const DATE_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss";
 
@@ -32,37 +32,68 @@ export const DEFAULT_PAGE = 1;
 /** Default page size when the URL has none. */
 export const DEFAULT_PAGE_SIZE = 10;
 
-/** `Date` -> stored string, using `dateFormat` (defaults to {@link DATE_FORMAT}). */
-export const toDateValue = (date: Date, dateFormat: string = DATE_FORMAT): string =>
-  format(date, dateFormat);
+/*
+ * Date (de)serialization. The defaults are deliberately fixed to the common ISO
+ * shapes above — no configurable format string, no parser engine, nothing to
+ * misfire. Need a different representation (a `dd.MM.yyyy` UI, month names, a
+ * timezone-aware or non-Gregorian library)? Override `serializeDate` /
+ * `parseDate` (and their `*DateTime` counterparts) on `createFilters`; these
+ * functions are just the defaults those hooks fall back to.
+ */
+
+const pad2 = (value: number): string => String(value).padStart(2, '0');
 
 /**
- * Stored string -> `Date` (or `undefined` when empty/invalid). Parses with the
- * same `dateFormat` used by {@link toDateValue}, so a custom format
- * (e.g. `dd.MM.yyyy`) round-trips correctly instead of being misread by the
- * native `Date` constructor.
+ * Build a local `Date` from parts, returning `undefined` for out-of-range input.
+ * The `Date` constructor silently rolls parts over (month 13 → next January,
+ * Feb 30 → March), so any component that changed after construction means the
+ * input was invalid.
  */
-export const fromDateValue = (
-  value?: string | null,
-  dateFormat: string = DATE_FORMAT
+const buildDate = (
+  year: number,
+  month: number, // 1-12
+  day: number,
+  hours = 0,
+  minutes = 0,
+  seconds = 0
 ): Date | undefined => {
-  if (!value) return undefined;
-  const date = parse(value, dateFormat, new Date());
-  return isValid(date) ? date : undefined;
+  const date = new Date(year, month - 1, day, hours, minutes, seconds);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hours ||
+    date.getMinutes() !== minutes ||
+    date.getSeconds() !== seconds
+  ) {
+    return undefined;
+  }
+  return date;
 };
 
-/** `Date` -> stored string for datetime filters (defaults to {@link DATE_TIME_FORMAT}). */
-export const toDateTimeValue = (date: Date, dateTimeFormat: string = DATE_TIME_FORMAT): string =>
-  format(date, dateTimeFormat);
+/** `Date` -> `yyyy-MM-dd` (local). */
+export const toDateValue = (date: Date): string =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 
-/** Stored string -> `Date` for datetime filters (or `undefined` when empty/invalid). */
-export const fromDateTimeValue = (
-  value?: string | null,
-  dateTimeFormat: string = DATE_TIME_FORMAT
-): Date | undefined => {
+/** `yyyy-MM-dd` -> `Date`, or `undefined` when empty / malformed / out of range. */
+export const fromDateValue = (value?: string | null): Date | undefined => {
   if (!value) return undefined;
-  const date = parse(value, dateTimeFormat, new Date());
-  return isValid(date) ? date : undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? buildDate(+match[1], +match[2], +match[3]) : undefined;
+};
+
+/** `Date` -> `yyyy-MM-ddTHH:mm:ss` (local). */
+export const toDateTimeValue = (date: Date): string =>
+  `${toDateValue(date)}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+
+/** `yyyy-MM-ddTHH:mm:ss` -> `Date`, or `undefined` when empty / malformed / out of range. */
+export const fromDateTimeValue = (value?: string | null): Date | undefined => {
+  if (!value) return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(value);
+  return match
+    ? buildDate(+match[1], +match[2], +match[3], +match[4], +match[5], +match[6])
+    : undefined;
 };
 
 /**

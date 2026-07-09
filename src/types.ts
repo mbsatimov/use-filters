@@ -465,18 +465,6 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
  * });
  */
 export interface FiltersConfig<PP extends Record<string, number> = PaginationParams> {
-  /**
-   * `date-fns` format used to serialize date values. Defaults to `'yyyy-MM-dd'`.
-   * Ignored when both `serializeDate` and `parseDate` are supplied.
-   */
-  dateFormat?: string;
-  /**
-   * `date-fns` format for datetime values — used by `date` / `dateRange`
-   * filters declared with `precision: 'datetime'`. Defaults to
-   * `"yyyy-MM-dd'T'HH:mm:ss"`. Ignored when both `serializeDateTime` and
-   * `parseDateTime` are supplied.
-   */
-  dateTimeFormat?: string;
   /** Page number assumed when the URL has none. Defaults to `1`. */
   defaultPage?: number;
   /** Page size assumed when the URL has none. Defaults to `10`. */
@@ -494,17 +482,18 @@ export interface FiltersConfig<PP extends Record<string, number> = PaginationPar
   pageSizeKey?: string;
   /**
    * Parse a stored date string back into a `Date` — the inverse of
-   * `serializeDate`. Override together with `serializeDate` to use your own
-   * date library (Day.js, Luxon, Temporal, …) instead of the bundled
-   * `date-fns` default, which parses with `dateFormat`.
+   * `serializeDate`. Defaults to parsing the fixed `yyyy-MM-dd` format. This is
+   * the customization hook: override it (together with `serializeDate`) to store
+   * dates any way you like — a `dd.MM.yyyy` UI, month names, or a timezone-aware
+   * / non-Gregorian date library (Day.js, Luxon, Temporal, …).
    */
   parseDate?: (value: string) => Date | undefined;
   /** Datetime counterpart of `parseDate` (for `precision: 'datetime'` filters). */
   parseDateTime?: (value: string) => Date | undefined;
   /**
-   * Serialize a `Date` into the string stored in the URL. Defaults to
-   * formatting with `dateFormat` via `date-fns`; override (together with
-   * `parseDate`) to drop the `date-fns` dependency or use another date library.
+   * Serialize a `Date` into the string stored in the URL. Defaults to the fixed
+   * `yyyy-MM-dd` format; override (together with `parseDate`) to store dates in
+   * whatever shape or library your app uses.
    */
   serializeDate?: (date: Date) => string;
   /** Datetime counterpart of `serializeDate` (for `precision: 'datetime'` filters). */

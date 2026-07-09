@@ -60,14 +60,6 @@ describe('date round-trip', () => {
     expect(back?.getDate()).toBe(9);
   });
 
-  it('round-trips a custom dd.MM.yyyy format (regression: new Date misreads it)', () => {
-    const stored = toDateValue(new Date(2026, 6, 9), 'dd.MM.yyyy');
-    expect(stored).toBe('09.07.2026');
-    const back = fromDateValue('09.07.2026', 'dd.MM.yyyy');
-    expect(back?.getMonth()).toBe(6); // July, not September
-    expect(back?.getDate()).toBe(9);
-  });
-
   it('returns undefined for empty/invalid input', () => {
     expect(fromDateValue('')).toBeUndefined();
     expect(fromDateValue(null)).toBeUndefined();

@@ -410,10 +410,10 @@ facets change with the selected category) lingers in the URL but drops out of
 
 ## Dates
 
-`date` / `dateRange` values are stored as formatted strings (default
-`yyyy-MM-dd`). Convert to/from `Date` with the `toDateValue` / `fromDateValue`
-returned from `createFilters` — they're bound to your `dateFormat` and are exact
-inverses:
+`date` / `dateRange` values are stored as strings, using a **fixed** default
+format: `yyyy-MM-dd` (and `yyyy-MM-ddTHH:mm:ss` for datetime). Convert to/from
+`Date` with the `toDateValue` / `fromDateValue` returned from `createFilters` —
+they're exact inverses and reject malformed / out-of-range input:
 
 ```ts
 filter.onChange(toDateValue(pickedDate)); // Date  -> stored string
@@ -423,9 +423,8 @@ const date = fromDateValue(filter.value); // string -> Date | undefined
 **Date + time.** Declare a `date` or `dateRange` filter with
 `precision: 'datetime'` to capture a time component too. The value type is
 unchanged (still a string / `[string, string]`); use the datetime converters
-(`toDateTimeValue` / `fromDateTimeValue`, formatted with `dateTimeFormat`,
-default `"yyyy-MM-dd'T'HH:mm:ss"`), and read `filter.precision` in your UI to
-decide whether to render a time picker:
+(`toDateTimeValue` / `fromDateTimeValue`) and read `filter.precision` in your UI
+to decide whether to render a time picker:
 
 ```ts
 export const { toDateTimeValue, fromDateTimeValue } = createFilters();
@@ -440,15 +439,17 @@ const [toValue, fromValue] =
     : [toDateValue, fromDateValue];
 ```
 
-To use a different date library (and drop the bundled `date-fns`), supply both
-`serializeDate` and `parseDate` (and their `*DateTime` counterparts) to
-`createFilters`:
+**Want a different representation?** There's no format-string option — instead,
+override the (de)serialization directly. Supply `serializeDate` / `parseDate`
+(and their `*DateTime` counterparts) to `createFilters` to store dates in any
+shape or date library — a `dd.MM.yyyy` UI, month names, timezone-aware or
+non-Gregorian dates. `toDateValue` / `fromDateValue` then use your functions:
 
 ```ts
 createFilters({
   serializeDate: (date) => dayjs(date).format('DD.MM.YYYY'),
   parseDate: (value) => {
-    const d = dayjs(value, 'DD.MM.YYYY');
+    const d = dayjs(value, 'DD.MM.YYYY', true);
     return d.isValid() ? d.toDate() : undefined;
   }
 });
@@ -530,12 +531,10 @@ This package never reads `meta` — it only carries it through to `filters` /
 | `defaultPage`     | `1`                                        | Page assumed when the URL has none.                     |
 | `defaultPageSize` | `10`                                       | Page size assumed when the URL has none.                |
 | `mapPagination`   | `{ limit, offset }`                        | Turn human `page` / `pageSize` into your API's params. Its return type shapes `params`. |
-| `dateFormat`      | `'yyyy-MM-dd'`                             | `date-fns` format for date values.                      |
-| `dateTimeFormat`  | `"yyyy-MM-dd'T'HH:mm:ss"`                  | `date-fns` format for `precision: 'datetime'` values.   |
-| `serializeDate`   | format via `dateFormat`                     | Override date → string (bring your own date library).   |
-| `parseDate`       | parse via `dateFormat`                       | Override string → `Date` (pair with `serializeDate`).   |
-| `serializeDateTime` | format via `dateTimeFormat`               | Datetime counterpart of `serializeDate`.                |
-| `parseDateTime`   | parse via `dateTimeFormat`                    | Datetime counterpart of `parseDate`.                    |
+| `serializeDate`   | fixed `yyyy-MM-dd`                          | Override date → string (store dates however you like).  |
+| `parseDate`       | fixed `yyyy-MM-dd`                          | Override string → `Date` (pair with `serializeDate`).   |
+| `serializeDateTime` | fixed `yyyy-MM-ddTHH:mm:ss`               | Datetime counterpart of `serializeDate`.                |
+| `parseDateTime`   | fixed `yyyy-MM-ddTHH:mm:ss`                 | Datetime counterpart of `parseDate`.                    |
 
 ## Gotchas
 
@@ -554,9 +553,8 @@ This package never reads `meta` — it only carries it through to `filters` /
 ## What's in here vs. what isn't
 
 This package is the **headless core only**: `createFilters`, `useFilters`, the
-`f.*` builders, `resolveFilterParams`, and the types. Its only runtime
-dependencies are `react`, `nuqs`, and `date-fns` (the last of which you can opt
-out of via `serializeDate` / `parseDate`).
+`f.*` builders, `resolveFilterParams`, and the types. It has **zero runtime
+dependencies** — just the `react` and `nuqs` peers.
 
 The rendered toolbar, popovers, chips, option lists, etc. are intentionally
 **not** included — those live in your project, built against your design system,

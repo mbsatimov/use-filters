@@ -10,8 +10,6 @@ import { f } from './builders';
 import {
   coerceInt,
   coerceRawValue,
-  DATE_FORMAT,
-  DATE_TIME_FORMAT,
   DEFAULT_PAGE,
   DEFAULT_PAGE_KEY,
   DEFAULT_PAGE_SIZE,
@@ -33,11 +31,7 @@ const defaultMapPagination = (page: number, pageSize: number): PaginationParams 
 function resolveConfig<PP extends Record<string, number> = PaginationParams>(
   config: FiltersConfig<PP> = {}
 ): ResolvedFiltersConfig<PP> {
-  const dateFormat = config.dateFormat ?? DATE_FORMAT;
-  const dateTimeFormat = config.dateTimeFormat ?? DATE_TIME_FORMAT;
   return {
-    dateFormat,
-    dateTimeFormat,
     defaultPage: config.defaultPage ?? DEFAULT_PAGE,
     defaultPageSize: config.defaultPageSize ?? DEFAULT_PAGE_SIZE,
     // The default only produces `{ limit, offset }`. A custom `PP` can only be
@@ -48,14 +42,12 @@ function resolveConfig<PP extends Record<string, number> = PaginationParams>(
       (defaultMapPagination as unknown as ResolvedFiltersConfig<PP>['mapPagination']),
     pageKey: config.pageKey ?? DEFAULT_PAGE_KEY,
     pageSizeKey: config.pageSizeKey ?? DEFAULT_PAGE_SIZE_KEY,
-    // Date (de)serialization: date-fns bound to the relevant format by default,
-    // fully overridable so consumers can bring their own date library.
-    parseDate: config.parseDate ?? ((value) => fromDateValueBase(value, dateFormat)),
-    parseDateTime:
-      config.parseDateTime ?? ((value) => fromDateTimeValueBase(value, dateTimeFormat)),
-    serializeDate: config.serializeDate ?? ((date) => toDateValueBase(date, dateFormat)),
-    serializeDateTime:
-      config.serializeDateTime ?? ((date) => toDateTimeValueBase(date, dateTimeFormat))
+    // Date (de)serialization: fixed `yyyy-MM-dd` defaults, fully overridable to
+    // store dates in whatever shape or library the app uses.
+    parseDate: config.parseDate ?? fromDateValueBase,
+    parseDateTime: config.parseDateTime ?? fromDateTimeValueBase,
+    serializeDate: config.serializeDate ?? toDateValueBase,
+    serializeDateTime: config.serializeDateTime ?? toDateTimeValueBase
   };
 }
 
@@ -108,9 +100,9 @@ export interface Filters<PP extends Record<string, number> = PaginationParams> {
   fromDateValue: (value?: string | null) => Date | undefined;
   /** Route-`loader` twin of the hook's `params` — see {@link makeResolveFilterParams}. */
   resolveFilterParams: ReturnType<typeof makeResolveFilterParams<PP>>;
-  /** `Date` -> stored string using the config's `dateTimeFormat` — for `precision: 'datetime'` filters. */
+  /** `Date` -> stored datetime string (`serializeDateTime`) — for `precision: 'datetime'` filters. */
   toDateTimeValue: (date: Date) => string;
-  /** `Date` -> stored string using the config's `dateFormat`. */
+  /** `Date` -> stored date string (`serializeDate`, default `yyyy-MM-dd`). */
   toDateValue: (date: Date) => string;
   /** The URL-synced filters hook, bound to this config. */
   useFilters: ReturnType<typeof makeUseFilters<PP>>;

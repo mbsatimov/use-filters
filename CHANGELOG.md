@@ -19,8 +19,10 @@ new filter capabilities, and substantially expanded docs.
   to capture a time component. Adds `dateTimeFormat`, `serializeDateTime`,
   `parseDateTime` config, and `toDateTimeValue` / `fromDateTimeValue` converters
   (plus the `DATE_TIME_FORMAT` export).
-- **Injectable date (de)serialization** — `serializeDate` / `parseDate` on
-  `createFilters` let you use any date library and drop the bundled `date-fns`.
+- **Overridable date (de)serialization** — dates use a fixed `yyyy-MM-dd`
+  default (datetime `yyyy-MM-ddTHH:mm:ss`); override `serializeDate` /
+  `parseDate` (and their `*DateTime` counterparts) on `createFilters` to store
+  dates in any shape or date library.
 - Test suite (Vitest) covering parsers, `resolveFilterParams` parity, async
   label sidecars, and the new kinds.
 
@@ -41,9 +43,11 @@ new filter capabilities, and substantially expanded docs.
 
 ### Changed
 
-- **Removed the `lodash` dependency** (replaced the single `isEqual` use with a
-  small internal deep-equal). Runtime deps are now `react`, `nuqs`, and the
-  optional `date-fns`.
+- **Zero runtime dependencies.** Removed `lodash` (replaced the single `isEqual`
+  use with a small internal deep-equal) and `date-fns` (replaced `format` /
+  `parse` with fixed `yyyy-MM-dd` (de)serializers, overridable via
+  `serializeDate` / `parseDate`). The package now needs only the `react` and
+  `nuqs` peers.
 - Inline config objects passed to `useFilters` are fingerprinted structurally,
   so URL state is no longer re-initialized on every render.
 - Publishing moved to the **public npm registry**; licensed **MIT**.

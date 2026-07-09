@@ -64,10 +64,18 @@ describe('resolveFilterParams — custom mapPagination', () => {
   });
 });
 
-describe('createFilters — date helpers honor a custom format', () => {
-  const { toDateValue, fromDateValue } = createFilters({ dateFormat: 'dd.MM.yyyy' });
+describe('createFilters — date helpers use serializeDate / parseDate overrides', () => {
+  // Custom `dd.MM.yyyy` storage via the override hooks (no built-in format option).
+  const { toDateValue, fromDateValue } = createFilters({
+    serializeDate: (date) =>
+      `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`,
+    parseDate: (value) => {
+      const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value);
+      return m ? new Date(+m[3], +m[2] - 1, +m[1]) : undefined;
+    }
+  });
 
-  it('serializes and parses with the configured format (bound both ways)', () => {
+  it('serializes and parses with the override (bound both ways)', () => {
     const stored = toDateValue(new Date(2026, 6, 9));
     expect(stored).toBe('09.07.2026');
     const back = fromDateValue(stored);

@@ -2,12 +2,24 @@
   "name": "@mbsatimov/use-filters",
   "version": "0.2.0",
   "description": "Headless, URL-synced filter state for React. Declare filters once, get typed params, resolved filter state, and nuqs-backed URL sync back — bring your own UI.",
+  "author": {
+    "name": "Mahkambek Satimov",
+    "url": "https://github.com/mbsatimov"
+  },
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
+  "bugs": "https://github.com/mbsatimov/use-filters/issues",
+  "keywords": [
+    "react",
+    "filters",
+    "filter",
+    "react use filters",
+    "use filters"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -42,9 +54,6 @@
   "peerDependencies": {
     "nuqs": ">=2",
     "react": ">=18"
-  },
-  "dependencies": {
-    "date-fns": "^4.1.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",

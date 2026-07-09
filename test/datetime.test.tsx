@@ -25,9 +25,15 @@ describe('datetime converters', () => {
   });
 });
 
-describe('createFilters datetime helpers honor a custom format', () => {
+describe('createFilters datetime helpers use serializeDateTime / parseDateTime overrides', () => {
+  const pad = (n: number) => String(n).padStart(2, '0');
   const { toDateTimeValue: toDT, fromDateTimeValue: fromDT } = createFilters({
-    dateTimeFormat: "dd.MM.yyyy HH:mm"
+    serializeDateTime: (d) =>
+      `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    parseDateTime: (value) => {
+      const m = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})$/.exec(value);
+      return m ? new Date(+m[3], +m[2] - 1, +m[1], +m[4], +m[5]) : undefined;
+    }
   });
 
   it('serialize and parse are exact inverses', () => {
