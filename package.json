@@ -1,6 +1,6 @@
 {
   "name": "@mbsatimov/use-filters",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Headless, URL-synced filter state for React. Declare filters once, get typed params, resolved filter state, and nuqs-backed URL sync back — bring your own UI.",
   "author": {
     "name": "Mahkambek Satimov",
