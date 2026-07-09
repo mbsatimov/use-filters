@@ -3,6 +3,7 @@ dist
 *.tsbuildinfo
 .DS_Store
 coverage
+.idea
 
 # tsup / vitest bundled-config scratch files
 *.bundled_*.mjs
