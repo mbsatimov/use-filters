@@ -6,13 +6,20 @@ on:
     branches: [main]
 
 jobs:
-  typecheck-and-build:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Guard the supported peer range: React 18 & 19 against nuqs 2.x.
+        react: ['18', '19']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm ci
+      - run: npm install --no-save react@${{ matrix.react }} react-dom@${{ matrix.react }}
       - run: npm run typecheck
+      - run: npm run test
       - run: npm run build

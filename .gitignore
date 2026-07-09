@@ -2,3 +2,13 @@ node_modules
 dist
 *.tsbuildinfo
 .DS_Store
+coverage
+
+# tsup / vitest bundled-config scratch files
+*.bundled_*.mjs
+*.timestamp-*.mjs
+
+# internal / local-only, not part of the published repo
+REVIEW.md
+.npmrc.consumer.example
+.npmrc.publish.example

@@ -1,4 +1,5 @@
-import isEqual from 'lodash/isEqual';
+import type { ParserMap } from 'nuqs';
+
 import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'nuqs';
 import * as React from 'react';
 
@@ -15,7 +16,7 @@ import type {
   SelectedOption
 } from './types';
 
-import { asyncKindOf, buildParser, hasFilterValue, labelKeyOf } from './lib';
+import { asyncKindOf, buildParser, hasFilterValue, labelKeyOf, valuesEqual } from './lib';
 
 /** Any value nuqs can serialize for our parsers. */
 type ParamValue = boolean | number | string | number[] | string[] | null;
@@ -101,7 +102,12 @@ export interface UseFiltersReturn<
   isFiltered: boolean;
   /** The `meta` passed to `useFilters` (or `{}` when omitted) — see `FiltersMeta`. */
   meta: FiltersMeta;
-  /** Current values keyed by the config map's keys — pass straight to your query options. */
+  /**
+   * Current values keyed by your config keys, plus the API pagination params
+   * (`{ limit, offset }` by default). Unset filters are `null`. Pass this
+   * straight to your query options / data fetcher — and use it as your query
+   * key so caching updates when a filter changes.
+   */
   params: ParamsOf<P, T, PP>;
   /** Clear every filter at once. */
   reset: () => void;
@@ -117,16 +123,28 @@ export interface UseFiltersReturn<
 }
 
 /**
- * Build a `useFilters` hook bound to a resolved per-project config. Consumers
- * never call this directly — `createFilters` does, and re-exports the result
+ * Build a `useFilters` hook bound to a resolved per-project config. You don't
+ * call this yourself — `createFilters` does, and re-exports the resulting hook
  * (plus a matching `resolveFilterParams`) so both share the same constants.
+ * The top-level `useFilters` export is one such hook, bound to the defaults.
  *
- * Declarative, URL-synced filtering: declare filters as a `key -> f.*()` map.
- * Headless — this hook owns URL state, parsing, and derived params/handlers;
- * bring your own components to render the filters.
+ * ---
  *
- * Pass your API's list-params type to get key autocomplete and checking —
- * configs are validated against it and `params` comes back API-shaped:
+ * `useFilters` gives you declarative, URL-synced filtering. You describe your
+ * filters once as a `key -> f.*()` map; the hook keeps their state in the URL
+ * query string (the URL is the source of truth, so refreshes and shared links
+ * just work) and hands back everything you need:
+ *
+ * - `params`   — current values keyed like your configs, plus pagination —
+ *                pass straight to your data fetcher / query options.
+ * - `filters`  — an array of resolved filters (config + value + handlers) to
+ *                render your own toolbar from. This package ships no UI.
+ * - `filterMap`, `isFiltered`, `reset`, `setFilter`, `meta` — see below.
+ *
+ * Requires a nuqs adapter mounted once at your app root (see the nuqs docs).
+ *
+ * Pass your API's list-params type as `<P>` to get key autocomplete, config
+ * checking against that type, and an API-shaped `params`:
  *
  * @example
  * const { params, filters, isFiltered, reset } = useFilters<ListParams>({
@@ -136,9 +154,12 @@ export interface UseFiltersReturn<
  *
  * const { data } = useQuery(listQueryOptions(params));
  *
+ * // Render your own UI from `filters` — each carries `value` + `onChange`:
+ * // filters.map((filter) => <MyControl key={filter.key} {...filter} />)
+ *
  * Without a type argument the config map is inferred as-is and `params` is
- * typed per config (an explicit type argument disables that inference — this
- * is TypeScript's all-or-nothing rule for type argument lists).
+ * typed per config. (Supplying `<P>` turns off that per-config inference —
+ * TypeScript can't do both at once — but you rarely need both.)
  */
 export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig<PP>) {
   const { pageKey, pageSizeKey, defaultPage, mapPagination } = cfg;
@@ -163,8 +184,30 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       [configs]
     );
 
+    // Structural fingerprint of everything that affects parser construction
+    // (keys, types, defaults, value/precision, per-filter nuqs opts). Consumers
+    // routinely pass an inline config literal — a new object every render — so
+    // memoizing `parsers` on the `configs`/`entries` *reference* would rebuild
+    // them (and re-key `useQueryStates`) on every render. Keying on this
+    // fingerprint instead keeps URL state stable regardless of config identity.
+    const parserSignature = React.useMemo(
+      () =>
+        entries
+          .map(
+            ([key, config]) =>
+              `${key}:${config.type}:${(config as { valueType?: string }).valueType ?? ''}:${
+                (config as { precision?: string }).precision ?? ''
+              }:${JSON.stringify(config.defaultValue ?? null)}:${config.nuqs ? '1' : '0'}`
+          )
+          .join('|'),
+      [entries]
+    );
+
     const parsers = React.useMemo(() => {
-      const map: Record<string, ReturnType<typeof buildParser>> = {};
+      // nuqs's own heterogeneous parser-map type: values are parsers over
+      // different value types, so it is intentionally `any`-valued (see nuqs's
+      // `ParserMap`). Our own value typing is recovered downstream via `params`.
+      const map: ParserMap = {};
       for (const [key, config] of entries) {
         if (process.env.NODE_ENV !== 'production' && key.endsWith('_label')) {
           console.warn(
@@ -191,7 +234,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         map[pageSizeKey] = parseAsInteger.withDefault(defaultPageSize);
       }
       return map;
-    }, [entries, pagination, defaultPageSize]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- `entries` is read
+      // through the stable `parserSignature`; see its comment above.
+    }, [parserSignature, pagination, defaultPageSize]);
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
@@ -319,13 +364,17 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
     // A visible filter is "active" when it differs from its default (or, with no
     // default, when it simply holds a non-empty value).
-    const isFiltered = entries.some(([key, config]) => {
-      if (config.hidden) return false;
-      const value = values[key];
-      return config.defaultValue !== undefined
-        ? !isEqual(value, config.defaultValue)
-        : hasFilterValue(value);
-    });
+    const isFiltered = React.useMemo(
+      () =>
+        entries.some(([key, config]) => {
+          if (config.hidden) return false;
+          const value = values[key];
+          return config.defaultValue !== undefined
+            ? !valuesEqual(value, config.defaultValue)
+            : hasFilterValue(value);
+        }),
+      [entries, values]
+    );
 
     const reset = React.useCallback(() => {
       const cleared: Record<string, ParamValue> = {};

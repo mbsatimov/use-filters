@@ -49,6 +49,7 @@ export interface FilterMeta {}
  */
 export interface TextFilterMeta extends FilterMeta {}
 export interface NumberFilterMeta extends FilterMeta {}
+export interface NumberRangeFilterMeta extends FilterMeta {}
 export interface BooleanFilterMeta extends FilterMeta {}
 export interface DateFilterMeta extends FilterMeta {}
 export interface DateRangeFilterMeta extends FilterMeta {}
@@ -56,6 +57,7 @@ export interface SelectFilterMeta extends FilterMeta {}
 export interface AsyncSelectFilterMeta extends FilterMeta {}
 export interface AsyncMultiSelectFilterMeta extends FilterMeta {}
 export interface MultiSelectFilterMeta extends FilterMeta {}
+export interface TagsFilterMeta extends FilterMeta {}
 
 /**
  * Extension point for `useFilters`' hook-level `meta` option — config that
@@ -144,7 +146,27 @@ export interface NumberFilterConfig extends FilterBase {
   defaultValue?: number;
   /** Project-specific UI hints for number filters. See `NumberFilterMeta`. */
   meta?: NumberFilterMeta;
+  /**
+   * Numeric precision for URL round-tripping. `'float'` (the default) keeps
+   * decimals — e.g. amounts, prices, rates — while `'int'` parses whole numbers
+   * only. Defaults to `'float'`.
+   */
+  precision?: 'float' | 'int';
   type: 'number';
+  unit?: string;
+}
+
+export interface NumberRangeFilterConfig extends FilterBase {
+  /** `[min, max]` */
+  defaultValue?: [number, number];
+  /** Project-specific UI hints for number-range filters. See `NumberRangeFilterMeta`. */
+  meta?: NumberRangeFilterMeta;
+  /**
+   * Numeric precision for both ends of the range. `'float'` (the default) keeps
+   * decimals; `'int'` parses whole numbers only. Defaults to `'float'`.
+   */
+  precision?: 'float' | 'int';
+  type: 'numberRange';
   unit?: string;
 }
 
@@ -158,18 +180,30 @@ export interface BooleanFilterConfig extends FilterBase {
 }
 
 export interface DateFilterConfig extends FilterBase {
-  /** `yyyy-MM-dd` */
+  /** Formatted date string — `yyyy-MM-dd`, or the datetime format when `precision: 'datetime'`. */
   defaultValue?: string;
   /** Project-specific UI hints for date filters. See `DateFilterMeta`. */
   meta?: DateFilterMeta;
+  /**
+   * Whether the filter captures a date or a date **and time**. `'datetime'`
+   * switches the bound `toDateTimeValue` / `fromDateTimeValue` converters and
+   * signals your UI to render a time picker too. Defaults to `'date'`.
+   */
+  precision?: 'date' | 'datetime';
   type: 'date';
 }
 
 export interface DateRangeFilterConfig extends FilterBase {
-  /** `[from, to]` as `yyyy-MM-dd` */
+  /** `[from, to]` as formatted date strings (`yyyy-MM-dd`, or the datetime format when `precision: 'datetime'`). */
   defaultValue?: [string, string];
   /** Project-specific UI hints for date-range filters. See `DateRangeFilterMeta`. */
   meta?: DateRangeFilterMeta;
+  /**
+   * Whether each end captures a date or a date **and time**. `'datetime'`
+   * switches the bound `toDateTimeValue` / `fromDateTimeValue` converters and
+   * signals your UI to render time pickers too. Defaults to `'date'`.
+   */
+  precision?: 'date' | 'datetime';
   type: 'dateRange';
 }
 
@@ -233,6 +267,13 @@ export interface MultiSelectFilterConfig<
   type: 'multiSelect';
 }
 
+export interface TagsFilterConfig extends FilterBase {
+  defaultValue?: readonly string[];
+  /** Project-specific UI hints for tags filters. See `TagsFilterMeta`. */
+  meta?: TagsFilterMeta;
+  type: 'tags';
+}
+
 /** Declarative description of a single filter. Build these with the `f.*` helpers. */
 export type FilterConfig =
   | AsyncMultiSelectFilterConfig
@@ -242,7 +283,9 @@ export type FilterConfig =
   | DateRangeFilterConfig
   | MultiSelectFilterConfig
   | NumberFilterConfig
+  | NumberRangeFilterConfig
   | SelectFilterConfig
+  | TagsFilterConfig
   | TextFilterConfig;
 
 /** The shape `useFilters` accepts: URL param key -> filter config. */
@@ -258,13 +301,17 @@ export type FilterValue<C extends FilterConfig> =
         ? V[] | null
         : C extends MultiSelectFilterConfig<infer V>
           ? V[] | null
-          : C extends NumberFilterConfig
-            ? number | null
-            : C extends BooleanFilterConfig
-              ? boolean | null
-              : C extends DateRangeFilterConfig
-                ? [string, string] | null
-                : string | null; // text, date
+          : C extends TagsFilterConfig
+            ? string[] | null
+            : C extends NumberRangeFilterConfig
+              ? [number, number] | null
+              : C extends NumberFilterConfig
+                ? number | null
+                : C extends BooleanFilterConfig
+                  ? boolean | null
+                  : C extends DateRangeFilterConfig
+                    ? [string, string] | null
+                    : string | null; // text, date
 
 /**
  * A selected entity as reconstructed from the URL: the value plus its label
@@ -315,7 +362,32 @@ type StaticSelectExtras<C> =
         }
       : unknown;
 
-/** A `FilterConfig` enriched with its key, current value and handlers — what the UI receives. */
+/**
+ * A single filter as your UI receives it: everything from the original config
+ * (`label`, `placeholder`, `options`, `meta`, …) plus its live `key`, current
+ * `value`, and ready-made handlers. This is an element of the hook's `filters`
+ * array and a value in its `filterMap`.
+ *
+ * Every resolved filter has `value`, `onChange(value)` and `onClear()`. Choice
+ * filters additionally expose the resolved option object(s) — `selectedOption`
+ * / `selectedOptions` — so you can show the chosen label without a lookup, and
+ * async ones add option-aware setters (`onSelectOption`, `onToggleOption`, …).
+ *
+ * @example
+ * function StatusControl(filter: ResolvedFilterOf<'select'>) {
+ *   return (
+ *     <select
+ *       value={filter.value ?? ''}
+ *       onChange={(e) => filter.onChange(e.target.value || null)}
+ *     >
+ *       <option value="">{filter.placeholder ?? filter.label}</option>
+ *       {filter.options.map((o) => (
+ *         <option key={o.value} value={o.value}>{o.label}</option>
+ *       ))}
+ *     </select>
+ *   );
+ * }
+ */
 export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends unknown
   ? C &
       AsyncResolvedExtras<C> &
@@ -339,9 +411,13 @@ type ConfigFor<V> = [V] extends [boolean]
       : AsyncSelectFilterConfig<V & FilterPrimitive> | SelectFilterConfig<V & FilterPrimitive>
     : [V] extends [[string, string]]
       ? DateRangeFilterConfig
-      : [V] extends [readonly (infer E extends FilterPrimitive)[]]
-        ? AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E>
-        : [V] extends [string]
+      : [V] extends [[number, number]]
+        ? NumberRangeFilterConfig
+        : [V] extends [readonly (infer E extends FilterPrimitive)[]]
+          ? string extends E
+            ? AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E> | TagsFilterConfig
+            : AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E>
+          : [V] extends [string]
           ? string extends V
             ?
                 | AsyncSelectFilterConfig<string>
@@ -389,8 +465,18 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
  * });
  */
 export interface FiltersConfig<PP extends Record<string, number> = PaginationParams> {
-  /** `date-fns` format used to serialize date values. Defaults to `'yyyy-MM-dd'`. */
+  /**
+   * `date-fns` format used to serialize date values. Defaults to `'yyyy-MM-dd'`.
+   * Ignored when both `serializeDate` and `parseDate` are supplied.
+   */
   dateFormat?: string;
+  /**
+   * `date-fns` format for datetime values — used by `date` / `dateRange`
+   * filters declared with `precision: 'datetime'`. Defaults to
+   * `"yyyy-MM-dd'T'HH:mm:ss"`. Ignored when both `serializeDateTime` and
+   * `parseDateTime` are supplied.
+   */
+  dateTimeFormat?: string;
   /** Page number assumed when the URL has none. Defaults to `1`. */
   defaultPage?: number;
   /** Page size assumed when the URL has none. Defaults to `10`. */
@@ -406,6 +492,23 @@ export interface FiltersConfig<PP extends Record<string, number> = PaginationPar
   pageKey?: string;
   /** URL key holding the page size. Defaults to `'page_size'`. */
   pageSizeKey?: string;
+  /**
+   * Parse a stored date string back into a `Date` — the inverse of
+   * `serializeDate`. Override together with `serializeDate` to use your own
+   * date library (Day.js, Luxon, Temporal, …) instead of the bundled
+   * `date-fns` default, which parses with `dateFormat`.
+   */
+  parseDate?: (value: string) => Date | undefined;
+  /** Datetime counterpart of `parseDate` (for `precision: 'datetime'` filters). */
+  parseDateTime?: (value: string) => Date | undefined;
+  /**
+   * Serialize a `Date` into the string stored in the URL. Defaults to
+   * formatting with `dateFormat` via `date-fns`; override (together with
+   * `parseDate`) to drop the `date-fns` dependency or use another date library.
+   */
+  serializeDate?: (date: Date) => string;
+  /** Datetime counterpart of `serializeDate` (for `precision: 'datetime'` filters). */
+  serializeDateTime?: (date: Date) => string;
 }
 
 /**

@@ -1,9 +1,0 @@
-# Copy to `.npmrc` in the ROOT of any project that wants to install this
-# package (e.g. mezzon-front), NOT into this package's own repo.
-#
-# Replace mbsatimov below with your GitHub org/username, then:
-#   export GITHUB_PACKAGES_TOKEN=ghp_xxxxxxxxxxxx   (needs `read:packages`)
-#   npm install @mbsatimov/use-filters
-
-@mbsatimov:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}

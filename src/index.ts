@@ -3,7 +3,14 @@ import { createFilters } from './create-filters';
 export { f } from './builders';
 export { createFilters } from './create-filters';
 export type { Filters } from './create-filters';
-export { DATE_FORMAT, fromDateValue, toDateValue } from './lib';
+export {
+  DATE_FORMAT,
+  DATE_TIME_FORMAT,
+  fromDateTimeValue,
+  fromDateValue,
+  toDateTimeValue,
+  toDateValue
+} from './lib';
 export type {
   AsyncMultiSelectFilterConfig,
   AsyncMultiSelectFilterMeta,
@@ -31,6 +38,8 @@ export type {
   MultiSelectFilterMeta,
   NumberFilterConfig,
   NumberFilterMeta,
+  NumberRangeFilterConfig,
+  NumberRangeFilterMeta,
   PaginationParams,
   ResolvedFilter,
   ResolvedFilterOf,
@@ -38,6 +47,8 @@ export type {
   SelectedOption,
   SelectFilterConfig,
   SelectFilterMeta,
+  TagsFilterConfig,
+  TagsFilterMeta,
   TextFilterConfig,
   TextFilterMeta
 } from './types';

@@ -8,12 +8,17 @@ import type {
 
 import { f } from './builders';
 import {
+  coerceInt,
+  coerceRawValue,
   DATE_FORMAT,
+  DATE_TIME_FORMAT,
   DEFAULT_PAGE,
   DEFAULT_PAGE_KEY,
   DEFAULT_PAGE_SIZE,
   DEFAULT_PAGE_SIZE_KEY,
+  fromDateTimeValue as fromDateTimeValueBase,
   fromDateValue as fromDateValueBase,
+  toDateTimeValue as toDateTimeValueBase,
   toDateValue as toDateValueBase
 } from './lib';
 import { makeUseFilters } from './use-filters';
@@ -28,8 +33,11 @@ const defaultMapPagination = (page: number, pageSize: number): PaginationParams 
 function resolveConfig<PP extends Record<string, number> = PaginationParams>(
   config: FiltersConfig<PP> = {}
 ): ResolvedFiltersConfig<PP> {
+  const dateFormat = config.dateFormat ?? DATE_FORMAT;
+  const dateTimeFormat = config.dateTimeFormat ?? DATE_TIME_FORMAT;
   return {
-    dateFormat: config.dateFormat ?? DATE_FORMAT,
+    dateFormat,
+    dateTimeFormat,
     defaultPage: config.defaultPage ?? DEFAULT_PAGE,
     defaultPageSize: config.defaultPageSize ?? DEFAULT_PAGE_SIZE,
     // The default only produces `{ limit, offset }`. A custom `PP` can only be
@@ -39,7 +47,15 @@ function resolveConfig<PP extends Record<string, number> = PaginationParams>(
       config.mapPagination ??
       (defaultMapPagination as unknown as ResolvedFiltersConfig<PP>['mapPagination']),
     pageKey: config.pageKey ?? DEFAULT_PAGE_KEY,
-    pageSizeKey: config.pageSizeKey ?? DEFAULT_PAGE_SIZE_KEY
+    pageSizeKey: config.pageSizeKey ?? DEFAULT_PAGE_SIZE_KEY,
+    // Date (de)serialization: date-fns bound to the relevant format by default,
+    // fully overridable so consumers can bring their own date library.
+    parseDate: config.parseDate ?? ((value) => fromDateValueBase(value, dateFormat)),
+    parseDateTime:
+      config.parseDateTime ?? ((value) => fromDateTimeValueBase(value, dateTimeFormat)),
+    serializeDate: config.serializeDate ?? ((date) => toDateValueBase(date, dateFormat)),
+    serializeDateTime:
+      config.serializeDateTime ?? ((date) => toDateTimeValueBase(date, dateTimeFormat))
   };
 }
 
@@ -69,11 +85,13 @@ function makeResolveFilterParams<PP extends Record<string, number>>(
 
     const result: Record<string, unknown> = {};
     for (const [key, config] of Object.entries(configs)) {
-      result[key] = raw[key] ?? config.defaultValue ?? null;
+      // Coerce through the same parsers the hook uses, so a loader's params
+      // object matches the hook's exactly (and their query keys collide).
+      result[key] = coerceRawValue(config, raw[key]);
     }
     if (pagination) {
-      const page = (raw[cfg.pageKey] as number | undefined) ?? cfg.defaultPage;
-      const pageSize = (raw[cfg.pageSizeKey] as number | undefined) ?? defaultPageSize;
+      const page = coerceInt(raw[cfg.pageKey]) ?? cfg.defaultPage;
+      const pageSize = coerceInt(raw[cfg.pageSizeKey]) ?? defaultPageSize;
       Object.assign(result, cfg.mapPagination(page, pageSize));
     }
     return result as FilterParams<T, PP>;
@@ -84,10 +102,14 @@ function makeResolveFilterParams<PP extends Record<string, number>>(
 export interface Filters<PP extends Record<string, number> = PaginationParams> {
   /** The filter builders (`f.select`, `f.text`, …) — config-independent, re-exported for convenience. */
   f: typeof f;
+  /** Stored datetime string -> `Date`, or `undefined` — for `precision: 'datetime'` filters. */
+  fromDateTimeValue: (value?: string | null) => Date | undefined;
   /** Stored date string -> `Date`, or `undefined` when empty/invalid. */
   fromDateValue: (value?: string | null) => Date | undefined;
   /** Route-`loader` twin of the hook's `params` — see {@link makeResolveFilterParams}. */
   resolveFilterParams: ReturnType<typeof makeResolveFilterParams<PP>>;
+  /** `Date` -> stored string using the config's `dateTimeFormat` — for `precision: 'datetime'` filters. */
+  toDateTimeValue: (date: Date) => string;
   /** `Date` -> stored string using the config's `dateFormat`. */
   toDateValue: (date: Date) => string;
   /** The URL-synced filters hook, bound to this config. */
@@ -125,9 +147,16 @@ export function createFilters<PP extends Record<string, number> = PaginationPara
   const cfg = resolveConfig(config);
   return {
     f,
-    fromDateValue: fromDateValueBase,
+    // Bound to this config's parse/serialize pairs so each is an exact inverse
+    // (the previous unbound `fromDateValue` ignored a custom format). The
+    // parsers only ever see a real string; the null/empty guard stays here.
+    fromDateTimeValue: (value?: string | null) =>
+      value == null || value === '' ? undefined : cfg.parseDateTime(value),
+    fromDateValue: (value?: string | null) =>
+      value == null || value === '' ? undefined : cfg.parseDate(value),
     resolveFilterParams: makeResolveFilterParams(cfg),
-    toDateValue: (date: Date) => toDateValueBase(date, cfg.dateFormat),
+    toDateTimeValue: cfg.serializeDateTime,
+    toDateValue: cfg.serializeDate,
     useFilters: makeUseFilters(cfg)
   };
 }
