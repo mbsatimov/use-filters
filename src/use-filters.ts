@@ -24,8 +24,8 @@ type ParamValue = boolean | number | string | number[] | string[] | null;
 export interface UseFiltersOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
-  /** Initial page size when none is in the URL. Defaults to the factory's `defaultPageSize`. */
-  defaultPageSize?: number;
+  /** Initial per-page count when none is in the URL. Defaults to the factory's `pagination.defaultPerPage`. */
+  defaultPerPage?: number;
   /** How URL updates affect history. Defaults to `'replace'`. */
   history?: 'push' | 'replace';
   /**
@@ -35,9 +35,9 @@ export interface UseFiltersOptions {
    */
   meta?: FiltersMeta;
   /**
-   * Sync `page` / `page_size` in the URL, expose them as the API-shaped
-   * pagination params (`mapPagination`) in `params`, and reset to the first
-   * page whenever a filter changes. Defaults to `true`.
+   * Sync `page` / `per_page` in the URL, mirror them into `params` under the
+   * configured keys, and reset to the first page whenever a filter changes.
+   * Defaults to `true`.
    */
   pagination?: boolean;
   /** Keep navigation client-side. Defaults to `true`. */
@@ -104,7 +104,7 @@ export interface UseFiltersReturn<
   meta: FiltersMeta;
   /**
    * Current values keyed by your config keys, plus the API pagination params
-   * (`{ limit, offset }` by default). Unset filters are `null`. Pass this
+   * (`{ page, per_page }` by default). Unset filters are `null`. Pass this
    * straight to your query options / data fetcher — and use it as your query
    * key so caching updates when a filter changes.
    */
@@ -161,8 +161,8 @@ export interface UseFiltersReturn<
  * typed per config. (Supplying `<P>` turns off that per-config inference —
  * TypeScript can't do both at once — but you rarely need both.)
  */
-export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig<PP>) {
-  const { pageKey, pageSizeKey, defaultPage, mapPagination } = cfg;
+export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig) {
+  const { pageKey, perPageKey, firstPage } = cfg;
 
   return function useFilters<P = never, const T extends FiltersFor<P, PP> = FiltersFor<P, PP>>(
     configs: T,
@@ -173,7 +173,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       shallow = true,
       clearOnDefault = true,
       pagination = true,
-      defaultPageSize = cfg.defaultPageSize,
+      defaultPerPage = cfg.defaultPerPage,
       meta = {} as FiltersMeta
     } = options;
 
@@ -228,15 +228,17 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         }
       }
       if (pagination) {
-        // The URL always speaks human `page` / `page_size`; the API shape is
-        // produced from them by `mapPagination` at read time (see `params`).
-        map[pageKey] = parseAsInteger.withDefault(defaultPage);
-        map[pageSizeKey] = parseAsInteger.withDefault(defaultPageSize);
+        // `page` / `per_page` are mirrored straight into `params` (see `params`),
+        // starting from `firstPage`.
+        map[pageKey] = parseAsInteger.withDefault(firstPage);
+        map[perPageKey] = parseAsInteger.withDefault(defaultPerPage);
       }
       return map;
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- `entries` is read
-      // through the stable `parserSignature`; see its comment above.
-    }, [parserSignature, pagination, defaultPageSize]);
+      // `entries` is read through the stable `parserSignature` fingerprint (see
+      // its comment above), so depending on it directly would rebuild the parsers
+      // — and re-key `useQueryStates` — on every render.
+      // eslint-disable-next-line react/exhaustive-deps
+    }, [parserSignature, pagination, defaultPerPage]);
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
@@ -353,14 +355,13 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       const result: Record<string, unknown> = {};
       for (const [key] of entries) result[key] = values[key] ?? null;
       if (pagination) {
-        // URL speaks `page` / `page_size`; `mapPagination` turns them into the
-        // API's pagination params (`{ limit, offset }` by default).
-        const page = (values[pageKey] as number | null) ?? defaultPage;
-        const pageSize = (values[pageSizeKey] as number | null) ?? defaultPageSize;
-        Object.assign(result, mapPagination(page, pageSize));
+        // `params` mirrors the URL keys: the page / per_page values pass
+        // straight through under `pageKey` / `perPageKey`.
+        result[pageKey] = (values[pageKey] as number | null) ?? firstPage;
+        result[perPageKey] = (values[perPageKey] as number | null) ?? defaultPerPage;
       }
       return result as ParamsOf<P, T, PP>;
-    }, [entries, values, pagination, defaultPageSize]);
+    }, [entries, values, pagination, defaultPerPage]);
 
     // A visible filter is "active" when it differs from its default (or, with no
     // default, when it simply holds a non-empty value).

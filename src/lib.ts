@@ -1,43 +1,37 @@
 import type { SingleParserBuilder } from 'nuqs';
 
-import {
-  parseAsArrayOf,
-  parseAsBoolean,
-  parseAsFloat,
-  parseAsInteger,
-  parseAsString
-} from 'nuqs';
+import { parseAsArrayOf, parseAsBoolean, parseAsFloat, parseAsInteger, parseAsString } from 'nuqs';
 
 import type { FilterConfig, MultiSelectFilterConfig, SelectFilterConfig } from './types';
 
 /** Every non-null value one of our parsers can produce/serialize. */
 export type FilterParserValue = boolean | number | string | number[] | string[];
 
-/** The fixed format `date` filters serialize to. Override `serializeDate` / `parseDate` to change it. */
+/** The fixed format `date` filters serialize to. Override `date.serialize` / `date.parse` to change it. */
 export const DATE_FORMAT = 'yyyy-MM-dd';
 
 /**
  * The fixed format datetime filters serialize to (date + time, local, no
  * timezone) — used by `date` / `dateRange` filters with `precision: 'datetime'`.
- * Override `serializeDateTime` / `parseDateTime` to change it.
+ * Override `date.serializeDateTime` / `date.parseDateTime` to change it.
  */
 export const DATE_TIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss";
 
-/** Default URL key holding the 1-based page number. */
+/** Default URL key holding the page number. */
 export const DEFAULT_PAGE_KEY = 'page';
-/** Default URL key holding the page size. */
-export const DEFAULT_PAGE_SIZE_KEY = 'page_size';
-/** Default page number when the URL has none. */
-export const DEFAULT_PAGE = 1;
-/** Default page size when the URL has none. */
-export const DEFAULT_PAGE_SIZE = 10;
+/** Default URL key holding the per-page count. */
+export const DEFAULT_PER_PAGE_KEY = 'per_page';
+/** Default `firstPage` — the number the first page is counted from. */
+export const DEFAULT_FIRST_PAGE = 1;
+/** Default per-page count when the URL has none. */
+export const DEFAULT_PER_PAGE = 10;
 
 /*
  * Date (de)serialization. The defaults are deliberately fixed to the common ISO
  * shapes above — no configurable format string, no parser engine, nothing to
  * misfire. Need a different representation (a `dd.MM.yyyy` UI, month names, a
- * timezone-aware or non-Gregorian library)? Override `serializeDate` /
- * `parseDate` (and their `*DateTime` counterparts) on `createFilters`; these
+ * timezone-aware or non-Gregorian library)? Override `date.serialize` /
+ * `date.parse` (and their `*DateTime` counterparts) on `createFilters`; these
  * functions are just the defaults those hooks fall back to.
  */
 
@@ -125,70 +119,74 @@ const withOptionalDefault = <T>(
  *
  * The return type is normalized to a single `SingleParserBuilder` over the
  * union of every value a filter can hold. Without it, `buildParser` returns a
- * *union* of parser builders, and calling `.parse` / `.serialize` on that union
+ * `union` of parser builders, and calling `.parse` / `.serialize` on that union
  * collapses their parameters to `never` (functions are contravariant on their
  * arguments) — which is unusable at the call site.
  */
 export const buildParser = (config: FilterConfig): SingleParserBuilder<FilterParserValue> => {
   const build = (): unknown => {
     switch (config.type) {
-    case 'asyncMultiSelect':
-      return config.valueType === 'string'
-        ? withOptionalDefault(
-            parseAsArrayOf(parseAsString),
-            config.defaultValue as string[] | undefined
-          )
-        : withOptionalDefault(
-            parseAsArrayOf(parseAsInteger),
-            config.defaultValue as number[] | undefined
-          );
-    case 'asyncSelect':
-      return config.valueType === 'string'
-        ? withOptionalDefault(parseAsString, config.defaultValue as string | undefined)
-        : withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined);
-    case 'boolean':
-      return withOptionalDefault(parseAsBoolean, config.defaultValue);
-    case 'dateRange':
-      return withOptionalDefault(parseAsArrayOf(parseAsString), config.defaultValue);
-    case 'multiSelect':
-      return isNumericChoice(config)
-        ? withOptionalDefault(
-            parseAsArrayOf(parseAsInteger),
-            config.defaultValue as number[] | undefined
-          )
-        : withOptionalDefault(
-            parseAsArrayOf(parseAsString),
-            config.defaultValue as string[] | undefined
-          );
-    case 'number':
-      // Floats by default so amounts/prices survive a URL round-trip; opt into
-      // integer-only parsing with `precision: 'int'`.
-      return config.precision === 'int'
-        ? withOptionalDefault(parseAsInteger, config.defaultValue)
-        : withOptionalDefault(parseAsFloat, config.defaultValue);
-    case 'numberRange':
-      // A `[min, max]` pair; same float-by-default rule as `number`.
-      return config.precision === 'int'
-        ? withOptionalDefault(
-            parseAsArrayOf(parseAsInteger),
-            config.defaultValue as number[] | undefined
-          )
-        : withOptionalDefault(
-            parseAsArrayOf(parseAsFloat),
-            config.defaultValue as number[] | undefined
-          );
-    case 'tags':
-      // Freeform string array — no options, no server lookup.
-      return withOptionalDefault(
-        parseAsArrayOf(parseAsString),
-        config.defaultValue as string[] | undefined
-      );
-    case 'select':
-      return isNumericChoice(config)
-        ? withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined)
-        : withOptionalDefault(parseAsString, config.defaultValue as string | undefined);
-    default:
-      return withOptionalDefault(parseAsString, config.defaultValue); // text, date
+      case 'asyncMultiSelect':
+        return config.valueType === 'string'
+          ? withOptionalDefault(
+              parseAsArrayOf(parseAsString),
+              config.defaultValue as string[] | undefined
+            )
+          : withOptionalDefault(
+              parseAsArrayOf(parseAsInteger),
+              config.defaultValue as number[] | undefined
+            );
+      case 'asyncSelect':
+        return config.valueType === 'string'
+          ? withOptionalDefault(parseAsString, config.defaultValue as string | undefined)
+          : withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined);
+      case 'boolean':
+        return withOptionalDefault(parseAsBoolean, config.defaultValue);
+      case 'dateRange':
+        return withOptionalDefault(parseAsArrayOf(parseAsString), config.defaultValue);
+      case 'multiSelect':
+        return isNumericChoice(config)
+          ? withOptionalDefault(
+              parseAsArrayOf(parseAsInteger),
+              config.defaultValue as number[] | undefined
+            )
+          : withOptionalDefault(
+              parseAsArrayOf(parseAsString),
+              config.defaultValue as string[] | undefined
+            );
+      case 'number':
+        // Floats by default so amounts/prices survive a URL round-trip; opt into
+        // integer-only parsing with `precision: 'int'`.
+        return config.precision === 'int'
+          ? withOptionalDefault(parseAsInteger, config.defaultValue)
+          : withOptionalDefault(parseAsFloat, config.defaultValue);
+      case 'numberRange':
+        // A `[min, max]` pair; same float-by-default rule as `number`.
+        return config.precision === 'int'
+          ? withOptionalDefault(
+              parseAsArrayOf(parseAsInteger),
+              config.defaultValue as number[] | undefined
+            )
+          : withOptionalDefault(
+              parseAsArrayOf(parseAsFloat),
+              config.defaultValue as number[] | undefined
+            );
+      case 'tags':
+        // Freeform string array — no options, no server lookup.
+        return withOptionalDefault(
+          parseAsArrayOf(parseAsString),
+          config.defaultValue as string[] | undefined
+        );
+      case 'timeRange':
+        // A `[from, to]` pair of time-of-day strings — same string-array shape as
+        // `dateRange`, no `Date` conversion.
+        return withOptionalDefault(parseAsArrayOf(parseAsString), config.defaultValue);
+      case 'select':
+        return isNumericChoice(config)
+          ? withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined)
+          : withOptionalDefault(parseAsString, config.defaultValue as string | undefined);
+      default:
+        return withOptionalDefault(parseAsString, config.defaultValue); // text, date, time
     }
   };
   return build() as SingleParserBuilder<FilterParserValue>;
@@ -240,7 +238,7 @@ export const coerceRawValue = (config: FilterConfig, raw: unknown): unknown => {
   return parsed ?? config.defaultValue ?? null;
 };
 
-/** Coerce a raw page/pageSize value (string or number) to an integer, or `undefined`. */
+/** Coerce a raw page / per-page value (string or number) to an integer, or `undefined`. */
 export const coerceInt = (raw: unknown): number | undefined => {
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : undefined;
   if (typeof raw === 'string' && raw !== '') {

@@ -1,0 +1,21 @@
+pre-commit:
+  parallel: false
+  commands:
+    lint:
+      priority: 1
+      glob: '*.{ts,tsx,js,jsx,mjs,cjs}'
+      run: npx eslint --fix {staged_files}
+      stage_fixed: true
+    format:
+      priority: 2
+      glob: '*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+pre-push:
+  parallel: false
+  commands:
+    typecheck:
+      run: npm run typecheck
+    test:
+      run: npm run test

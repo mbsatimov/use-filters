@@ -53,6 +53,8 @@ export interface NumberRangeFilterMeta extends FilterMeta {}
 export interface BooleanFilterMeta extends FilterMeta {}
 export interface DateFilterMeta extends FilterMeta {}
 export interface DateRangeFilterMeta extends FilterMeta {}
+export interface TimeFilterMeta extends FilterMeta {}
+export interface TimeRangeFilterMeta extends FilterMeta {}
 export interface SelectFilterMeta extends FilterMeta {}
 export interface AsyncSelectFilterMeta extends FilterMeta {}
 export interface AsyncMultiSelectFilterMeta extends FilterMeta {}
@@ -207,6 +209,36 @@ export interface DateRangeFilterConfig extends FilterBase {
   type: 'dateRange';
 }
 
+export interface TimeFilterConfig extends FilterBase {
+  /** Time-of-day string — `HH:mm` (24-hour), or `HH:mm:ss` when `precision: 'second'`. */
+  defaultValue?: string;
+  /** Project-specific UI hints for time filters. See `TimeFilterMeta`. */
+  meta?: TimeFilterMeta;
+  /**
+   * Granularity of the time value. `'minute'` (the default) stores `HH:mm`;
+   * `'second'` stores `HH:mm:ss`. Times are wall-clock, 24-hour and
+   * timezone-free — stored as-is (exactly what an `<input type="time">`
+   * produces), so no `Date` conversion is involved. Defaults to `'minute'`.
+   */
+  precision?: 'minute' | 'second';
+  type: 'time';
+}
+
+export interface TimeRangeFilterConfig extends FilterBase {
+  /** `[from, to]` as time-of-day strings (`HH:mm`, or `HH:mm:ss` when `precision: 'second'`). */
+  defaultValue?: [string, string];
+  /** Project-specific UI hints for time-range filters. See `TimeRangeFilterMeta`. */
+  meta?: TimeRangeFilterMeta;
+  /**
+   * Granularity of both ends. `'minute'` (the default) stores `HH:mm`;
+   * `'second'` stores `HH:mm:ss`. A range may wrap midnight (`from > to`, e.g.
+   * `['22:00', '02:00']`); it is stored as-is and interpreted by your API/UI.
+   * Defaults to `'minute'`.
+   */
+  precision?: 'minute' | 'second';
+  type: 'timeRange';
+}
+
 export interface SelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
@@ -286,7 +318,9 @@ export type FilterConfig =
   | NumberRangeFilterConfig
   | SelectFilterConfig
   | TagsFilterConfig
-  | TextFilterConfig;
+  | TextFilterConfig
+  | TimeFilterConfig
+  | TimeRangeFilterConfig;
 
 /** The shape `useFilters` accepts: URL param key -> filter config. */
 export type FilterConfigMap = Record<string, FilterConfig>;
@@ -311,7 +345,9 @@ export type FilterValue<C extends FilterConfig> =
                   ? boolean | null
                   : C extends DateRangeFilterConfig
                     ? [string, string] | null
-                    : string | null; // text, date
+                    : C extends TimeRangeFilterConfig
+                      ? [string, string] | null
+                      : string | null; // text, date, time
 
 /**
  * A selected entity as reconstructed from the URL: the value plus its label
@@ -410,7 +446,7 @@ type ConfigFor<V> = [V] extends [boolean]
       ? AsyncSelectFilterConfig<number> | NumberFilterConfig | SelectFilterConfig<number>
       : AsyncSelectFilterConfig<V & FilterPrimitive> | SelectFilterConfig<V & FilterPrimitive>
     : [V] extends [[string, string]]
-      ? DateRangeFilterConfig
+      ? DateRangeFilterConfig | TimeRangeFilterConfig
       : [V] extends [[number, number]]
         ? NumberRangeFilterConfig
         : [V] extends [readonly (infer E extends FilterPrimitive)[]]
@@ -418,14 +454,15 @@ type ConfigFor<V> = [V] extends [boolean]
             ? AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E> | TagsFilterConfig
             : AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E>
           : [V] extends [string]
-          ? string extends V
-            ?
-                | AsyncSelectFilterConfig<string>
+            ? string extends V
+              ? | AsyncSelectFilterConfig<string>
                 | DateFilterConfig
                 | SelectFilterConfig<string>
                 | TextFilterConfig
-            : AsyncSelectFilterConfig<V & FilterPrimitive> | SelectFilterConfig<V & FilterPrimitive> // closed union, e.g. LoanStatus
-          : FilterConfig;
+                | TimeFilterConfig
+              : | AsyncSelectFilterConfig<V & FilterPrimitive>
+                | SelectFilterConfig<V & FilterPrimitive> // closed union, e.g. LoanStatus
+            : FilterConfig;
 
 /**
  * Constrains a filter config map to an API's list-params type: every key must
@@ -446,6 +483,73 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
   : { [K in Exclude<keyof P, keyof PP>]?: ConfigFor<NonNullable<P[K]>> };
 
 /**
+ * How the URL's `page` / `perPage` map to the URL query keys, where page
+ * numbering starts, and the page defaults. Grouped under
+ * {@link FiltersConfig.pagination}.
+ *
+ * The API params **mirror the URL keys**: with the default `pageKey: 'page'` /
+ * `perPageKey: 'per_page'`, `params` comes out `{ page, per_page }`; rename the
+ * keys and `params` follows — name them `page` / `page_size` and you get
+ * `{ page, page_size }`. `PageKey` / `PerPageKey` are inferred from the literal
+ * key names so `params` is typed to match. There is no separate API-shape mapping
+ * to keep in sync; for an API that wants a different shape (e.g. offset-based),
+ * derive it at your fetch call from `params.page` / `params[perPageKey]`.
+ *
+ * @example
+ * // params: { page, page_size }
+ * pagination: { pageKey: 'page', perPageKey: 'page_size', defaultPerPage: 25 }
+ *
+ * @example
+ * // 0-indexed API: the first page is 0 (URL and params both start at 0)
+ * pagination: { firstPage: 0 }
+ */
+export interface PaginationConfig<
+  PageKey extends string = string,
+  PerPageKey extends string = string
+> {
+  /** Per-page count assumed when the URL has none. Defaults to `10`. */
+  defaultPerPage?: number;
+  /**
+   * The number your first page is counted from — the value used when the URL has
+   * no page, what "reset to the first page" writes, and the base your backend
+   * pages from. Defaults to `1` (1-based); set it to `0` for a 0-indexed API, so
+   * the first page is `page=0` in both the URL and `params`.
+   */
+  firstPage?: number;
+  /** URL key holding the page number, and its key in `params`. Defaults to `'page'`. */
+  pageKey?: PageKey;
+  /** URL key holding the per-page count, and its key in `params`. Defaults to `'per_page'`. */
+  perPageKey?: PerPageKey;
+}
+
+/**
+ * How `date` filters (de)serialize between a stored URL string and a `Date`.
+ * Grouped under {@link FiltersConfig.date}. Override in pairs (`parse` +
+ * `serialize`, `parseDateTime` + `serializeDateTime`) so each is an exact
+ * inverse. Defaults are the fixed `yyyy-MM-dd` / `yyyy-MM-dd'T'HH:mm:ss` shapes.
+ */
+export interface DateConfig {
+  /**
+   * Parse a stored date string back into a `Date` — the inverse of `serialize`.
+   * Defaults to parsing the fixed `yyyy-MM-dd` format. This is the customization
+   * hook: override it (together with `serialize`) to store dates any way you
+   * like — a `dd.MM.yyyy` UI, month names, or a timezone-aware / non-Gregorian
+   * date library (Day.js, Luxon, Temporal, …).
+   */
+  parse?: (value: string) => Date | undefined;
+  /** Datetime counterpart of `parse` (for `precision: 'datetime'` filters). */
+  parseDateTime?: (value: string) => Date | undefined;
+  /**
+   * Serialize a `Date` into the string stored in the URL. Defaults to the fixed
+   * `yyyy-MM-dd` format; override (together with `parse`) to store dates in
+   * whatever shape or library your app uses.
+   */
+  serialize?: (date: Date) => string;
+  /** Datetime counterpart of `serialize` (for `precision: 'datetime'` filters). */
+  serializeDateTime?: (date: Date) => string;
+}
+
+/**
  * Per-project constants for a filter setup, injected once through
  * `createFilters` so the hook and the framework-agnostic `resolveFilterParams`
  * share the exact same values. A plain React provider can't do this: it can't
@@ -453,77 +557,67 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
  * whose whole contract is producing the identical `params` shape. Every option
  * is optional and falls back to a sensible default.
  *
- * `PP` is the pagination shape the API expects, inferred from `mapPagination`,
- * so `params` comes out typed to whatever that returns.
+ * Constants are grouped by concern: {@link PaginationConfig | `pagination`}
+ * (URL keys, page defaults, and where numbering starts) and
+ * {@link DateConfig | `date`} (date (de)serialization). `params` mirrors the
+ * pagination URL keys, so the pagination shape is inferred from the key names.
  *
  * @example
  * export const { useFilters, resolveFilterParams, f } = createFilters({
- *   pageKey: 'page',
- *   pageSizeKey: 'per_page',
- *   defaultPageSize: 25,
- *   mapPagination: (page, pageSize) => ({ page, per_page: pageSize })
+ *   pagination: {
+ *     pageKey: 'page',
+ *     perPageKey: 'per_page',
+ *     defaultPerPage: 25
+ *   }
  * });
+ * // params: { page, per_page, ...filters }
  */
-export interface FiltersConfig<PP extends Record<string, number> = PaginationParams> {
-  /** Page number assumed when the URL has none. Defaults to `1`. */
-  defaultPage?: number;
-  /** Page size assumed when the URL has none. Defaults to `10`. */
-  defaultPageSize?: number;
-  /**
-   * Translate the human `page` / `pageSize` held in the URL into the pagination
-   * params the API expects. Defaults to
-   * `{ limit: pageSize, offset: (page - 1) * pageSize }`. The return shape
-   * becomes the pagination portion of `params`.
-   */
-  mapPagination?: (page: number, pageSize: number) => PP;
-  /** URL key holding the 1-based page number. Defaults to `'page'`. */
-  pageKey?: string;
-  /** URL key holding the page size. Defaults to `'page_size'`. */
-  pageSizeKey?: string;
-  /**
-   * Parse a stored date string back into a `Date` — the inverse of
-   * `serializeDate`. Defaults to parsing the fixed `yyyy-MM-dd` format. This is
-   * the customization hook: override it (together with `serializeDate`) to store
-   * dates any way you like — a `dd.MM.yyyy` UI, month names, or a timezone-aware
-   * / non-Gregorian date library (Day.js, Luxon, Temporal, …).
-   */
-  parseDate?: (value: string) => Date | undefined;
-  /** Datetime counterpart of `parseDate` (for `precision: 'datetime'` filters). */
-  parseDateTime?: (value: string) => Date | undefined;
-  /**
-   * Serialize a `Date` into the string stored in the URL. Defaults to the fixed
-   * `yyyy-MM-dd` format; override (together with `parseDate`) to store dates in
-   * whatever shape or library your app uses.
-   */
-  serializeDate?: (date: Date) => string;
-  /** Datetime counterpart of `serializeDate` (for `precision: 'datetime'` filters). */
-  serializeDateTime?: (date: Date) => string;
+export interface FiltersConfig<
+  PageKey extends string = string,
+  PerPageKey extends string = string
+> {
+  /** Date (de)serialization for `date` filters. See {@link DateConfig}. */
+  date?: DateConfig;
+  /** URL keys, page defaults, and where numbering starts. See {@link PaginationConfig}. */
+  pagination?: PaginationConfig<PageKey, PerPageKey>;
 }
 
 /**
- * `FiltersConfig` with every default filled in — what `createFilters` hands to
- * the hook and `resolveFilterParams` internally. Not part of the public API.
+ * `FiltersConfig` with every default filled in and flattened — what
+ * `createFilters` hands to the hook and `resolveFilterParams` internally. Not
+ * part of the public config surface (`createFilters` takes the nested
+ * `FiltersConfig`); this is the normalized form the internals consume.
  */
-export type ResolvedFiltersConfig<PP extends Record<string, number> = PaginationParams> = Required<
-  FiltersConfig<PP>
->;
+export interface ResolvedFiltersConfig {
+  defaultPerPage: number;
+  firstPage: number;
+  pageKey: string;
+  perPageKey: string;
+  parseDate: (value: string) => Date | undefined;
+  parseDateTime: (value: string) => Date | undefined;
+  serializeDate: (date: Date) => string;
+  serializeDateTime: (date: Date) => string;
+}
 
 /**
- * Default API pagination always included in `params` (unless pagination is
- * disabled). The URL stores human-readable `page` / `page_size`; `params`
- * translates them via `mapPagination` — `{ limit, offset }` by default.
+ * Default API pagination included in `params` (unless pagination is disabled),
+ * for the default `page` / `per_page` URL keys. `params` mirrors the keys, so
+ * the values pass straight through under those names; rename the keys and this
+ * shape changes to match.
  *
  * A `type` (not an `interface`) so it satisfies the `Record<string, number>`
- * bound used for custom pagination shapes.
+ * bound used for custom pagination shapes (interfaces lack an implicit index
+ * signature and would not be assignable).
  */
+// eslint-disable-next-line ts/consistent-type-definitions -- must stay a type alias (see above)
 export type PaginationParams = {
-  limit: number;
-  offset: number;
+  page: number;
+  per_page: number;
 };
 
 /**
  * The strongly-typed `params` object derived from a config map (same keys),
- * plus the pagination params (`PP`, `{ limit, offset }` by default) for the
+ * plus the pagination params (`PP`, `{ page, per_page }` by default) for the
  * API request.
  */
 export type FilterParams<T extends FilterConfigMap, PP = PaginationParams> = {

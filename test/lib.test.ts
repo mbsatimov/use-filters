@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { f } from '../src/builders';
-import {
-  buildParser,
-  coerceInt,
-  coerceRawValue,
-  fromDateValue,
-  hasFilterValue,
-  toDateValue,
-  valuesEqual
-} from '../src/lib';
+import { buildParser, coerceInt, coerceRawValue, hasFilterValue, valuesEqual } from '../src/lib';
 
 describe('buildParser — number precision', () => {
   it('keeps decimals by default (float)', () => {
@@ -41,29 +33,45 @@ describe('buildParser — numeric choice detection', () => {
   });
 
   it('falls back to defaultValue when options are empty', () => {
-    const parser = buildParser(
-      f.select({ label: 'Late', options: [], defaultValue: 7 })
-    );
+    const parser = buildParser(f.select({ label: 'Late', options: [], defaultValue: 7 }));
     // numeric default => integer parsing
     expect(parser.parse('9')).toBe(9);
     expect(typeof parser.parse('9')).toBe('number');
   });
 });
 
-describe('date round-trip', () => {
-  it('round-trips the default yyyy-MM-dd format', () => {
-    const iso = toDateValue(new Date(2026, 6, 9));
-    expect(iso).toBe('2026-07-09');
-    const back = fromDateValue('2026-07-09');
-    expect(back?.getFullYear()).toBe(2026);
-    expect(back?.getMonth()).toBe(6);
-    expect(back?.getDate()).toBe(9);
+describe('buildParser — numberRange', () => {
+  it('round-trips a [min, max] float pair', () => {
+    const parser = buildParser(f.numberRange({ label: 'Price' }));
+    expect(parser.parse('1.5,3.5')).toEqual([1.5, 3.5]);
+    expect(parser.serialize([1.5, 3.5] as never)).toBe('1.5,3.5');
   });
 
-  it('returns undefined for empty/invalid input', () => {
-    expect(fromDateValue('')).toBeUndefined();
-    expect(fromDateValue(null)).toBeUndefined();
-    expect(fromDateValue('not-a-date')).toBeUndefined();
+  it('parses integers only with precision: "int"', () => {
+    const parser = buildParser(f.numberRange({ label: 'Age', precision: 'int' }));
+    expect(parser.parse('1.9,3.9')).toEqual([1, 3]);
+  });
+});
+
+describe('buildParser — tags', () => {
+  it('round-trips a freeform string array', () => {
+    const parser = buildParser(f.tags({ label: 'Tags' }));
+    expect(parser.parse('alpha,beta')).toEqual(['alpha', 'beta']);
+    expect(parser.serialize(['alpha', 'beta'] as never)).toBe('alpha,beta');
+  });
+});
+
+describe('buildParser — time & timeRange', () => {
+  it('stores a time-of-day string as-is', () => {
+    const parser = buildParser(f.time({ label: 'Opens at' }));
+    expect(parser.parse('09:30')).toBe('09:30');
+    expect(parser.serialize('09:30' as never)).toBe('09:30');
+  });
+
+  it('round-trips a [from, to] time pair', () => {
+    const parser = buildParser(f.timeRange({ label: 'Hours' }));
+    expect(parser.parse('09:00,17:00')).toEqual(['09:00', '17:00']);
+    expect(parser.serialize(['09:00', '17:00'] as never)).toBe('09:00,17:00');
   });
 });
 

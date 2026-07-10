@@ -18,6 +18,7 @@ export type {
   AsyncSelectFilterMeta,
   BooleanFilterConfig,
   BooleanFilterMeta,
+  DateConfig,
   DateFilterConfig,
   DateFilterMeta,
   DateRangeFilterConfig,
@@ -40,6 +41,7 @@ export type {
   NumberFilterMeta,
   NumberRangeFilterConfig,
   NumberRangeFilterMeta,
+  PaginationConfig,
   PaginationParams,
   ResolvedFilter,
   ResolvedFilterOf,
@@ -50,14 +52,18 @@ export type {
   TagsFilterConfig,
   TagsFilterMeta,
   TextFilterConfig,
-  TextFilterMeta
+  TextFilterMeta,
+  TimeFilterConfig,
+  TimeFilterMeta,
+  TimeRangeFilterConfig,
+  TimeRangeFilterMeta
 } from './types';
 export type { UseFiltersOptions, UseFiltersReturn } from './use-filters';
 
 /**
  * Zero-config default instance — a `useFilters` / `resolveFilterParams` pair
- * using the built-in defaults (`page` / `page_size` URL keys, `{ limit, offset }`
- * params, `yyyy-MM-dd` dates). Import these directly to skip `createFilters`, or
+ * using the built-in defaults (`page` / `per_page` URL keys mirrored straight
+ * into `params`, `yyyy-MM-dd` dates). Import these directly to skip `createFilters`, or
  * call `createFilters(...)` to bind your own constants.
  */
 const defaultFilters = createFilters();

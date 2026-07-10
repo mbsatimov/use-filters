@@ -4,6 +4,61 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
+## 0.3.0
+
+### Changed (breaking)
+
+- **`createFilters` config is now grouped by concern.** Pagination options move
+  under a `pagination` object and date options under a `date` object. Flat
+  top-level keys are no longer accepted:
+
+  ```ts
+  // before
+  createFilters({ pageKey: 'page', pageSizeKey: 'per_page', serializeDate, parseDate });
+  // after
+  createFilters({
+    pagination: { pageKey: 'page', perPageKey: 'per_page' },
+    date: { serialize, parse }
+  });
+  ```
+
+  The date hooks are also renamed (`serializeDate`/`parseDate` →
+  `date.serialize`/`date.parse`; the `*DateTime` pair keeps its name under
+  `date`).
+
+- **Pagination params now mirror the URL keys.** Previously `params` always used
+  `{ limit, offset }` regardless of `pageKey` / `pageSizeKey`. Now `pageKey` /
+  `perPageKey` name both the URL query params **and** the pagination keys in
+  `params` — the default `page` / `per_page` keys yield
+  `params = { …filters, page, per_page }`, and renaming them updates `params` to
+  match (typed from the literal key names).
+
+- **`page_size` → `per_page`, and the pagination config identifiers were renamed.**
+  The default per-page URL/param key is now `per_page` (was `page_size`). The
+  config options are renamed to match: `pageSizeKey` → `perPageKey` and
+  `defaultPageSize` → `defaultPerPage` (on both `createFilters` and the
+  `useFilters` options).
+
+- **Removed `mapPagination` / `toParams`.** With keys mirroring into `params`,
+  the value-transform hook is gone. APIs whose pagination shape differs from the
+  URL keys (e.g. offset-based) derive it at the fetch call from `params`:
+  `{ limit: params.per_page, offset: (params.page - 1) * params.per_page }`.
+
+- **`defaultPage` → `firstPage`.** Renamed and repurposed: it's the number the
+  first page is counted from (the value when the URL has none, what reset writes,
+  and the base the API pages from). Defaults to `1`; set `firstPage: 0` for a
+  0-indexed API.
+
+### Added
+
+- **`f.time` / `f.timeRange`** — time-of-day filters with no date. Values are
+  24-hour clock strings (`HH:mm`, or `HH:mm:ss` with `precision: 'second'`) —
+  what an `<input type="time">` reads/writes, so no converters and no timezone.
+  `timeRange` may wrap midnight (`from > to`). Exports `TimeFilterConfig`,
+  `TimeRangeFilterConfig`, `TimeFilterMeta`, `TimeRangeFilterMeta`.
+- **`pagination.firstPage`** — control 0-based vs 1-based page numbering.
+- Exported `PaginationConfig` and `DateConfig` types.
+
 ## 0.2.0
 
 First public release on npm. Bug fixes, a smaller dependency footprint, three

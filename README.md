@@ -14,7 +14,7 @@ const { params, filters, isFiltered, reset } = useFilters({
   search: f.text({ label: 'Search' }),
   status: f.select({ label: 'Status', options: statusOptions })
 });
-//  ?search=acme&status=open   <->   params = { search: 'acme', status: 'open', limit: 10, offset: 0 }
+//  ?search=acme&status=open   <->   params = { search: 'acme', status: 'open', page: 1, per_page: 10 }
 ```
 
 - [Install](#install)
@@ -82,7 +82,7 @@ function LoansPage() {
     status: f.select({ label: 'Status', options: statusOptions })
   });
 
-  // `params` = { search, status, limit, offset } — use it to fetch, and as the
+  // `params` = { search, status, page, per_page } — use it to fetch, and as the
   // query key so results refetch/cache correctly when a filter changes.
   const { data } = useQuery({
     queryKey: ['loans', params],
@@ -101,7 +101,7 @@ function LoansPage() {
 
 That's the whole loop: **declare filters → fetch with `params` → render
 `filters`.** The `useFilters` imported above uses built-in defaults (`page` /
-`page_size` URL keys, `{ limit, offset }` API params, `yyyy-MM-dd` dates). To
+`per_page` URL keys mirrored straight into `params`, `yyyy-MM-dd` dates). To
 change those, bind your own with [`createFilters`](#per-project-setup-createfilters).
 
 ## Rendering your own filter UI
@@ -110,13 +110,13 @@ change those, bind your own with [`createFilters`](#per-project-setup-createfilt
 plus a live `value` and handlers. You decide how to render them. The essentials
 every filter has:
 
-| Field       | What it is                                                        |
-| ----------- | ----------------------------------------------------------------- |
-| `key`       | The config key (also the URL param name).                         |
-| `label`     | Your human label (and `placeholder`, defaulting to `label`).      |
-| `value`     | Current value, or `null` when unset.                              |
-| `onChange`  | `(value) => void` — set this filter's value.                      |
-| `onClear`   | `() => void` — reset to its `defaultValue` (or empty).            |
+| Field      | What it is                                                   |
+| ---------- | ------------------------------------------------------------ |
+| `key`      | The config key (also the URL param name).                    |
+| `label`    | Your human label (and `placeholder`, defaulting to `label`). |
+| `value`    | Current value, or `null` when unset.                         |
+| `onChange` | `(value) => void` — set this filter's value.                 |
+| `onClear`  | `() => void` — reset to its `defaultValue` (or empty).       |
 
 Choice filters also expose the resolved option object(s) so you can show the
 selected label without a lookup: `selectedOption` (select / asyncSelect) and
@@ -125,7 +125,7 @@ selected label without a lookup: `selectedOption` (select / asyncSelect) and
 ```tsx
 function FilterToolbar({ filters }: { filters: ResolvedFilter[] }) {
   return (
-    <div className="toolbar">
+    <div className='toolbar'>
       {filters.map((filter) => {
         switch (filter.type) {
           case 'text':
@@ -144,9 +144,11 @@ function FilterToolbar({ filters }: { filters: ResolvedFilter[] }) {
                 value={filter.value ?? ''}
                 onChange={(e) => filter.onChange(e.target.value || null)}
               >
-                <option value="">{filter.label}</option>
+                <option value=''>{filter.label}</option>
                 {filter.options.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </select>
             );
@@ -167,7 +169,7 @@ it by key via `filterMap.<key>`, or set it imperatively with
 ### Rendering filters elsewhere (search, sort, mobile)
 
 Declaring a filter puts its value in the URL/`params` — it says nothing about
-*where* you render it. The `filters` array is just a convenience list for "the
+_where_ you render it. The `filters` array is just a convenience list for "the
 default toolbar"; `filterMap.<key>` and `setFilter` are your escape hatch for
 anything shown somewhere else (a persistent search box, a mobile header beside a
 Filters button, a preset chip).
@@ -208,19 +210,21 @@ you'd like that built in.
 Build every filter with an `f.*` helper. The builder decides how the value is
 parsed and what type appears in `params`.
 
-| Builder              | Use for                                  | `params.<key>` type      | Notable options                     |
-| -------------------- | ---------------------------------------- | ------------------------ | ----------------------------------- |
-| `f.text`             | Search boxes, free text                  | `string \| null`         | —                                   |
-| `f.number`           | Amounts, counts, rates                   | `number \| null`         | `precision: 'float' \| 'int'`, `unit` |
-| `f.numberRange`      | Numeric from–to (price/age "between")    | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit` |
-| `f.boolean`          | Toggles, on/off                          | `boolean \| null`        | `trueLabel`, `falseLabel`           |
-| `f.date`             | A single date (or date + time)           | `string \| null`         | `precision: 'date' \| 'datetime'`   |
-| `f.dateRange`        | A from–to range (date or date + time)    | `[string, string] \| null` | `precision: 'date' \| 'datetime'` |
-| `f.select`           | One choice from a fixed list             | `V \| null`              | `options`                           |
-| `f.multiSelect`      | Many choices from a fixed list           | `V[] \| null`            | `options`                           |
-| `f.tags`             | Freeform string list (no options)        | `string[] \| null`       | —                                   |
-| `f.asyncSelect`      | One choice, **server-searched** by id    | `V \| null`              | `loadOptions`, `valueType`, `debounceMs` |
-| `f.asyncMultiSelect` | Many choices, **server-searched**        | `V[] \| null`            | `loadOptions`, `valueType`, `debounceMs` |
+| Builder              | Use for                               | `params.<key>` type        | Notable options                          |
+| -------------------- | ------------------------------------- | -------------------------- | ---------------------------------------- |
+| `f.text`             | Search boxes, free text               | `string \| null`           | —                                        |
+| `f.number`           | Amounts, counts, rates                | `number \| null`           | `precision: 'float' \| 'int'`, `unit`    |
+| `f.numberRange`      | Numeric from–to (price/age "between") | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit`    |
+| `f.boolean`          | Toggles, on/off                       | `boolean \| null`          | `trueLabel`, `falseLabel`                |
+| `f.date`             | A single date (or date + time)        | `string \| null`           | `precision: 'date' \| 'datetime'`        |
+| `f.dateRange`        | A from–to range (date or date + time) | `[string, string] \| null` | `precision: 'date' \| 'datetime'`        |
+| `f.time`             | A time of day (no date)               | `string \| null`           | `precision: 'minute' \| 'second'`        |
+| `f.timeRange`        | A from–to time-of-day range (no date) | `[string, string] \| null` | `precision: 'minute' \| 'second'`        |
+| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`                                |
+| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`                                |
+| `f.tags`             | Freeform string list (no options)     | `string[] \| null`         | —                                        |
+| `f.asyncSelect`      | One choice, **server-searched** by id | `V \| null`                | `loadOptions`, `valueType`, `debounceMs` |
+| `f.asyncMultiSelect` | Many choices, **server-searched**     | `V[] \| null`              | `loadOptions`, `valueType`, `debounceMs` |
 
 `V` is inferred from your `options` (or `valueType` for async): number-valued
 options give `number | null`, a status enum gives `Status | null`, and so on —
@@ -241,8 +245,8 @@ interface LoanListParams {
   search?: string;
   status?: 'open' | 'closed';
   customer_id?: number;
-  limit: number;   // pagination keys are owned by the hook — exclude these
-  offset: number;  // from what you validate against
+  page: number; // pagination keys are owned by the hook — exclude these
+  per_page: number; // from what you validate against
 }
 
 const { params } = useFilters<LoanListParams>({
@@ -256,32 +260,58 @@ const { params } = useFilters<LoanListParams>({
 
 ## Per-project setup: `createFilters`
 
-Pagination param names, page defaults, date format, and the API pagination
-shape differ between projects. Bind them **once** and export the result so every
-screen shares the same constants:
+Pagination param names, page defaults, and date format differ between projects.
+Bind them **once** and export the result so every screen shares the same
+constants. Config is grouped by concern: `pagination` (URL keys, page defaults,
+and where numbering starts) and `date` (date (de)serialization).
 
 ```ts
 // src/lib/filters.ts
 import { createFilters } from '@mbsatimov/use-filters';
 
-export const { useFilters, resolveFilterParams, f, toDateValue, fromDateValue } =
-  createFilters({
+export const { useFilters, resolveFilterParams, f, toDateValue, fromDateValue } = createFilters({
+  pagination: {
     pageKey: 'page',
-    pageSizeKey: 'per_page',
-    defaultPageSize: 25,
-    dateFormat: 'dd.MM.yyyy'
-  });
+    perPageKey: 'per_page',
+    defaultPerPage: 25
+  }
+});
+// params: { ...filters, page, per_page }
 ```
 
 Then import `useFilters` / `f` from `src/lib/filters` instead of the package.
 
-`mapPagination` controls how the URL's human `page` / `pageSize` turn into the
-params your API wants — and `params` is typed from what it returns:
+**Pagination keys mirror straight into `params`.** `pageKey` / `perPageKey`
+name the URL query params **and** the pagination keys in `params`. They default
+to `page` / `per_page`, so `params` is `{ page, per_page }` out of the box;
+rename either and both the URL (e.g. `?page=2&page_size=25`) and `params`
+(`{ page, page_size }`) follow, typed to match. There's no separate API mapping
+to keep in sync.
+
+**`firstPage` sets where numbering starts.** It defaults to `1`; set it to `0`
+for a 0-indexed API, so the first page is `page=0` in both the URL and `params`:
 
 ```ts
 export const { useFilters } = createFilters({
-  // params.page / params.page_size instead of the default limit / offset
-  mapPagination: (page, pageSize) => ({ page, page_size: pageSize })
+  pagination: { firstPage: 0 }
+});
+```
+
+**Offset-based API?** There's no built-in mapping — derive `limit` / `offset`
+where you fetch, straight from `params`:
+
+```ts
+const { params } = useFilters({/* ... */}); // { ...filters, page, per_page }
+
+const { page, per_page, ...filters } = params;
+useQuery({
+  queryKey: ['loans', params],
+  queryFn: () =>
+    loanApi.getAll({
+      ...filters,
+      limit: per_page,
+      offset: (page - 1) * per_page
+    })
 });
 ```
 
@@ -302,9 +332,7 @@ thrown away. `resolveFilterParams` is that framework-agnostic twin:
 ```ts
 // TanStack Router
 loader: ({ context: { queryClient }, location: { search } }) =>
-  queryClient.ensureQueryData(
-    loanQueryOptions(resolveFilterParams(loanFilterConfigs, search))
-  )
+  queryClient.ensureQueryData(loanQueryOptions(resolveFilterParams(loanFilterConfigs, search)));
 ```
 
 It takes your config map and the raw search params, applies the same defaults
@@ -326,7 +354,7 @@ customer_id: f.asyncSelect({
     customerApi
       .getAll({ params: { search, limit: 20 }, signal })
       .then((list) => list.map((c) => ({ value: c.id, label: c.full_name })))
-})
+});
 ```
 
 **The label sidecar.** The URL only stores the chosen id — but after a refresh
@@ -341,10 +369,10 @@ So async filters also store the selected label in a companion param,
 Because of this, async resolved filters expose option-aware handlers that write
 value and label together, so you never have to manage the sidecar yourself:
 
-| Kind               | Read                | Write                                          |
-| ------------------ | ------------------- | ---------------------------------------------- |
-| `asyncSelect`      | `selectedOption`    | `onSelectOption(option \| null)`               |
-| `asyncMultiSelect` | `selectedOptions`   | `onToggleOption(option)`, `onSetOptions(list)` |
+| Kind               | Read              | Write                                          |
+| ------------------ | ----------------- | ---------------------------------------------- |
+| `asyncSelect`      | `selectedOption`  | `onSelectOption(option \| null)`               |
+| `asyncMultiSelect` | `selectedOptions` | `onToggleOption(option)`, `onSetOptions(list)` |
 
 The `_label` params are display-only and never appear in `params` sent to your
 API. (One rule: don't name a filter `something_label` — that suffix is reserved.)
@@ -367,14 +395,17 @@ function ProductFilters() {
         (facets ?? []).map((facet) => {
           switch (facet.type) {
             case 'checkbox':
-              return [facet.key, f.multiSelect({
-                label: facet.label,
-                options: facet.values.map((v) => ({
-                  label: v.label,
-                  value: v.value,
-                  count: v.count // facet counts are first-class on FilterOption
-                }))
-              })];
+              return [
+                facet.key,
+                f.multiSelect({
+                  label: facet.label,
+                  options: facet.values.map((v) => ({
+                    label: v.label,
+                    value: v.value,
+                    count: v.count // facet counts are first-class on FilterOption
+                  }))
+                })
+              ];
             case 'range':
               return [facet.key, f.numberRange({ label: facet.label, unit: facet.unit })];
             case 'toggle':
@@ -430,7 +461,7 @@ to decide whether to render a time picker:
 export const { toDateTimeValue, fromDateTimeValue } = createFilters();
 
 starts_at: f.date({ label: 'Starts at', precision: 'datetime' });
-window:    f.dateRange({ label: 'Window', precision: 'datetime' });
+window: f.dateRange({ label: 'Window', precision: 'datetime' });
 
 // in your control:
 const [toValue, fromValue] =
@@ -440,20 +471,42 @@ const [toValue, fromValue] =
 ```
 
 **Want a different representation?** There's no format-string option — instead,
-override the (de)serialization directly. Supply `serializeDate` / `parseDate`
+override the (de)serialization directly. Supply `date.serialize` / `date.parse`
 (and their `*DateTime` counterparts) to `createFilters` to store dates in any
 shape or date library — a `dd.MM.yyyy` UI, month names, timezone-aware or
 non-Gregorian dates. `toDateValue` / `fromDateValue` then use your functions:
 
 ```ts
 createFilters({
-  serializeDate: (date) => dayjs(date).format('DD.MM.YYYY'),
-  parseDate: (value) => {
-    const d = dayjs(value, 'DD.MM.YYYY', true);
-    return d.isValid() ? d.toDate() : undefined;
+  date: {
+    serialize: (date) => dayjs(date).format('DD.MM.YYYY'),
+    parse: (value) => {
+      const d = dayjs(value, 'DD.MM.YYYY', true);
+      return d.isValid() ? d.toDate() : undefined;
+    }
   }
 });
 ```
+
+## Times
+
+`time` / `timeRange` capture a **time of day** with no date. Unlike `date`,
+there are **no converters** and no timezone: the value is just a 24-hour clock
+string — `HH:mm` by default, `HH:mm:ss` with `precision: 'second'` — which is
+exactly what an `<input type="time">` reads and writes, so you store it straight
+through.
+
+```ts
+opens_at: f.time({ label: 'Opens at' });                 // params.opens_at -> "09:30" | null
+hours:    f.timeRange({ label: 'Business hours' });       // params.hours    -> ["09:00","17:00"] | null
+
+// in your control — no conversion needed:
+<input type="time" value={filter.value ?? ''} onChange={(e) => filter.onChange(e.target.value || null)} />
+```
+
+A `timeRange` may **wrap midnight** (`from > to`, e.g. `['22:00', '02:00']` for a
+night shift). It's stored as-is; your API/UI decides what an overnight range
+means.
 
 ## Project-specific UI hints: `meta`
 
@@ -489,52 +542,60 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### Hook return value
 
-| Property     | Type                | Description                                                                 |
-| ------------ | ------------------- | -------------------------------------------------------------------------- |
-| `params`     | object              | Filter values + pagination (`{ limit, offset }` by default). Your fetch input & query key. |
-| `filters`    | `ResolvedFilter[]`  | Visible filters to render. Excludes `hidden` ones.                         |
-| `filterMap`  | `Record<key, ...>`  | Same filters keyed by config key. **Includes** hidden ones.                |
-| `isFiltered` | `boolean`           | `true` when at least one visible filter differs from its default.          |
-| `reset`      | `() => void`        | Clear every filter back to its default (or empty).                         |
-| `setFilter`  | `(key, value) => void` | Imperatively set one filter (resets to page 1, like any change).        |
-| `meta`       | `FiltersMeta`       | The `meta` you passed (or `{}`).                                            |
+| Property     | Type                   | Description                                                                                 |
+| ------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
+| `params`     | object                 | Filter values + pagination (`{ page, per_page }` by default). Your fetch input & query key. |
+| `filters`    | `ResolvedFilter[]`     | Visible filters to render. Excludes `hidden` ones.                                          |
+| `filterMap`  | `Record<key, ...>`     | Same filters keyed by config key. **Includes** hidden ones.                                 |
+| `isFiltered` | `boolean`              | `true` when at least one visible filter differs from its default.                           |
+| `reset`      | `() => void`           | Clear every filter back to its default (or empty).                                          |
+| `setFilter`  | `(key, value) => void` | Imperatively set one filter (resets to page 1, like any change).                            |
+| `meta`       | `FiltersMeta`          | The `meta` you passed (or `{}`).                                                            |
 
 ### `useFilters` options (second argument)
 
-| Option           | Default            | Description                                                       |
-| ---------------- | ------------------ | ---------------------------------------------------------------- |
-| `pagination`     | `true`             | Sync `page` / `page_size` and include pagination in `params`.    |
-| `defaultPageSize`| factory value      | Page size when the URL has none.                                 |
-| `history`        | `'replace'`        | `'push'` makes filter changes back-button navigable.             |
-| `shallow`        | `true`             | Keep navigation client-side (no server round-trip).              |
-| `clearOnDefault` | `true`             | Drop a param from the URL when it returns to its default.        |
-| `meta`           | `{}`               | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta). |
+| Option           | Default       | Description                                                         |
+| ---------------- | ------------- | ------------------------------------------------------------------- |
+| `pagination`     | `true`        | Sync `page` / `per_page` and include pagination in `params`.        |
+| `defaultPerPage` | factory value | Per-page count when the URL has none.                               |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                 |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.           |
+| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta). |
 
 ### Per-filter options (shared by every kind)
 
-| Option         | Description                                                                              |
-| -------------- | ---------------------------------------------------------------------------------------- |
-| `label`        | Required. Human label for the control.                                                    |
-| `placeholder`  | Optional placeholder (defaults to `label`).                                               |
-| `defaultValue` | Value when the URL param is absent. A filter sitting at its default counts as inactive.   |
-| `hidden`       | Keep the value in `params` but omit it from `filters` (still in `filterMap`).             |
-| `className`    | Extra classes for your control wrapper.                                                   |
-| `meta`         | Per-filter UI hints — see [`meta`](#project-specific-ui-hints-meta).                      |
+| Option         | Description                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `label`        | Required. Human label for the control.                                                                                    |
+| `placeholder`  | Optional placeholder (defaults to `label`).                                                                               |
+| `defaultValue` | Value when the URL param is absent. A filter sitting at its default counts as inactive.                                   |
+| `hidden`       | Keep the value in `params` but omit it from `filters` (still in `filterMap`).                                             |
+| `className`    | Extra classes for your control wrapper.                                                                                   |
+| `meta`         | Per-filter UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                      |
 | `nuqs`         | Per-filter nuqs options, e.g. `{ history: 'push' }` or `{ limitUrlUpdates: debounce(500) }`. Overrides the hook defaults. |
 
 ### `createFilters` config
 
-| Option            | Default                                    | Description                                              |
-| ----------------- | ------------------------------------------ | ------------------------------------------------------- |
-| `pageKey`         | `'page'`                                   | URL key for the 1-based page number.                    |
-| `pageSizeKey`     | `'page_size'`                              | URL key for the page size.                              |
-| `defaultPage`     | `1`                                        | Page assumed when the URL has none.                     |
-| `defaultPageSize` | `10`                                       | Page size assumed when the URL has none.                |
-| `mapPagination`   | `{ limit, offset }`                        | Turn human `page` / `pageSize` into your API's params. Its return type shapes `params`. |
-| `serializeDate`   | fixed `yyyy-MM-dd`                          | Override date → string (store dates however you like).  |
-| `parseDate`       | fixed `yyyy-MM-dd`                          | Override string → `Date` (pair with `serializeDate`).   |
-| `serializeDateTime` | fixed `yyyy-MM-ddTHH:mm:ss`               | Datetime counterpart of `serializeDate`.                |
-| `parseDateTime`   | fixed `yyyy-MM-ddTHH:mm:ss`                 | Datetime counterpart of `parseDate`.                    |
+Two groups: `pagination` and `date`.
+
+**`pagination`**
+
+| Option           | Default      | Description                                                                                                                                                       |
+| ---------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pageKey`        | `'page'`     | URL key for the page number, and its key in `params`.                                                                                                             |
+| `perPageKey`     | `'per_page'` | URL key for the per-page count, and its key in `params`.                                                                                                          |
+| `firstPage`      | `1`          | The number the first page is counted from — the value when the URL has none, what reset writes, and the base your API pages from. Set to `0` for a 0-indexed API. |
+| `defaultPerPage` | `10`         | Per-page count assumed when the URL has none.                                                                                                                     |
+
+**`date`**
+
+| Option              | Default                     | Description                                            |
+| ------------------- | --------------------------- | ------------------------------------------------------ |
+| `serialize`         | fixed `yyyy-MM-dd`          | Override date → string (store dates however you like). |
+| `parse`             | fixed `yyyy-MM-dd`          | Override string → `Date` (pair with `serialize`).      |
+| `serializeDateTime` | fixed `yyyy-MM-ddTHH:mm:ss` | Datetime counterpart of `serialize`.                   |
+| `parseDateTime`     | fixed `yyyy-MM-ddTHH:mm:ss` | Datetime counterpart of `parse`.                       |
 
 ## Gotchas
 

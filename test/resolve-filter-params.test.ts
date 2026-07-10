@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { createFilters } from '../src/create-filters';
 
-describe('resolveFilterParams', () => {
+describe('resolveFilterParams — filter values', () => {
   const { f, resolveFilterParams } = createFilters();
 
   const configs = {
     search: f.text({ label: 'Search' }),
     status: f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] }),
-    customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] })
+    customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] }),
+    price: f.numberRange({ label: 'Price' }),
+    tags: f.tags({ label: 'Tags' })
   };
 
   it('coerces raw string search params to parser types (queryKey parity)', () => {
@@ -17,6 +19,12 @@ describe('resolveFilterParams', () => {
     // key matches the hook's.
     expect(params.customer_id).toBe(5);
     expect(params.status).toBe('open');
+  });
+
+  it('coerces the array-valued kinds (numberRange, tags) too', () => {
+    const params = resolveFilterParams(configs, { price: '10,20', tags: 'a,b' });
+    expect(params.price).toEqual([10, 20]);
+    expect(params.tags).toEqual(['a', 'b']);
   });
 
   it('fills unset filters with defaultValue then null', () => {
@@ -30,56 +38,48 @@ describe('resolveFilterParams', () => {
     const params = resolveFilterParams(configs, { customer_id: '5', customer_id_label: 'Acme' });
     expect(params).not.toHaveProperty('customer_id_label');
   });
+});
 
-  it('normalizes pagination through the default { limit, offset } mapping', () => {
-    const params = resolveFilterParams(configs, { page: '3', page_size: '25' });
-    expect(params.limit).toBe(25);
-    expect(params.offset).toBe(50); // (3 - 1) * 25
+describe('resolveFilterParams — pagination', () => {
+  const { f, resolveFilterParams } = createFilters();
+  const configs = { search: f.text({ label: 'Search' }) };
+
+  it('mirrors the default page / per_page keys straight into params', () => {
+    const params = resolveFilterParams(configs, { page: '3', per_page: '25' });
+    expect(params.page).toBe(3);
+    expect(params.per_page).toBe(25);
   });
 
   it('applies factory defaults when pagination keys are absent', () => {
     const params = resolveFilterParams(configs, {});
-    expect(params.limit).toBe(10);
-    expect(params.offset).toBe(0);
+    expect(params.page).toBe(1);
+    expect(params.per_page).toBe(10);
   });
 
-  it('can disable pagination', () => {
+  it('can be disabled', () => {
     const params = resolveFilterParams(configs, { page: '3' }, { pagination: false });
-    expect(params).not.toHaveProperty('limit');
-    expect(params).not.toHaveProperty('offset');
-  });
-});
-
-describe('resolveFilterParams — custom mapPagination', () => {
-  const { f, resolveFilterParams } = createFilters({
-    pageSizeKey: 'per_page',
-    mapPagination: (page, pageSize) => ({ page, page_size: pageSize })
+    expect(params).not.toHaveProperty('page');
+    expect(params).not.toHaveProperty('per_page');
   });
 
-  it('honors a custom pagination shape and key', () => {
-    const configs = { search: f.text({ label: 'Search' }) };
-    const params = resolveFilterParams(configs, { page: '2', per_page: '20' });
+  it('uses renamed keys as the params keys', () => {
+    const renamed = createFilters({ pagination: { perPageKey: 'page_size' } });
+    const params = renamed.resolveFilterParams(
+      { search: renamed.f.text({ label: 'Search' }) },
+      { page: '2', page_size: '20' }
+    );
     expect(params.page).toBe(2);
     expect(params.page_size).toBe(20);
-  });
-});
-
-describe('createFilters — date helpers use serializeDate / parseDate overrides', () => {
-  // Custom `dd.MM.yyyy` storage via the override hooks (no built-in format option).
-  const { toDateValue, fromDateValue } = createFilters({
-    serializeDate: (date) =>
-      `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`,
-    parseDate: (value) => {
-      const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value);
-      return m ? new Date(+m[3], +m[2] - 1, +m[1]) : undefined;
-    }
+    expect(params).not.toHaveProperty('per_page');
   });
 
-  it('serializes and parses with the override (bound both ways)', () => {
-    const stored = toDateValue(new Date(2026, 6, 9));
-    expect(stored).toBe('09.07.2026');
-    const back = fromDateValue(stored);
-    expect(back?.getMonth()).toBe(6);
-    expect(back?.getDate()).toBe(9);
+  it('starts numbering from firstPage when the page key is absent', () => {
+    const zeroBased = createFilters({ pagination: { firstPage: 0 } });
+    const params = zeroBased.resolveFilterParams(
+      { search: zeroBased.f.text({ label: 'Search' }) },
+      {}
+    );
+    expect(params.page).toBe(0);
+    expect(params.per_page).toBe(10);
   });
 });

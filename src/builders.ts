@@ -10,7 +10,9 @@ import type {
   NumberRangeFilterConfig,
   SelectFilterConfig,
   TagsFilterConfig,
-  TextFilterConfig
+  TextFilterConfig,
+  TimeFilterConfig,
+  TimeRangeFilterConfig
 } from './types';
 
 /**
@@ -129,6 +131,40 @@ export const f = {
   dateRange: (config: Omit<DateRangeFilterConfig, 'type'>): DateRangeFilterConfig => ({
     ...config,
     type: 'dateRange'
+  }),
+
+  /**
+   * Single time-of-day filter (no date). The value is a 24-hour clock string —
+   * `HH:mm` by default, `HH:mm:ss` with `precision: 'second'`. That's exactly
+   * what an `<input type="time">` produces, so unlike `date` there are no
+   * `Date` converters: store the string straight from your time input.
+   *
+   * `params.<key>` → `string | null`
+   *
+   * @example
+   * opens_at: f.time({ label: 'Opens at' })                     // "09:30"
+   * alarm:    f.time({ label: 'Alarm', precision: 'second' })   // "07:00:00"
+   */
+  time: (config: Omit<TimeFilterConfig, 'type'>): TimeFilterConfig => ({
+    ...config,
+    type: 'time'
+  }),
+
+  /**
+   * From–to time-of-day range (no date), e.g. "between 09:00 and 17:00". The
+   * value is a `[from, to]` pair of 24-hour clock strings (`HH:mm`, or `HH:mm:ss`
+   * with `precision: 'second'`). A range may wrap midnight (`from > to`) — it's
+   * stored as-is for your API/UI to interpret.
+   *
+   * `params.<key>` → `[string, string] | null`
+   *
+   * @example
+   * hours: f.timeRange({ label: 'Business hours' })
+   * // in your UI: filter.onChange([from, to])
+   */
+  timeRange: (config: Omit<TimeRangeFilterConfig, 'type'>): TimeRangeFilterConfig => ({
+    ...config,
+    type: 'timeRange'
   }),
 
   /**

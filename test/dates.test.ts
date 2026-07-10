@@ -48,6 +48,8 @@ describe('toDateTimeValue / fromDateTimeValue (fixed yyyy-MM-ddTHH:mm:ss)', () =
 
   it('returns undefined for empty / malformed / out-of-range input', () => {
     expect(fromDateTimeValue('')).toBeUndefined();
+    expect(fromDateTimeValue(null)).toBeUndefined();
+    expect(fromDateTimeValue('nope')).toBeUndefined();
     expect(fromDateTimeValue('2026-07-09')).toBeUndefined(); // missing time
     expect(fromDateTimeValue('2026-07-09T25:00:00')).toBeUndefined(); // hour 25
   });

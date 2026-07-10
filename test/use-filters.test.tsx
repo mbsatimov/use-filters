@@ -6,6 +6,7 @@ import type { FiltersFor } from '../src/types';
 import type { UseFiltersOptions } from '../src/use-filters';
 
 import { createFilters } from '../src/create-filters';
+import { toDateTimeValue } from '../src/lib';
 
 const { useFilters, f } = createFilters();
 
@@ -21,7 +22,7 @@ function renderFilters<const T extends FiltersFor<never>>(configs: T, options?: 
   return renderHook(() => useFilters<never, T>(configs, options), { wrapper });
 }
 
-describe('useFilters — params & pagination', () => {
+describe('useFilters — params', () => {
   it('starts with null filter values and default pagination', () => {
     const { result } = renderFilters({
       search: f.text({ label: 'Search' }),
@@ -30,8 +31,8 @@ describe('useFilters — params & pagination', () => {
     expect(result.current.params).toMatchObject({
       search: null,
       status: null,
-      limit: 10,
-      offset: 0
+      page: 1,
+      per_page: 10
     });
     expect(result.current.isFiltered).toBe(false);
   });
@@ -46,14 +47,37 @@ describe('useFilters — params & pagination', () => {
     expect(result.current.params.search).toBe('acme');
     expect(result.current.isFiltered).toBe(true);
   });
+});
 
+describe('useFilters — pagination', () => {
   it('resets to the first page on filter change', () => {
-    const { result } = renderFilters({ status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] }) });
+    const { result } = renderFilters({
+      status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
+    });
 
     act(() => {
       result.current.setFilter('status', 'a');
     });
-    expect(result.current.params.offset).toBe(0);
+    expect(result.current.params.page).toBe(1);
+  });
+
+  it('exposes params under the configured keys (renamed perPageKey)', () => {
+    const renamed = createFilters({ pagination: { perPageKey: 'page_size', defaultPerPage: 25 } });
+    const { result } = renderHook(
+      () => renamed.useFilters({ search: renamed.f.text({ label: 'Search' }) }),
+      { wrapper: withNuqsTestingAdapter({ hasMemory: true }) }
+    );
+    expect(result.current.params).toMatchObject({ page: 1, page_size: 25 });
+    expect(result.current.params).not.toHaveProperty('per_page');
+  });
+
+  it('starts the first page at 0 for a 0-indexed API (firstPage)', () => {
+    const zeroBased = createFilters({ pagination: { firstPage: 0 } });
+    const { result } = renderHook(
+      () => zeroBased.useFilters({ search: zeroBased.f.text({ label: 'Search' }) }),
+      { wrapper: withNuqsTestingAdapter({ hasMemory: true }) }
+    );
+    expect(result.current.params.page).toBe(0);
   });
 });
 
@@ -148,5 +172,90 @@ describe('useFilters — static select resolves the full option', () => {
     });
 
     expect(result.current.filterMap.status.selectedOption).toEqual(option);
+  });
+});
+
+describe('useFilters — datetime filters', () => {
+  it('carries the precision hint through the resolved filter', () => {
+    const { result } = renderFilters({
+      starts_at: f.date({ label: 'Starts at', precision: 'datetime' })
+    });
+    expect(result.current.filterMap.starts_at.precision).toBe('datetime');
+  });
+
+  it('stores a datetime string like any other date filter', () => {
+    const { result } = renderFilters({
+      starts_at: f.date({ label: 'Starts at', precision: 'datetime' })
+    });
+
+    const value = toDateTimeValue(new Date(2026, 0, 2, 9, 0, 0));
+    act(() => {
+      result.current.filterMap.starts_at.onChange(value);
+    });
+
+    expect(result.current.params.starts_at).toBe(value);
+    expect(result.current.isFiltered).toBe(true);
+  });
+
+  it('supports a datetime range', () => {
+    const { result } = renderFilters({
+      window: f.dateRange({ label: 'Window', precision: 'datetime' })
+    });
+
+    const from = toDateTimeValue(new Date(2026, 0, 1, 0, 0, 0));
+    const to = toDateTimeValue(new Date(2026, 0, 31, 23, 59, 59));
+    act(() => {
+      result.current.filterMap.window.onChange([from, to]);
+    });
+
+    expect(result.current.params.window).toEqual([from, to]);
+  });
+});
+
+describe('useFilters — numberRange & tags filters', () => {
+  it('stores and reflects a numeric range', () => {
+    const { result } = renderFilters({ price: f.numberRange({ label: 'Price' }) });
+
+    act(() => {
+      result.current.filterMap.price.onChange([10.5, 99.5]);
+    });
+
+    expect(result.current.params.price).toEqual([10.5, 99.5]);
+    expect(result.current.isFiltered).toBe(true);
+  });
+
+  it('stores and reflects a tag list', () => {
+    const { result } = renderFilters({ tags: f.tags({ label: 'Tags' }) });
+
+    act(() => {
+      result.current.filterMap.tags.onChange(['red', 'blue']);
+    });
+
+    expect(result.current.params.tags).toEqual(['red', 'blue']);
+    expect(result.current.isFiltered).toBe(true);
+  });
+});
+
+describe('useFilters — time & timeRange filters', () => {
+  it('stores a time-of-day value', () => {
+    const { result } = renderFilters({ opens_at: f.time({ label: 'Opens at' }) });
+
+    act(() => {
+      result.current.filterMap.opens_at.onChange('09:30');
+    });
+
+    expect(result.current.params.opens_at).toBe('09:30');
+    expect(result.current.isFiltered).toBe(true);
+  });
+
+  it('stores a time range that wraps midnight', () => {
+    const { result } = renderFilters({ shift: f.timeRange({ label: 'Shift' }) });
+
+    act(() => {
+      result.current.filterMap.shift.onChange(['22:00', '02:00']);
+    });
+
+    expect(result.current.params.shift).toEqual(['22:00', '02:00']);
+    expect(result.current.isFiltered).toBe(true);
   });
 });
