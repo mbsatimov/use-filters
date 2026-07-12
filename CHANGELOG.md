@@ -4,7 +4,7 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
-## Unreleased
+## 0.5.0
 
 ### Fixed
 
@@ -44,6 +44,33 @@ include breaking changes.
   per-filter `commit` → `useFilters` `defaultCommit` → `createFilters`
   `defaultCommit` → `'instant'`. Each resolved filter now exposes its effective
   mode as `filterMap[key].commit`.
+- **Per-filter state, exposed directly on every resolved filter** — no more
+  cross-referencing `params` by key or re-deriving `commit` mode yourself:
+  `isInstant` / `isDebounced` / `isManual`, `debounceMs`, `isDirty` (this
+  filter specifically has an uncommitted change), `committedValue` (its actual
+  value in `params`/the URL, independent of any pending draft), `isFiltered`
+  (this filter's own active/inactive state, based on its committed value), and
+  `isFilteredDraft` (the same check against the *draft* value — use it for a
+  "Clear" button that should react instantly, since `isFiltered` still shows
+  the old committed state until a `commit: 'manual'` change is applied).
+  `commit` is now typed as always-present on a resolved filter (it was
+  previously typed optional, inherited from the config).
+- **Per-filter `apply()` / `cancel()` / `reset()` / `instantReset()`** — the
+  same trio as the hook's whole-set versions, scoped to one filter, plus a
+  fourth: `apply()`/`cancel()` commit or discard just that filter's pending
+  change (a no-op if it isn't `isDirty`); `reset()` sets it back to
+  `defaultValue` (or empty), respecting its `commit` mode like any other
+  change — on a manual filter it lands in the draft and waits for `apply()`;
+  `instantReset()` does the same but **bypasses `commit`** and writes straight
+  to `params`/the URL now, mirroring how `setFilter` relates to `onChange` at
+  the hook level. (The hook's whole-set `reset()` also bypasses `commit`
+  entirely — it's the multi-filter equivalent of `instantReset()`, not
+  `reset()`.) `onClear` is now a **deprecated alias** for `reset` (identical
+  function) — existing code keeps working unchanged.
+- The [playground](https://use-filters.vercel.app) demo now uses Tailwind CSS
+  v4 and [shadcn/ui](https://ui.shadcn.com) components, and demonstrates the
+  new per-filter `apply`/`cancel`/`reset` UI. Dev-only — not part of the
+  published package.
 
 ## 0.4.0
 

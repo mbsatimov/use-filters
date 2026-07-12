@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 /**
@@ -10,14 +11,20 @@ import { defineConfig } from 'vite';
  *
  * Uses Vite's built-in esbuild JSX transform (no `@vitejs/plugin-react`) to keep
  * the toolchain dependency-free — you lose React Fast Refresh, which a scratch
- * playground doesn't need.
+ * playground doesn't need. `@tailwindcss/vite` is Tailwind v4's own plugin (no
+ * postcss.config needed).
  */
 export default defineConfig({
   root: __dirname,
+  plugins: [tailwindcss()],
   esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
   resolve: {
-    // Import the library by its published name so the playground mirrors real usage.
-    alias: { '@mbsatimov/use-filters': resolve(__dirname, '../src/index.ts') }
+    alias: {
+      // Import the library by its published name so the playground mirrors real usage.
+      '@mbsatimov/use-filters': resolve(__dirname, '../src/index.ts'),
+      // shadcn/ui convention — components/lib import via `@/...`.
+      '@': resolve(__dirname, 'src')
+    }
   },
   server: { open: true },
   // Static build for Vercel — emitted under `playground/dist` (Vercel's output dir).

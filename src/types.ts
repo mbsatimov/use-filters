@@ -443,12 +443,93 @@ type StaticSelectExtras<C> =
  * }
  */
 export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends unknown
-  ? C &
+  ? Omit<C, 'commit'> &
       AsyncResolvedExtras<C> &
       StaticSelectExtras<C> & {
+        /**
+         * Commit this filter's pending change right now, whatever its `commit`
+         * mode — flushes a running debounce timer, or applies a `manual` change.
+         * A no-op when `isDirty` is `false`. Scoped version of the hook's
+         * whole-set `apply()`.
+         */
+        apply: () => void;
+        /**
+         * Discard this filter's pending change — it reverts to `committedValue`
+         * on the next render. A no-op when `isDirty` is `false`. Scoped version
+         * of the hook's whole-set `cancel()`.
+         */
+        cancel: () => void;
+        /**
+         * This filter's *effective* `commit` mode — the per-filter config if it
+         * set one, otherwise the resolved default (`useFilters`' `defaultCommit`
+         * option, then `createFilters`'). Always present (unlike the optional
+         * `commit` on the config), since a resolved filter always has one.
+         */
+        commit: FilterCommitMode;
+        /**
+         * This filter's value as currently committed in `params`/the URL —
+         * independent of any pending draft. Equal to `value` unless `isDirty`.
+         * Read this (not `value`) if you want "what will actually be fetched",
+         * e.g. to show a draft-vs-committed diff.
+         */
+        committedValue: FilterValue<C>;
+        /** The debounce delay in ms when `commit` resolves to `{ debounce }`; `null` otherwise. */
+        debounceMs: number | null;
+        /** `true` when `commit` resolves to `{ debounce }` for this filter. */
+        isDebounced: boolean;
+        /**
+         * `true` while this filter has a change that hasn't reached `params`/the
+         * URL yet — a running debounce timer, or a manual change awaiting
+         * `apply()`. Always `false` for `commit: 'instant'` (the default).
+         */
+        isDirty: boolean;
+        /**
+         * `true` when this filter is active: its **committed** value differs
+         * from `defaultValue` (or, with no default, simply holds a non-empty
+         * value). Unlike the hook's whole-set `isFiltered`, this doesn't
+         * exclude `hidden` filters — it's just this one filter's own state.
+         * Right for anything reflecting what's actually applied (a "N filters
+         * applied" badge). For UI that should react to the draft immediately —
+         * e.g. hiding a "Clear" button the instant the control empties, even
+         * before a `commit: 'manual'` change is applied — use `isFilteredDraft`.
+         */
+        isFiltered: boolean;
+        /**
+         * Same check as `isFiltered`, but against the **draft** `value` instead
+         * of `committedValue`. Equal to `isFiltered` unless `isDirty`.
+         */
+        isFilteredDraft: boolean;
+        /** `true` when `commit` resolves to `'instant'` for this filter (the default). */
+        isInstant: boolean;
+        /** `true` when `commit` resolves to `'manual'` for this filter. */
+        isManual: boolean;
+        /**
+         * Set this filter back to its `defaultValue` (or empty, with none)
+         * **immediately**, bypassing `commit` — cancels any pending draft for
+         * this filter and commits straight to `params`/the URL, even on a
+         * `manual`/`{ debounce }` filter. Scoped, mode-bypassing counterpart to
+         * `reset` — the same relationship `setFilter` has to `onChange` at the
+         * hook level. Use this for a "Clear" button that should always act
+         * instantly, whatever the filter's commit mode.
+         */
+        instantReset: () => void;
         key: string;
         onChange: (value: FilterValue<C>) => void;
+        /**
+         * @deprecated Use `reset` instead — same behavior, kept as an alias
+         * (identical function reference). Will be removed in a future major
+         * version.
+         */
         onClear: () => void;
+        /**
+         * Set this filter back to its `defaultValue` (or empty, with none).
+         * Like any change, this respects the filter's `commit` mode — on a
+         * `manual`/`{ debounce }` filter it lands in the draft and waits for
+         * `apply()`, same as `onChange` would. (For an immediate, mode-bypassing
+         * reset of *every* filter at once, see the hook's whole-set `reset()`,
+         * which is a different, harder operation.)
+         */
+        reset: () => void;
         value: FilterValue<C>;
       }
   : never;
