@@ -4,6 +4,7 @@ dist
 .DS_Store
 coverage
 .idea
+.vercel
 
 # tsup / vitest bundled-config scratch files
 *.bundled_*.mjs

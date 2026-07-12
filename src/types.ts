@@ -83,6 +83,19 @@ export interface FiltersMeta {}
  */
 export type FilterNuqsOptions = NuqsOptions;
 
+/**
+ * When a filter's change reaches `params`/the URL, relative to the `onChange`
+ * that triggered it. `useFilters` keeps a local draft of every non-`instant`
+ * filter, so the control stays responsive while the committed value waits:
+ *
+ * - `'instant'` (default) — commit on every change; identical to URL-only state.
+ * - `{ debounce: ms }` — show the change immediately, commit `ms` after the
+ *   last one (the timer resets on each change). Good for a search box.
+ * - `'manual'` — show the change immediately, commit only when `apply()` runs.
+ *   Good for a mobile "Apply filters" sheet.
+ */
+export type FilterCommitMode = 'instant' | 'manual' | { debounce: number };
+
 /** A selectable option for `select` / `multiSelect` filters. */
 export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
   count?: number;
@@ -109,6 +122,11 @@ export type FilterType = FilterConfig['type'];
 interface FilterBase {
   /** Extra classes for the control wrapper. */
   className?: string;
+  /**
+   * When this filter's change reaches `params`/the URL — `'instant'` (default),
+   * `{ debounce: ms }`, or `'manual'` (awaits `apply()`). See {@link FilterCommitMode}.
+   */
+  commit?: FilterCommitMode;
   /**
    * When `true`, the filter is omitted from the rendered toolbar but its value
    * (e.g. a forced default) is still included in `params`.

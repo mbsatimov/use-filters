@@ -5,6 +5,10 @@ plain object; the hook keeps their state in the URL query string and hands back
 a typed `params` object for fetching data plus ready-to-render filter state. It
 ships **no UI** — you render your own controls against your own design system.
 
+**[▶ Live demo](https://use-filters.vercel.app)** — every filter kind and all
+three [commit modes](#deferred-commits-debounce--apply) (instant / debounce /
+manual Apply), with `params`, the URL, and `isDirty` shown live.
+
 **Why the URL?** The URL becomes the single source of truth for "what is the
 user looking at". Refreshes, back/forward, bookmarks, and shared links all just
 work, and your data-fetching cache keys stay in sync for free.
@@ -26,6 +30,7 @@ const { params, filters, isFiltered, reset } = useFilters({
 - [Per-project setup: `createFilters`](#per-project-setup-createfilters)
 - [Route loaders: `resolveFilterParams`](#route-loaders-resolvefilterparams)
 - [Async (server-searched) filters](#async-server-searched-filters)
+- [Deferred commits: debounce & Apply](#deferred-commits-debounce--apply)
 - [Dates](#dates)
 - [Project-specific UI hints: `meta`](#project-specific-ui-hints-meta)
 - [API reference](#api-reference)
@@ -439,6 +444,56 @@ the real value type; and a URL param for a filter that later disappears (e.g.
 facets change with the selected category) lingers in the URL but drops out of
 `params` — clean it up if that matters to you.
 
+## Deferred commits: debounce & Apply
+
+By default every `onChange` writes straight to `params`/the URL — great for a
+`select`, wasteful for a text box that would refetch on every keystroke, and
+wrong for a mobile sheet where nothing should move until the user taps "Apply".
+Set a per-filter **`commit`** mode and `useFilters` keeps a local draft of that
+filter, so the control stays responsive while the committed value waits:
+
+| `commit`              | The control shows the change… | …and `params`/URL update…                 |
+| --------------------- | ----------------------------- | ----------------------------------------- |
+| `'instant'` (default) | immediately                   | immediately                               |
+| `{ debounce: ms }`    | immediately                   | `ms` after the last change (timer resets) |
+| `'manual'`            | immediately                   | only when you call `apply()`              |
+
+```tsx
+const { filterMap, filters, params, isDirty, apply, cancel } = useFilters({
+  search: f.text({ label: 'Search', commit: { debounce: 400 } }),
+  status: f.select({ label: 'Status', options: statusOptions, commit: 'manual' }),
+  city: f.select({ label: 'City', options: cityOptions, commit: 'manual' })
+});
+
+// `params.search` only changes 400ms after typing stops — so your query key
+// (and refetch) settles once, not per keystroke. No extra state to manage:
+<input value={filterMap.search.value ?? ''}
+       onChange={(e) => filterMap.search.onChange(e.target.value || null)} />
+
+// `status` / `city` update the UI instantly but stay out of `params` until Apply:
+<FilterSheet filters={filters} />
+<button disabled={!isDirty} onClick={apply}>Apply filters</button>
+<button disabled={!isDirty} onClick={cancel}>Cancel</button>
+```
+
+- **`isDirty`** — `true` while any filter has a change that hasn't reached
+  `params` yet (a pending debounce timer, or a manual change awaiting `apply()`).
+  Always `false` when every filter is `'instant'`.
+- **`apply()`** — commit every pending change at once, including ones mid-debounce.
+- **`cancel()`** — drop every pending change; filters snap back to their
+  committed (`params`) values.
+- **`setFilter(key, value)`** bypasses the draft entirely and commits now,
+  whatever the filter's `commit` mode — it's the imperative escape hatch.
+- **`reset()`** clears drafts and committed values together.
+
+Modes are per filter, so a debounced search and a batch of manual selects can
+live in the same panel (as above). `params` always reflects only committed
+values, so it stays safe to use directly as your data-fetching query key.
+
+> This is unrelated to a filter's `nuqs: { limitUrlUpdates: debounce(ms) }`
+> option, which throttles the browser history write **after** a value is already
+> committed. `commit` controls when it's committed at all.
+
 ## Dates
 
 `date` / `dateRange` values are stored as strings, using a **fixed** default
@@ -542,15 +597,18 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### Hook return value
 
-| Property     | Type                   | Description                                                                                 |
-| ------------ | ---------------------- | ------------------------------------------------------------------------------------------- |
-| `params`     | object                 | Filter values + pagination (`{ page, per_page }` by default). Your fetch input & query key. |
-| `filters`    | `ResolvedFilter[]`     | Visible filters to render. Excludes `hidden` ones.                                          |
-| `filterMap`  | `Record<key, ...>`     | Same filters keyed by config key. **Includes** hidden ones.                                 |
-| `isFiltered` | `boolean`              | `true` when at least one visible filter differs from its default.                           |
-| `reset`      | `() => void`           | Clear every filter back to its default (or empty).                                          |
-| `setFilter`  | `(key, value) => void` | Imperatively set one filter (resets to page 1, like any change).                            |
-| `meta`       | `FiltersMeta`          | The `meta` you passed (or `{}`).                                                            |
+| Property     | Type                   | Description                                                                                                   |
+| ------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `params`     | object                 | Filter values + pagination (`{ page, per_page }` by default). Your fetch input & query key.                   |
+| `filters`    | `ResolvedFilter[]`     | Visible filters to render. Excludes `hidden` ones.                                                            |
+| `filterMap`  | `Record<key, ...>`     | Same filters keyed by config key. **Includes** hidden ones.                                                   |
+| `isFiltered` | `boolean`              | `true` when at least one visible filter differs from its default.                                             |
+| `isDirty`    | `boolean`              | `true` when a change hasn't reached `params` yet — see [Deferred commits](#deferred-commits-debounce--apply). |
+| `apply`      | `() => void`           | Commit all pending (debounced/manual) changes now. See [Deferred commits](#deferred-commits-debounce--apply). |
+| `cancel`     | `() => void`           | Discard all pending changes, reverting to committed values.                                                   |
+| `reset`      | `() => void`           | Clear every filter back to its default (or empty).                                                            |
+| `setFilter`  | `(key, value) => void` | Imperatively set one filter (resets to page 1, bypasses `commit` deferral).                                   |
+| `meta`       | `FiltersMeta`          | The `meta` you passed (or `{}`).                                                                              |
 
 ### `useFilters` options (second argument)
 
@@ -565,15 +623,16 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### Per-filter options (shared by every kind)
 
-| Option         | Description                                                                                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `label`        | Required. Human label for the control.                                                                                    |
-| `placeholder`  | Optional placeholder (defaults to `label`).                                                                               |
-| `defaultValue` | Value when the URL param is absent. A filter sitting at its default counts as inactive.                                   |
-| `hidden`       | Keep the value in `params` but omit it from `filters` (still in `filterMap`).                                             |
-| `className`    | Extra classes for your control wrapper.                                                                                   |
-| `meta`         | Per-filter UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                      |
-| `nuqs`         | Per-filter nuqs options, e.g. `{ history: 'push' }` or `{ limitUrlUpdates: debounce(500) }`. Overrides the hook defaults. |
+| Option         | Description                                                                                                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `label`        | Required. Human label for the control.                                                                                                                     |
+| `placeholder`  | Optional placeholder (defaults to `label`).                                                                                                                |
+| `defaultValue` | Value when the URL param is absent. A filter sitting at its default counts as inactive.                                                                    |
+| `hidden`       | Keep the value in `params` but omit it from `filters` (still in `filterMap`).                                                                              |
+| `className`    | Extra classes for your control wrapper.                                                                                                                    |
+| `meta`         | Per-filter UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                       |
+| `commit`       | When the change reaches `params`/URL: `'instant'` (default), `{ debounce: ms }`, or `'manual'`. See [Deferred commits](#deferred-commits-debounce--apply). |
+| `nuqs`         | Per-filter nuqs options, e.g. `{ history: 'push' }` or `{ limitUrlUpdates: debounce(500) }`. Overrides the hook defaults.                                  |
 
 ### `createFilters` config
 
@@ -625,10 +684,17 @@ using this hook underneath.
 
 ```bash
 npm install
-npm run typecheck   # tsc (src + tests)
-npm run test        # vitest
-npm run build       # tsup -> dist/ (ESM + CJS + .d.ts)
+npm run typecheck    # tsc (src + tests)
+npm run test         # vitest
+npm run build        # tsup -> dist/ (ESM + CJS + .d.ts)
+npm run playground   # vite dev server for the interactive demo (playground/)
 ```
+
+The [`playground/`](playground/) app exercises every filter kind and commit mode
+against the live `src`. It's **dev-only** — `package.json#files` ships only
+`dist`, and the library build bundles only `src/index.ts`, so nothing there
+reaches the published package. It deploys to Vercel as the [live demo](https://use-filters.vercel.app)
+via [`vercel.json`](vercel.json) (`npm run build:playground` → `playground/dist`).
 
 ## Publishing
 
