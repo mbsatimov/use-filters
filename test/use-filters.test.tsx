@@ -79,6 +79,24 @@ describe('useFilters — pagination', () => {
     );
     expect(result.current.params.page).toBe(0);
   });
+
+  it('per-call `pagination: { defaultPerPage }` overrides the factory default', () => {
+    // Factory default is 10; this call overrides to 50.
+    const { result } = renderFilters(
+      { search: f.text({ label: 'Search' }) },
+      { pagination: { defaultPerPage: 50 } }
+    );
+    expect(result.current.params.per_page).toBe(50);
+  });
+
+  it('`pagination: false` drops pagination from params for this call', () => {
+    const { result } = renderFilters(
+      { search: f.text({ label: 'Search' }) },
+      { pagination: false }
+    );
+    expect(result.current.params).not.toHaveProperty('page');
+    expect(result.current.params).not.toHaveProperty('per_page');
+  });
 });
 
 describe('useFilters — reset & defaults', () => {

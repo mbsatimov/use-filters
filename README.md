@@ -636,15 +636,19 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### `useFilters` options (second argument)
 
-| Option           | Default       | Description                                                                                                                         |
-| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `pagination`     | `true`        | Sync `page` / `per_page` and include pagination in `params`.                                                                        |
-| `defaultPerPage` | factory value | Per-page count when the URL has none.                                                                                               |
-| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply). |
-| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                |
-| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                 |
-| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                           |
-| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                 |
+These **override the `createFilters` config for this call** (precedence: per-filter
+
+> `useFilters` option > `createFilters` config > default), plus a few call-only
+> URL-behavior settings.
+
+| Option           | Default       | Description                                                                                                                                                                                           |
+| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pagination`     | `true`        | `false` disables pagination for this call; `{ defaultPerPage }` overrides the per-page default. Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
+| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                   |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                  |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                   |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                             |
+| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                                                                   |
 
 ### Per-filter options (shared by every kind)
 

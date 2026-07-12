@@ -6,6 +6,26 @@ include breaking changes.
 
 ## Unreleased
 
+### Changed (breaking)
+
+- **`useFilters`'s per-page override moved under `pagination`.** The flat
+  `defaultPerPage` option is gone; pass it inside the `pagination` object so the
+  hook's options mirror the `createFilters` config and override it per call:
+
+  ```ts
+  // before
+  useFilters(configs, { defaultPerPage: 25 });
+  // after
+  useFilters(configs, { pagination: { defaultPerPage: 25 } });
+  ```
+
+  `pagination: false` / `true` are unchanged. Only `defaultPerPage` is
+  overridable per call — the page/per-page **keys** and `firstPage` stay
+  factory-only (`createFilters`) so the hook's `params` still matches
+  `resolveFilterParams`. `resolveFilterParams`'s options take the same shape
+  (its `defaultPerPage` also moves under `pagination`). Exports the
+  `PaginationOverride` type.
+
 ### Added
 
 - **Default `commit` mode.** Set a fallback `commit` at the factory
