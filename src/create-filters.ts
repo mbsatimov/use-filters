@@ -2,6 +2,7 @@ import type {
   FilterConfigMap,
   FilterParams,
   FiltersConfig,
+  PaginationOverride,
   PaginationParams,
   ResolvedFiltersConfig
 } from './types';
@@ -58,9 +59,15 @@ function makeResolveFilterParams<PP extends Record<string, number>>(cfg: Resolve
   return function resolveFilterParams<T extends FilterConfigMap>(
     configs: T,
     raw: Record<string, unknown>,
-    options: { defaultPerPage?: number; pagination?: boolean } = {}
+    options: { pagination?: PaginationOverride } = {}
   ): FilterParams<T, PP> {
-    const { pagination = true, defaultPerPage = cfg.defaultPerPage } = options;
+    // Same `pagination` override shape as `useFilters` (its twin), so options
+    // copy across cleanly: `false` off, object overrides `defaultPerPage`.
+    const { pagination = true } = options;
+    const defaultPerPage =
+      typeof pagination === 'object'
+        ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
+        : cfg.defaultPerPage;
 
     const result: Record<string, unknown> = {};
     for (const [key, config] of Object.entries(configs)) {
@@ -68,7 +75,7 @@ function makeResolveFilterParams<PP extends Record<string, number>>(cfg: Resolve
       // object matches the hook's exactly (and their query keys collide).
       result[key] = coerceRawValue(config, raw[key]);
     }
-    if (pagination) {
+    if (pagination !== false) {
       // Mirror the URL keys into `params`, exactly like the hook.
       result[cfg.pageKey] = coerceInt(raw[cfg.pageKey]) ?? cfg.firstPage;
       result[cfg.perPageKey] = coerceInt(raw[cfg.perPageKey]) ?? defaultPerPage;

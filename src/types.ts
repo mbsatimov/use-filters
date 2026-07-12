@@ -541,6 +541,21 @@ export interface PaginationConfig<
 }
 
 /**
+ * Per-call pagination override — the `pagination` field of `useFilters` /
+ * `resolveFilterParams` options.
+ *
+ * - `false` disables pagination entirely for this call (no `page` / `per_page`
+ *   in `params`, no reset-to-first-page on change).
+ * - `true` (or omitted) keeps the factory's pagination as-is.
+ * - An object overrides only the *safe* per-call field — `defaultPerPage` —
+ *   for this call, merged over the factory. The page/per-page **keys** and
+ *   `firstPage` are deliberately not overridable here: they come from
+ *   `createFilters` so the hook's `params` stays byte-identical to what
+ *   `resolveFilterParams` produces (see {@link FiltersConfig}).
+ */
+export type PaginationOverride = boolean | Pick<PaginationConfig, 'defaultPerPage'>;
+
+/**
  * How `date` filters (de)serialize between a stored URL string and a `Date`.
  * Grouped under {@link FiltersConfig.date}. Override in pairs (`parse` +
  * `serialize`, `parseDateTime` + `serializeDateTime`) so each is an exact

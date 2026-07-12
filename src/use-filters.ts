@@ -11,6 +11,7 @@ import type {
   FilterPrimitive,
   FiltersFor,
   FiltersMeta,
+  PaginationOverride,
   PaginationParams,
   ResolvedFilter,
   ResolvedFiltersConfig,
@@ -44,8 +45,6 @@ export interface UseFiltersOptions {
    * See {@link FilterCommitMode}.
    */
   defaultCommit?: FilterCommitMode;
-  /** Initial per-page count when none is in the URL. Defaults to the factory's `pagination.defaultPerPage`. */
-  defaultPerPage?: number;
   /** How URL updates affect history. Defaults to `'replace'`. */
   history?: 'push' | 'replace';
   /**
@@ -55,11 +54,12 @@ export interface UseFiltersOptions {
    */
   meta?: FiltersMeta;
   /**
-   * Sync `page` / `per_page` in the URL, mirror them into `params` under the
-   * configured keys, and reset to the first page whenever a filter changes.
-   * Defaults to `true`.
+   * Pagination for this call, overriding the `createFilters` config: `false`
+   * turns it off, `true` (default) keeps the factory's, and an object overrides
+   * the per-call-safe field (`defaultPerPage`). The page/per-page keys and
+   * `firstPage` stay factory-only. See {@link PaginationOverride}.
    */
-  pagination?: boolean;
+  pagination?: PaginationOverride;
   /** Keep navigation client-side. Defaults to `true`. */
   shallow?: boolean;
 }
@@ -212,12 +212,20 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       shallow = true,
       clearOnDefault = true,
       pagination = true,
-      defaultPerPage = cfg.defaultPerPage,
-      // Precedence: per-filter `commit` > this call's `commit` > the factory's
-      // `commit` (`cfg.defaultCommit`, already defaulted to `'instant'`).
+      // Precedence: per-filter `commit` > this call's `defaultCommit` > the
+      // factory's `defaultCommit` (`cfg.defaultCommit`, already `'instant'`).
       defaultCommit = cfg.defaultCommit,
       meta = {} as FiltersMeta
     } = options;
+
+    // `pagination` is `false` (off), `true`/omitted (factory as-is), or an
+    // object overriding the per-call-safe `defaultPerPage`. Keys / `firstPage`
+    // always come from the factory so `params` matches `resolveFilterParams`.
+    const paginationEnabled = pagination !== false;
+    const defaultPerPage =
+      typeof pagination === 'object'
+        ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
+        : cfg.defaultPerPage;
 
     const entries = React.useMemo(
       // `T` may be an all-optional map when `P` is given; runtime only ever sees
@@ -269,7 +277,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           map[labelKeyOf(key)] = config.nuqs ? labelParser.withOptions(config.nuqs) : labelParser;
         }
       }
-      if (pagination) {
+      if (paginationEnabled) {
         // `page` / `per_page` are mirrored straight into `params` (see `params`),
         // starting from `firstPage`.
         map[pageKey] = parseAsInteger.withDefault(firstPage);
@@ -280,7 +288,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // its comment above), so depending on it directly would rebuild the parsers
       // — and re-key `useQueryStates` — on every render.
       // eslint-disable-next-line react/exhaustive-deps
-    }, [parserSignature, pagination, defaultPerPage]);
+    }, [parserSignature, paginationEnabled, defaultPerPage]);
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
@@ -326,10 +334,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         // Keep the label sidecar in sync — cleared together, written together.
         if (config && asyncKindOf(config)) updates[labelKeyOf(key)] = labels;
         // Changing any filter returns to the first page.
-        if (pagination) updates[pageKey] = null;
+        if (paginationEnabled) updates[pageKey] = null;
         void setValues(updates);
       },
-      [setValues, pagination, configByKey]
+      [setValues, paginationEnabled, configByKey]
     );
 
     // Route a change through its filter's `commit` mode. `instant` writes to the
@@ -473,14 +481,14 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     const params = React.useMemo(() => {
       const result: Record<string, unknown> = {};
       for (const [key] of entries) result[key] = values[key] ?? null;
-      if (pagination) {
+      if (paginationEnabled) {
         // `params` mirrors the URL keys: the page / per_page values pass
         // straight through under `pageKey` / `perPageKey`.
         result[pageKey] = (values[pageKey] as number | null) ?? firstPage;
         result[perPageKey] = (values[perPageKey] as number | null) ?? defaultPerPage;
       }
       return result as ParamsOf<P, T, PP>;
-    }, [entries, values, pagination, defaultPerPage]);
+    }, [entries, values, paginationEnabled, defaultPerPage]);
 
     // A visible filter is "active" when it differs from its default (or, with no
     // default, when it simply holds a non-empty value).
@@ -537,9 +545,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         cleared[key] = (config.defaultValue ?? null) as ParamValue;
         if (asyncKindOf(config)) cleared[labelKeyOf(key)] = null;
       }
-      if (pagination) cleared[pageKey] = null;
+      if (paginationEnabled) cleared[pageKey] = null;
       void setValues(cleared);
-    }, [pagination, setValues, entries]);
+    }, [paginationEnabled, setValues, entries]);
 
     return {
       params,

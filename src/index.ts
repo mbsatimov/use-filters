@@ -43,6 +43,7 @@ export type {
   NumberRangeFilterConfig,
   NumberRangeFilterMeta,
   PaginationConfig,
+  PaginationOverride,
   PaginationParams,
   ResolvedFilter,
   ResolvedFilterOf,
