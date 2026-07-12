@@ -4,7 +4,7 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
-## Unreleased
+## 0.4.0
 
 ### Added
 
