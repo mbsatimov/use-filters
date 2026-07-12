@@ -35,6 +35,17 @@ interface PendingChange {
   commit: () => void;
 }
 
+/**
+ * Whether a value counts as "filtered" for a given config — differs from
+ * `defaultValue` (or, with no default, is simply non-empty). Shared by
+ * `isFiltered` (checked against the committed value) and `isFilteredDraft`
+ * (checked against the draft) so the two stay in sync by construction.
+ */
+const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
+  config.defaultValue !== undefined
+    ? !valuesEqual(value, config.defaultValue)
+    : hasFilterValue(value);
+
 export interface UseFiltersOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
@@ -316,6 +327,29 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       });
     }, []);
 
+    // Single-key primitives behind both the whole-set apply()/cancel() (which
+    // loop these over every pending key) and each resolved filter's own
+    // apply()/cancel() — one implementation, so the two scopes can't drift.
+    const applyKey = React.useCallback(
+      (key: string) => {
+        const change = pending[key];
+        if (!change) return;
+        clearTimer(key);
+        change.commit();
+        dropPending(key);
+      },
+      [pending, clearTimer, dropPending]
+    );
+
+    const cancelKey = React.useCallback(
+      (key: string) => {
+        if (!(key in pending)) return;
+        clearTimer(key);
+        dropPending(key);
+      },
+      [pending, clearTimer, dropPending]
+    );
+
     // Cancel any in-flight debounce timers on unmount so they can't fire a
     // URL write against a torn-down component.
     React.useEffect(
@@ -385,13 +419,26 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         // Per-filter `commit` wins; otherwise the resolved default (call option,
         // then factory config, then `'instant'`).
         const mode = config.commit ?? defaultCommit;
+        const isInstant = mode === 'instant';
+        const isManual = mode === 'manual';
+        const isDebounced = typeof mode === 'object';
+
         // Draft overlay: while a change is pending, the filter shows the pending
         // value/labels; otherwise it shows what's committed in the URL.
         const change = pending[key];
-        const draftValue = change ? change.value : (values[key] ?? null);
-        const draftLabels = change
-          ? change.labels
-          : ((values[labelKeyOf(key)] as string | string[] | null) ?? null);
+        const committedValue = (values[key] ?? null) as ParamValue;
+        const committedLabels = (values[labelKeyOf(key)] as string | string[] | null) ?? null;
+        const draftValue = change ? change.value : committedValue;
+        const draftLabels = change ? change.labels : committedLabels;
+        const doReset = () =>
+          schedule(key, (config.defaultValue ?? null) as ParamValue, null, mode);
+        // Bypasses the draft layer entirely — same shape as the hook's
+        // `setFilter`, just bound to this filter's key/defaultValue.
+        const doInstantReset = () => {
+          clearTimer(key);
+          dropPending(key);
+          setFilterValue(key, (config.defaultValue ?? null) as ParamValue);
+        };
 
         const resolved: Record<string, unknown> = {
           ...config,
@@ -399,10 +446,40 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           // Expose the *effective* commit mode (after applying the defaults),
           // not just the per-filter override, so UIs can read it uniformly.
           commit: mode,
+          isInstant,
+          isManual,
+          isDebounced,
+          debounceMs: isDebounced ? (mode as { debounce: number }).debounce : null,
           value: draftValue,
+          committedValue,
+          // A change is pending exactly when the draft layer holds one for this
+          // key — never true for `instant`, which never populates `pending`.
+          isDirty: change !== undefined,
+          // Mirrors the hook-wide `isFiltered` calc, but per filter and without
+          // excluding `hidden` — this is just this filter's own active/inactive state.
+          // Based on the *committed* value — matches what's actually fetched, so
+          // it's right for badges ("N filters applied"). For a live "Clear" button
+          // that should react the instant the draft clears (before a manual
+          // `apply()`), use `isFilteredDraft` instead.
+          isFiltered: differsFromDefault(config, committedValue),
+          // Same check, but against the draft — reflects what's currently shown
+          // in the control, not what's committed. Equals `isFiltered` unless
+          // `isDirty`.
+          isFilteredDraft: differsFromDefault(config, draftValue),
           onChange: (value: ParamValue) => schedule(key, value ?? null, null, mode),
-          // Clearing returns to the default (or empty when there is none).
-          onClear: () => schedule(key, (config.defaultValue ?? null) as ParamValue, null, mode)
+          // Sets the default (or empty, with none) — respects `mode` like any
+          // change, so a manual/debounced filter's reset stays a draft until
+          // apply(). `onClear` is a deprecated alias for the same function.
+          reset: doReset,
+          onClear: doReset,
+          // Bypasses `commit` and writes the default straight to the URL now —
+          // the scoped, mode-bypassing counterpart to `reset` (mirrors how
+          // `setFilter` relates to `onChange` at the hook level).
+          instantReset: doInstantReset,
+          // Scoped apply()/cancel() — commit or discard just this filter's
+          // pending change, a no-op when it has none (isDirty is false).
+          apply: () => applyKey(key),
+          cancel: () => cancelKey(key)
         };
 
         // Async filters: pair values with their labels and expose option-aware
@@ -464,7 +541,17 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
         return resolved as unknown as ResolvedFilter;
       },
-      [values, pending, schedule, defaultCommit]
+      [
+        values,
+        pending,
+        schedule,
+        defaultCommit,
+        applyKey,
+        cancelKey,
+        clearTimer,
+        dropPending,
+        setFilterValue
+      ]
     );
 
     // Keyed lookup — includes hidden filters, since a caller reaching for one by
@@ -506,13 +593,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     // default, when it simply holds a non-empty value).
     const isFiltered = React.useMemo(
       () =>
-        entries.some(([key, config]) => {
-          if (config.hidden) return false;
-          const value = values[key];
-          return config.defaultValue !== undefined
-            ? !valuesEqual(value, config.defaultValue)
-            : hasFilterValue(value);
-        }),
+        entries.some(
+          ([key, config]) => !config.hidden && differsFromDefault(config, values[key] ?? null)
+        ),
       [entries, values]
     );
 
@@ -523,19 +606,14 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     // Flush every pending change to the URL at once (the "Apply" action),
     // cancelling their debounce timers so none fires a second, stale write.
     const apply = React.useCallback(() => {
-      const changes = Object.values(pending);
-      if (changes.length === 0) return;
-      for (const key of Object.keys(pending)) clearTimer(key);
-      for (const change of changes) change.commit();
-      setPending({});
-    }, [pending, clearTimer]);
+      for (const key of Object.keys(pending)) applyKey(key);
+    }, [pending, applyKey]);
 
     // Drop every pending change — the filters snap back to their committed URL
     // values on the next render.
     const cancel = React.useCallback(() => {
-      for (const key of Object.keys(pending)) clearTimer(key);
-      setPending({});
-    }, [pending, clearTimer]);
+      for (const key of Object.keys(pending)) cancelKey(key);
+    }, [pending, cancelKey]);
 
     // Imperative set: bypass the draft layer (and clear any pending draft for
     // this key) so it lands in the URL immediately, whatever the commit mode.

@@ -115,17 +115,55 @@ change those, bind your own with [`createFilters`](#per-project-setup-createfilt
 plus a live `value` and handlers. You decide how to render them. The essentials
 every filter has:
 
-| Field      | What it is                                                   |
-| ---------- | ------------------------------------------------------------ |
-| `key`      | The config key (also the URL param name).                    |
-| `label`    | Your human label (and `placeholder`, defaulting to `label`). |
-| `value`    | Current value, or `null` when unset.                         |
-| `onChange` | `(value) => void` — set this filter's value.                 |
-| `onClear`  | `() => void` — reset to its `defaultValue` (or empty).       |
+| Field          | What it is                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `key`          | The config key (also the URL param name).                                                                         |
+| `label`        | Your human label (and `placeholder`, defaulting to `label`).                                                      |
+| `value`        | Current value, or `null` when unset.                                                                              |
+| `onChange`     | `(value) => void` — set this filter's value.                                                                      |
+| `reset`        | `() => void` — set this filter back to its `defaultValue` (or empty). Respects `commit`, like any change.         |
+| `instantReset` | `() => void` — same, but **bypasses `commit`** and writes it straight to `params`/the URL now, whatever the mode. |
+| `apply`        | `() => void` — commit just this filter's pending change now. No-op if not `isDirty`.                              |
+| `cancel`       | `() => void` — discard just this filter's pending change. No-op if not `isDirty`.                                 |
+
+> `onClear` still works — it's a **deprecated alias** for `reset` (identical
+> function). New code should use `reset`.
 
 Choice filters also expose the resolved option object(s) so you can show the
 selected label without a lookup: `selectedOption` (select / asyncSelect) and
 `selectedOptions` (multiSelect / asyncMultiSelect).
+
+Every filter also carries its own **state**, so a component never has to
+cross-reference `params` or re-derive `commit` mode itself:
+
+| Field             | What it is                                                                                                                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit`          | This filter's **effective** commit mode (after defaults) — `'instant'`, `{ debounce: ms }`, or `'manual'`.                                                                                                                                                             |
+| `isInstant`       | `true` when `commit` is `'instant'`.                                                                                                                                                                                                                                   |
+| `isDebounced`     | `true` when `commit` is `{ debounce }`.                                                                                                                                                                                                                                |
+| `isManual`        | `true` when `commit` is `'manual'`.                                                                                                                                                                                                                                    |
+| `debounceMs`      | The configured delay when `isDebounced`, else `null`.                                                                                                                                                                                                                  |
+| `isDirty`         | `true` while this filter has an uncommitted change (debounce pending, or manual awaiting `apply()`). Always `false` for instant.                                                                                                                                       |
+| `committedValue`  | What's actually in `params`/the URL right now — independent of any pending draft. Equals `value` unless `isDirty`.                                                                                                                                                     |
+| `isFiltered`      | `true` when this filter's **committed** value differs from its default (or, with no default, is non-empty). Right for a "N filters applied" badge — reflects what's actually fetched.                                                                                  |
+| `isFilteredDraft` | Same check, but against the **draft** `value`. Use this to show/hide a "Clear" button — it flips the instant the control empties, even before a `commit: 'manual'` change is applied (unlike `isFiltered`, which still shows the old committed state until `apply()`). |
+
+```tsx
+function Field({ filter }: { filter: ResolvedFilter }) {
+  return (
+    <div>
+      {filter.isDebounced && <span>debounce {filter.debounceMs}ms</span>}
+      {filter.isManual && <span>manual</span>}
+      {filter.isDirty && (
+        <span>
+          pending — draft: {String(filter.value)}, committed: {String(filter.committedValue)}
+        </span>
+      )}
+      {/* ...render the control */}
+    </div>
+  );
+}
+```
 
 ```tsx
 function FilterToolbar({ filters }: { filters: ResolvedFilter[] }) {
@@ -484,11 +522,44 @@ const { filterMap, filters, params, isDirty, apply, cancel } = useFilters({
   committed (`params`) values.
 - **`setFilter(key, value)`** bypasses the draft entirely and commits now,
   whatever the filter's `commit` mode — it's the imperative escape hatch.
-- **`reset()`** clears drafts and committed values together.
+- **`reset()`** clears drafts and committed values together — a hard,
+  immediate reset of every filter, bypassing `commit` (unlike a single
+  filter's `reset`, below, which respects it).
 
 Modes are per filter, so a debounced search and a batch of manual selects can
 live in the same panel (as above). `params` always reflects only committed
 values, so it stays safe to use directly as your data-fetching query key.
+
+Each resolved filter also carries this state directly — `isDirty`,
+`committedValue`, `isInstant`/`isDebounced`/`isManual`, `debounceMs` — so a
+component never needs `params` passed in separately to know its own state.
+It also gets its **own** `apply()` / `cancel()` / `reset()` — the same trio as
+the hook, scoped to just that filter (handy for a per-row "apply this one" or
+"undo" affordance instead of one global Apply button):
+
+```tsx
+function Field({ filter }: { filter: ResolvedFilter }) {
+  return (
+    <div>
+      {/* ...render the control */}
+      {filter.isDirty && (
+        <>
+          <button onClick={filter.apply}>✓</button>
+          <button onClick={filter.cancel}>✕</button>
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+Unlike the hook-wide `reset()`, a filter's own `reset()` **respects its
+`commit` mode** — on a manual filter it lands in the draft and waits for
+`apply()`, same as any other change. Need it to act instantly instead — the
+same relationship `setFilter` has to `onChange` at the hook level — use
+`instantReset()`. See
+[Rendering your own filter UI](#rendering-your-own-filter-ui) for the full
+per-filter state reference.
 
 ### Setting a default mode
 
@@ -722,10 +793,13 @@ npm run playground   # vite dev server for the interactive demo (playground/)
 ```
 
 The [`playground/`](playground/) app exercises every filter kind and commit mode
-against the live `src`. It's **dev-only** — `package.json#files` ships only
-`dist`, and the library build bundles only `src/index.ts`, so nothing there
-reaches the published package. It deploys to Vercel as the [live demo](https://use-filters.vercel.app)
-via [`vercel.json`](vercel.json) (`npm run build:playground` → `playground/dist`).
+against the live `src`, styled with Tailwind CSS v4 and [shadcn/ui](https://ui.shadcn.com)
+components (`playground/components.json`; add more with `npx shadcn@latest add
+<component> --cwd playground`). It's **dev-only** — `package.json#files` ships
+only `dist`, and the library build bundles only `src/index.ts`, so nothing
+there reaches the published package. It deploys to Vercel as the
+[live demo](https://use-filters.vercel.app) via [`vercel.json`](vercel.json)
+(`npm run build:playground` → `playground/dist`).
 
 ## Publishing
 

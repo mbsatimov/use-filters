@@ -9,7 +9,10 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "paths": { "@mbsatimov/use-filters": ["../src/index.ts"] }
+    "paths": {
+      "@mbsatimov/use-filters": ["../src/index.ts"],
+      "@/*": ["./src/*"]
+    }
   },
   "include": [".", "../src"]
 }
