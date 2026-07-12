@@ -1,4 +1,4 @@
-import type { FilterOption, ResolvedFilter } from '@mbsatimov/use-filters';
+import type { FilterCommitMode, FilterOption, ResolvedFilter } from '@mbsatimov/use-filters';
 
 import { createFilters } from '@mbsatimov/use-filters';
 import * as React from 'react';
@@ -70,29 +70,42 @@ const CONFIG_SNIPPET = `const {
   owners:     f.asyncMultiSelect({ label: 'Owners', loadOptions })
 });`;
 
-export function App() {
-  const filters = useFilters({
-    // Commit modes are the stars of the show:
-    q: f.text({ label: 'Search', placeholder: 'debounced 500ms…', commit: { debounce: 500 } }),
-    status: f.select({ label: 'Status (manual)', options: statusOptions, commit: 'manual' }),
-    city: f.asyncSelect({
-      label: 'City (manual, async)',
-      loadOptions: loadCities,
-      commit: 'manual'
-    }),
+const DEFAULT_COMMIT_OPTIONS: { label: string; value: FilterCommitMode }[] = [
+  { label: 'instant', value: 'instant' },
+  { label: 'debounce 500ms', value: { debounce: 500 } },
+  { label: 'manual', value: 'manual' }
+];
 
-    // The rest are plain instant filters, one per kind:
-    min_amount: f.number({ label: 'Min amount', unit: '$' }),
-    price: f.numberRange({ label: 'Price range', unit: '$' }),
-    active: f.boolean({ label: 'Active', trueLabel: 'Active', falseLabel: 'Archived' }),
-    created: f.date({ label: 'Created on' }),
-    period: f.dateRange({ label: 'Period' }),
-    opens_at: f.time({ label: 'Opens at' }),
-    hours: f.timeRange({ label: 'Business hours' }),
-    labels: f.multiSelect({ label: 'Labels', options: tagOptions }),
-    keywords: f.tags({ label: 'Keywords', placeholder: 'type + Enter' }),
-    owners: f.asyncMultiSelect({ label: 'Owners (async)', loadOptions: loadCities })
-  });
+export function App() {
+  // Hook-level default `commit` — applies to filters without their own `commit`
+  // (min_amount, price, …). q/status/city set their own, so they ignore it.
+  const [defaultCommit, setDefaultCommit] = React.useState<FilterCommitMode>('instant');
+
+  const filters = useFilters(
+    {
+      // Commit modes are the stars of the show:
+      q: f.text({ label: 'Search', placeholder: 'debounced 500ms…', commit: { debounce: 500 } }),
+      status: f.select({ label: 'Status (manual)', options: statusOptions, commit: 'manual' }),
+      city: f.asyncSelect({
+        label: 'City (manual, async)',
+        loadOptions: loadCities,
+        commit: 'manual'
+      }),
+
+      // The rest are plain instant filters, one per kind:
+      min_amount: f.number({ label: 'Min amount', unit: '$' }),
+      price: f.numberRange({ label: 'Price range', unit: '$' }),
+      active: f.boolean({ label: 'Active', trueLabel: 'Active', falseLabel: 'Archived' }),
+      created: f.date({ label: 'Created on' }),
+      period: f.dateRange({ label: 'Period' }),
+      opens_at: f.time({ label: 'Opens at' }),
+      hours: f.timeRange({ label: 'Business hours' }),
+      labels: f.multiSelect({ label: 'Labels', options: tagOptions }),
+      keywords: f.tags({ label: 'Keywords', placeholder: 'type + Enter' }),
+      owners: f.asyncMultiSelect({ label: 'Owners (async)', loadOptions: loadCities })
+    },
+    { defaultCommit }
+  );
 
   const { params, filters: list, filterMap, isFiltered, isDirty, apply, cancel, reset } = filters;
 
@@ -142,6 +155,23 @@ export function App() {
 
         <div className='panel toolbar'>
           <h2>State</h2>
+
+          <p className='hint'>
+            Hook-level <code>defaultCommit</code> (applies to filters without their own{' '}
+            <code>commit</code>):
+          </p>
+          <div className='row' style={{ marginBottom: 14 }}>
+            {DEFAULT_COMMIT_OPTIONS.map((o) => (
+              <button
+                key={o.label}
+                className={`chip ${JSON.stringify(defaultCommit) === JSON.stringify(o.value) ? 'on' : ''}`}
+                onClick={() => setDefaultCommit(o.value)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+
           <div className='actions'>
             <button className='primary' disabled={!isDirty} onClick={apply}>
               Apply

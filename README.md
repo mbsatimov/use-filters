@@ -490,6 +490,30 @@ Modes are per filter, so a debounced search and a batch of manual selects can
 live in the same panel (as above). `params` always reflects only committed
 values, so it stays safe to use directly as your data-fetching query key.
 
+### Setting a default mode
+
+Rather than repeating `commit` on every filter, set a **default** at the call or
+factory level. Precedence (most specific wins):
+
+**per-filter `commit`** → **`useFilters` `defaultCommit` option** → **`createFilters` `defaultCommit`** → `'instant'`
+
+```tsx
+// Every filter in this app defaults to manual-commit ("Apply" UX)…
+export const { useFilters, f } = createFilters({ defaultCommit: 'manual' });
+
+// …override for one screen, and again for one filter:
+const { filterMap, apply, isDirty } = useFilters(
+  {
+    q: f.text({ label: 'Search', commit: { debounce: 400 } }), // this filter: debounced
+    status: f.select({ label: 'Status', options }) // inherits the call default…
+  },
+  { defaultCommit: 'instant' } // …which is instant here (overriding the factory's manual)
+);
+```
+
+Each resolved filter exposes its **effective** mode as `filterMap[key].commit`
+(after the defaults are applied), so a UI can badge it without re-deriving.
+
 > This is unrelated to a filter's `nuqs: { limitUrlUpdates: debounce(ms) }`
 > option, which throttles the browser history write **after** a value is already
 > committed. `commit` controls when it's committed at all.
@@ -612,14 +636,15 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### `useFilters` options (second argument)
 
-| Option           | Default       | Description                                                         |
-| ---------------- | ------------- | ------------------------------------------------------------------- |
-| `pagination`     | `true`        | Sync `page` / `per_page` and include pagination in `params`.        |
-| `defaultPerPage` | factory value | Per-page count when the URL has none.                               |
-| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                |
-| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                 |
-| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.           |
-| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta). |
+| Option           | Default       | Description                                                                                                                         |
+| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pagination`     | `true`        | Sync `page` / `per_page` and include pagination in `params`.                                                                        |
+| `defaultPerPage` | factory value | Per-page count when the URL has none.                                                                                               |
+| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply). |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                 |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                           |
+| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                 |
 
 ### Per-filter options (shared by every kind)
 
@@ -636,7 +661,9 @@ This package never reads `meta` — it only carries it through to `filters` /
 
 ### `createFilters` config
 
-Two groups: `pagination` and `date`.
+Top-level `defaultCommit` (default `'instant'`) sets the fallback `commit` mode
+for every filter — see [Deferred commits](#deferred-commits-debounce--apply).
+The rest is grouped into `pagination` and `date`.
 
 **`pagination`**
 
