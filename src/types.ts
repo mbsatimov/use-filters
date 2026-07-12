@@ -596,6 +596,12 @@ export interface FiltersConfig<
 > {
   /** Date (de)serialization for `date` filters. See {@link DateConfig}. */
   date?: DateConfig;
+  /**
+   * Default `commit` mode for every filter this factory's hook renders, unless
+   * overridden per `useFilters` call (its `defaultCommit` option) or per filter
+   * (its `commit` config). Defaults to `'instant'`. See {@link FilterCommitMode}.
+   */
+  defaultCommit?: FilterCommitMode;
   /** URL keys, page defaults, and where numbering starts. See {@link PaginationConfig}. */
   pagination?: PaginationConfig<PageKey, PerPageKey>;
 }
@@ -607,6 +613,7 @@ export interface FiltersConfig<
  * `FiltersConfig`); this is the normalized form the internals consume.
  */
 export interface ResolvedFiltersConfig {
+  defaultCommit: FilterCommitMode;
   defaultPerPage: number;
   firstPage: number;
   pageKey: string;

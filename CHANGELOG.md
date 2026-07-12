@@ -4,6 +4,17 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
+## Unreleased
+
+### Added
+
+- **Default `commit` mode.** Set a fallback `commit` at the factory
+  (`createFilters({ defaultCommit })`) or per call (`useFilters(configs, {
+  defaultCommit })`) instead of repeating it on every filter. Precedence:
+  per-filter `commit` → `useFilters` `defaultCommit` → `createFilters`
+  `defaultCommit` → `'instant'`. Each resolved filter now exposes its effective
+  mode as `filterMap[key].commit`.
+
 ## 0.4.0
 
 ### Added

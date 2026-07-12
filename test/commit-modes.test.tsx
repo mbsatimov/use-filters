@@ -205,3 +205,70 @@ describe('setFilter bypasses the draft layer', () => {
     expect(result.current.isDirty).toBe(false);
   });
 });
+
+describe('default commit mode precedence', () => {
+  it('createFilters({ defaultCommit }) sets the default for every filter', () => {
+    const cf = createFilters({ defaultCommit: 'manual' });
+    const { result } = renderHook(() => cf.useFilters({ search: cf.f.text({ label: 'Search' }) }), {
+      wrapper
+    });
+
+    // No per-filter commit, but the factory default is manual → held.
+    expect(result.current.filterMap.search.commit).toBe('manual');
+    act(() => {
+      result.current.filterMap.search.onChange('acme');
+    });
+    expect(result.current.filterMap.search.value).toBe('acme');
+    expect(result.current.params.search).toBeNull();
+    expect(result.current.isDirty).toBe(true);
+
+    act(() => {
+      result.current.apply();
+    });
+    expect(result.current.params.search).toBe('acme');
+  });
+
+  it('useFilters `defaultCommit` option overrides the factory default', () => {
+    const cf = createFilters({ defaultCommit: 'manual' });
+    const { result } = renderHook(
+      () => cf.useFilters({ search: cf.f.text({ label: 'Search' }) }, { defaultCommit: 'instant' }),
+      { wrapper }
+    );
+
+    expect(result.current.filterMap.search.commit).toBe('instant');
+    act(() => {
+      result.current.filterMap.search.onChange('acme');
+    });
+    // Instant wins → committed immediately, nothing pending.
+    expect(result.current.params.search).toBe('acme');
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it('a per-filter `commit` overrides the useFilters option', () => {
+    const cf = createFilters();
+    const { result } = renderHook(
+      () =>
+        cf.useFilters(
+          {
+            held: cf.f.text({ label: 'Held' }),
+            live: cf.f.text({ label: 'Live', commit: 'instant' })
+          },
+          { defaultCommit: 'manual' }
+        ),
+      { wrapper }
+    );
+
+    // `held` inherits the call's manual default; `live` overrides back to instant.
+    expect(result.current.filterMap.held.commit).toBe('manual');
+    expect(result.current.filterMap.live.commit).toBe('instant');
+
+    act(() => {
+      result.current.filterMap.held.onChange('x');
+      result.current.filterMap.live.onChange('y');
+    });
+
+    expect(result.current.params.held).toBeNull(); // manual — waiting for apply()
+    expect(result.current.params.live).toBe('y'); // instant — already committed
+    expect(result.current.isDirty).toBe(true);
+  });
+});

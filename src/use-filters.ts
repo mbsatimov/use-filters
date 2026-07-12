@@ -34,12 +34,16 @@ interface PendingChange {
   commit: () => void;
 }
 
-/** A filter's `commit` config, defaulting to `'instant'`. */
-const commitModeOf = (config: FilterConfig): FilterCommitMode => config.commit ?? 'instant';
-
 export interface UseFiltersOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
+  /**
+   * Default `commit` mode for every filter in this call, unless a filter sets
+   * its own `commit`. Overrides the `createFilters` default and is itself
+   * overridden per filter. Defaults to the factory default (`'instant'`).
+   * See {@link FilterCommitMode}.
+   */
+  defaultCommit?: FilterCommitMode;
   /** Initial per-page count when none is in the URL. Defaults to the factory's `pagination.defaultPerPage`. */
   defaultPerPage?: number;
   /** How URL updates affect history. Defaults to `'replace'`. */
@@ -209,6 +213,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       clearOnDefault = true,
       pagination = true,
       defaultPerPage = cfg.defaultPerPage,
+      // Precedence: per-filter `commit` > this call's `commit` > the factory's
+      // `commit` (`cfg.defaultCommit`, already defaulted to `'instant'`).
+      defaultCommit = cfg.defaultCommit,
       meta = {} as FiltersMeta
     } = options;
 
@@ -355,7 +362,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
     const resolveFilter = React.useCallback(
       (key: string, config: FilterConfig): ResolvedFilter => {
-        const mode = commitModeOf(config);
+        // Per-filter `commit` wins; otherwise the resolved default (call option,
+        // then factory config, then `'instant'`).
+        const mode = config.commit ?? defaultCommit;
         // Draft overlay: while a change is pending, the filter shows the pending
         // value/labels; otherwise it shows what's committed in the URL.
         const change = pending[key];
@@ -367,6 +376,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         const resolved: Record<string, unknown> = {
           ...config,
           key,
+          // Expose the *effective* commit mode (after applying the defaults),
+          // not just the per-filter override, so UIs can read it uniformly.
+          commit: mode,
           value: draftValue,
           onChange: (value: ParamValue) => schedule(key, value ?? null, null, mode),
           // Clearing returns to the default (or empty when there is none).
@@ -432,7 +444,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
         return resolved as unknown as ResolvedFilter;
       },
-      [values, pending, schedule]
+      [values, pending, schedule, defaultCommit]
     );
 
     // Keyed lookup — includes hidden filters, since a caller reaching for one by

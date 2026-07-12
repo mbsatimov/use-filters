@@ -23,8 +23,9 @@ import { makeUseFilters } from './use-filters';
 
 /** Fill in every `FiltersConfig` default, flattening it into the shape the internals consume. */
 function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFiltersConfig {
-  const { pagination = {}, date = {} } = config;
+  const { pagination = {}, date = {}, defaultCommit = 'instant' } = config;
   return {
+    defaultCommit,
     defaultPerPage: pagination.defaultPerPage ?? DEFAULT_PER_PAGE,
     firstPage: pagination.firstPage ?? DEFAULT_FIRST_PAGE,
     pageKey: pagination.pageKey ?? DEFAULT_PAGE_KEY,
