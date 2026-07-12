@@ -4,6 +4,23 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
+## Unreleased
+
+### Added
+
+- **Deferred commits — per-filter `commit` mode.** Each filter takes a `commit`
+  option controlling _when_ its change reaches `params`/the URL: `'instant'`
+  (default, unchanged behavior), `{ debounce: ms }` (commit `ms` after the last
+  change), or `'manual'` (commit only on `apply()`). `useFilters` keeps a local
+  draft so the control stays responsive while the committed value waits — no
+  extra state to wire up for a debounced search box or a mobile "Apply filters"
+  sheet. Adds `apply()`, `cancel()`, and `isDirty` to the hook's return, and
+  exports the `FilterCommitMode` type. `setFilter` bypasses the draft and commits
+  immediately.
+- **Interactive playground / live demo** covering every filter kind and all three
+  commit modes. Dev-only (`npm run playground`, deployed to Vercel) — not part of
+  the published package.
+
 ## 0.3.0
 
 ### Changed (breaking)

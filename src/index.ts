@@ -23,6 +23,7 @@ export type {
   DateFilterMeta,
   DateRangeFilterConfig,
   DateRangeFilterMeta,
+  FilterCommitMode,
   FilterConfig,
   FilterConfigMap,
   FilterMeta,

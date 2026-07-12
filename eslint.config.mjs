@@ -9,7 +9,9 @@ export default eslint(
     jsonc: false,
     yaml: false,
     markdown: false,
-    ignores: ['dist', 'coverage']
+    // `playground` is a dev-only scratch app (not published, not built) — keep
+    // it out of the library's lint gate.
+    ignores: ['dist', 'coverage', 'playground']
   },
   {
     rules: {
