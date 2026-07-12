@@ -191,6 +191,107 @@ describe('commit: manual + async multiSelect', () => {
   });
 });
 
+describe('commit: no-op changes never mark the filter dirty', () => {
+  it('clearing an already-empty manual filter stays clean', () => {
+    const { result } = renderCommit({
+      search: f.text({ label: 'Search', commit: 'manual' })
+    });
+
+    expect(result.current.filterMap.search.value).toBeNull();
+    act(() => {
+      result.current.filterMap.search.onClear();
+    });
+
+    expect(result.current.filterMap.search.value).toBeNull();
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it('clearing a manual filter already at its committed defaultValue stays clean', () => {
+    const { result } = renderCommit({
+      status: f.select({
+        label: 'Status',
+        commit: 'manual',
+        defaultValue: 'open',
+        options: [
+          { label: 'Open', value: 'open' },
+          { label: 'Closed', value: 'closed' }
+        ]
+      })
+    });
+
+    expect(result.current.params.status).toBe('open');
+    act(() => {
+      result.current.filterMap.status.onClear();
+    });
+
+    expect(result.current.filterMap.status.value).toBe('open');
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it('changing a manual filter back to its committed value un-dirties it', () => {
+    const { result } = renderCommit({
+      search: f.text({ label: 'Search', commit: 'manual' })
+    });
+
+    act(() => {
+      result.current.filterMap.search.onChange('acme');
+    });
+    expect(result.current.isDirty).toBe(true);
+
+    act(() => {
+      result.current.filterMap.search.onChange(null); // undo, back to the committed (unset) value
+    });
+    expect(result.current.filterMap.search.value).toBeNull();
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it('debounce: typing back to the committed value cancels the pending timer', () => {
+    vi.useFakeTimers();
+    const { result } = renderCommit({
+      search: f.text({ label: 'Search', commit: { debounce: 300 } })
+    });
+
+    act(() => {
+      result.current.filterMap.search.onChange('a');
+    });
+    expect(result.current.isDirty).toBe(true);
+
+    act(() => {
+      result.current.filterMap.search.onChange(null); // deleted back to committed (unset)
+    });
+    expect(result.current.isDirty).toBe(false);
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    // No stale commit should fire from the cancelled timer.
+    expect(result.current.params.search).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('toggling an option on then off (manual, async multiSelect) stays clean', () => {
+    const { result } = renderCommit({
+      tags: f.asyncMultiSelect({
+        label: 'Tags',
+        commit: 'manual',
+        valueType: 'string',
+        loadOptions: async () => []
+      })
+    });
+
+    act(() => {
+      result.current.filterMap.tags.onToggleOption({ label: 'A', value: 'a' });
+    });
+    expect(result.current.isDirty).toBe(true);
+
+    act(() => {
+      result.current.filterMap.tags.onToggleOption({ label: 'A', value: 'a' }); // toggle back off
+    });
+    expect(result.current.filterMap.tags.value).toBeNull();
+    expect(result.current.isDirty).toBe(false);
+  });
+});
+
 describe('setFilter bypasses the draft layer', () => {
   it('commits immediately even for a manual-commit filter', () => {
     const { result } = renderCommit({

@@ -357,6 +357,18 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           commit();
           return;
         }
+        // No-op guard: if this change matches what's already committed —
+        // clearing an already-empty/default filter, or toggling a selection
+        // back to its original state — drop any pending draft instead of
+        // marking the filter dirty. Compares against the committed URL value,
+        // not a possibly-stale pending one, so undoing a pending change also
+        // clears isDirty.
+        const committedValue = values[key] ?? null;
+        const committedLabels = (values[labelKeyOf(key)] as string | string[] | null) ?? null;
+        if (valuesEqual(value, committedValue) && valuesEqual(labels, committedLabels)) {
+          dropPending(key);
+          return;
+        }
         setPending((current) => ({ ...current, [key]: { commit, labels, value } }));
         if (mode === 'manual') return;
         timersRef.current[key] = setTimeout(() => {
@@ -365,7 +377,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           commit();
         }, mode.debounce);
       },
-      [clearTimer, dropPending, setFilterValue]
+      [clearTimer, dropPending, setFilterValue, values]
     );
 
     const resolveFilter = React.useCallback(
