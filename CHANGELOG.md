@@ -6,6 +6,16 @@ include breaking changes.
 
 ## Unreleased
 
+### Fixed
+
+- **`onClear`/`onChange` no longer mark a `debounce`/`manual` filter dirty when
+  the change is a no-op** — clearing an already-empty (or already-at-default)
+  filter, undoing a pending change back to its committed value, or toggling a
+  multi-select option on then off all now leave `isDirty` `false`, matching
+  what's actually committed. Previously any non-`instant` change queued a
+  pending entry unconditionally, so e.g. clicking "Clear" on an untouched
+  filter incorrectly enabled the Apply button.
+
 ### Changed (breaking)
 
 - **`useFilters`'s per-page override moved under `pagination`.** The flat
