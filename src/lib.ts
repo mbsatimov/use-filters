@@ -111,6 +111,9 @@ const withOptionalDefault = <T>(
   defaultValue: NonNullable<T> | undefined
 ) => (defaultValue === undefined ? parser : parser.withDefault(defaultValue));
 
+/** Default separator between items of an array-shaped param (`multiSelect`, `tags`, ranges, …). */
+export const DEFAULT_ARRAY_SEPARATOR = ',';
+
 /**
  * Pick the right nuqs parser for a filter kind. The casts undo type erasure:
  * `FilterConfig` unions select/multiSelect over `string | number`, but
@@ -122,18 +125,27 @@ const withOptionalDefault = <T>(
  * `union` of parser builders, and calling `.parse` / `.serialize` on that union
  * collapses their parameters to `never` (functions are contravariant on their
  * arguments) — which is unusable at the call site.
+ *
+ * `separator` is the delimiter joining/splitting array-shaped values
+ * (`multiSelect`, `tags`, and the range kinds) in the URL — resolved by the
+ * caller from `useFilters`'/`resolveFilterParams`' `arraySeparator` option,
+ * then `createFilters`', then {@link DEFAULT_ARRAY_SEPARATOR}. Ignored by
+ * scalar kinds (text, number, boolean, date, time, select, asyncSelect).
  */
-export const buildParser = (config: FilterConfig): SingleParserBuilder<FilterParserValue> => {
+export const buildParser = (
+  config: FilterConfig,
+  separator: string = DEFAULT_ARRAY_SEPARATOR
+): SingleParserBuilder<FilterParserValue> => {
   const build = (): unknown => {
     switch (config.type) {
       case 'asyncMultiSelect':
         return config.valueType === 'string'
           ? withOptionalDefault(
-              parseAsArrayOf(parseAsString),
+              parseAsArrayOf(parseAsString, separator),
               config.defaultValue as string[] | undefined
             )
           : withOptionalDefault(
-              parseAsArrayOf(parseAsInteger),
+              parseAsArrayOf(parseAsInteger, separator),
               config.defaultValue as number[] | undefined
             );
       case 'asyncSelect':
@@ -143,15 +155,15 @@ export const buildParser = (config: FilterConfig): SingleParserBuilder<FilterPar
       case 'boolean':
         return withOptionalDefault(parseAsBoolean, config.defaultValue);
       case 'dateRange':
-        return withOptionalDefault(parseAsArrayOf(parseAsString), config.defaultValue);
+        return withOptionalDefault(parseAsArrayOf(parseAsString, separator), config.defaultValue);
       case 'multiSelect':
         return isNumericChoice(config)
           ? withOptionalDefault(
-              parseAsArrayOf(parseAsInteger),
+              parseAsArrayOf(parseAsInteger, separator),
               config.defaultValue as number[] | undefined
             )
           : withOptionalDefault(
-              parseAsArrayOf(parseAsString),
+              parseAsArrayOf(parseAsString, separator),
               config.defaultValue as string[] | undefined
             );
       case 'number':
@@ -164,23 +176,23 @@ export const buildParser = (config: FilterConfig): SingleParserBuilder<FilterPar
         // A `[min, max]` pair; same float-by-default rule as `number`.
         return config.precision === 'int'
           ? withOptionalDefault(
-              parseAsArrayOf(parseAsInteger),
+              parseAsArrayOf(parseAsInteger, separator),
               config.defaultValue as number[] | undefined
             )
           : withOptionalDefault(
-              parseAsArrayOf(parseAsFloat),
+              parseAsArrayOf(parseAsFloat, separator),
               config.defaultValue as number[] | undefined
             );
       case 'tags':
         // Freeform string array — no options, no server lookup.
         return withOptionalDefault(
-          parseAsArrayOf(parseAsString),
+          parseAsArrayOf(parseAsString, separator),
           config.defaultValue as string[] | undefined
         );
       case 'timeRange':
         // A `[from, to]` pair of time-of-day strings — same string-array shape as
         // `dateRange`, no `Date` conversion.
-        return withOptionalDefault(parseAsArrayOf(parseAsString), config.defaultValue);
+        return withOptionalDefault(parseAsArrayOf(parseAsString, separator), config.defaultValue);
       case 'select':
         return isNumericChoice(config)
           ? withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined)
@@ -229,12 +241,18 @@ export const valuesEqual = (a: unknown, b: unknown): boolean => {
  * typed by the router) into the same runtime type the hook's nuqs parsers
  * produce. Used by `resolveFilterParams` so a route loader's params object is
  * byte-for-byte identical to the hook's — otherwise their query keys diverge
- * (e.g. `status: '5'` vs `status: 5`) and the prefetch is never reused.
+ * (e.g. `status: '5'` vs `status: 5`) and the prefetch is never reused. Pass
+ * the same `separator` the hook is using (see {@link buildParser}) so an
+ * array-shaped value splits identically.
  */
-export const coerceRawValue = (config: FilterConfig, raw: unknown): unknown => {
+export const coerceRawValue = (
+  config: FilterConfig,
+  raw: unknown,
+  separator: string = DEFAULT_ARRAY_SEPARATOR
+): unknown => {
   if (raw == null) return config.defaultValue ?? null;
   if (typeof raw !== 'string') return raw; // already coerced upstream
-  const parsed = buildParser(config).parse(raw);
+  const parsed = buildParser(config, separator).parse(raw);
   return parsed ?? config.defaultValue ?? null;
 };
 

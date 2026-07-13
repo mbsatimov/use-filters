@@ -47,6 +47,13 @@ const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
     : hasFilterValue(value);
 
 export interface UseFiltersOptions {
+  /**
+   * Delimiter joining/splitting an array-shaped param's items in the URL for
+   * this call, overriding the `createFilters` config. Defaults to the
+   * factory's `arraySeparator` (`','` unless set). See
+   * {@link FiltersConfig.arraySeparator}.
+   */
+  arraySeparator?: string;
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
   /**
@@ -226,6 +233,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // Precedence: per-filter `commit` > this call's `defaultCommit` > the
       // factory's `defaultCommit` (`cfg.defaultCommit`, already `'instant'`).
       defaultCommit = cfg.defaultCommit,
+      // Same precedence, one level (no per-filter override): this call's
+      // `arraySeparator` > the factory's (`cfg.arraySeparator`, already `','`).
+      arraySeparator = cfg.arraySeparator,
       meta = {} as FiltersMeta
     } = options;
 
@@ -275,16 +285,19 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
             `[useFilters] "${key}" ends with the reserved "_label" suffix used by async filter label sidecars — rename it to avoid collisions.`
           );
         }
-        const parser = buildParser(config);
+        const parser = buildParser(config, arraySeparator);
         // Per-filter nuqs options take precedence over the hook-level ones
         // passed to `useQueryStates` below (nuqs resolves call > parser > hook).
         map[key] = config.nuqs ? parser.withOptions(config.nuqs) : parser;
 
         // Async filters carry a `<key>_label` sidecar so selected labels survive
         // a refresh without a by-id endpoint. Display-only: never sent to the API.
+        // Same `arraySeparator` as the value, so a multi-select's labels split
+        // the same way its values do.
         const asyncKind = asyncKindOf(config);
         if (asyncKind) {
-          const labelParser = asyncKind === 'multi' ? parseAsArrayOf(parseAsString) : parseAsString;
+          const labelParser =
+            asyncKind === 'multi' ? parseAsArrayOf(parseAsString, arraySeparator) : parseAsString;
           map[labelKeyOf(key)] = config.nuqs ? labelParser.withOptions(config.nuqs) : labelParser;
         }
       }
@@ -299,7 +312,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // its comment above), so depending on it directly would rebuild the parsers
       // — and re-key `useQueryStates` — on every render.
       // eslint-disable-next-line react/exhaustive-deps
-    }, [parserSignature, paginationEnabled, defaultPerPage]);
+    }, [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]);
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 

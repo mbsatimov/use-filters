@@ -716,6 +716,7 @@ These **override the `createFilters` config for this call** (precedence: per-fil
 | ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pagination`     | `true`        | `false` disables pagination for this call; `{ defaultPerPage }` overrides the per-page default. Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
 | `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                   |
+| `arraySeparator` | factory value | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) for this call. See below.                                                                                                           |
 | `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                  |
 | `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                   |
 | `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                             |
@@ -738,6 +739,22 @@ These **override the `createFilters` config for this call** (precedence: per-fil
 
 Top-level `defaultCommit` (default `'instant'`) sets the fallback `commit` mode
 for every filter — see [Deferred commits](#deferred-commits-debounce--apply).
+Top-level **`arraySeparator`** (default `','`) is the delimiter joining/splitting
+an array-shaped param's items in the URL — `multiSelect`, `asyncMultiSelect`,
+`tags`, and the range kinds (`numberRange`/`dateRange`/`timeRange`):
+
+```ts
+export const { useFilters, f } = createFilters({ arraySeparator: '|' });
+// tags: ['a', 'b', 'c']  <->  ?tags=a|b|c   (instead of ?tags=a,b,c)
+```
+
+Change it if a comma can appear inside an item's own value, or your backend
+expects a different delimiter. Overridable per `useFilters`/`resolveFilterParams`
+call (their `arraySeparator` option) — same precedence as everything else
+(call > factory > default). `resolveFilterParams` needs the same separator the
+hook is using to parse a raw URL string correctly (see
+[Route loaders](#route-loaders-resolvefilterparams)).
+
 The rest is grouped into `pagination` and `date`.
 
 **`pagination`**

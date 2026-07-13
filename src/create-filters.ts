@@ -11,6 +11,7 @@ import { f } from './builders';
 import {
   coerceInt,
   coerceRawValue,
+  DEFAULT_ARRAY_SEPARATOR,
   DEFAULT_FIRST_PAGE,
   DEFAULT_PAGE_KEY,
   DEFAULT_PER_PAGE,
@@ -24,8 +25,14 @@ import { makeUseFilters } from './use-filters';
 
 /** Fill in every `FiltersConfig` default, flattening it into the shape the internals consume. */
 function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFiltersConfig {
-  const { pagination = {}, date = {}, defaultCommit = 'instant' } = config;
+  const {
+    pagination = {},
+    date = {},
+    defaultCommit = 'instant',
+    arraySeparator = DEFAULT_ARRAY_SEPARATOR
+  } = config;
   return {
+    arraySeparator,
     defaultCommit,
     defaultPerPage: pagination.defaultPerPage ?? DEFAULT_PER_PAGE,
     firstPage: pagination.firstPage ?? DEFAULT_FIRST_PAGE,
@@ -59,11 +66,11 @@ function makeResolveFilterParams<PP extends Record<string, number>>(cfg: Resolve
   return function resolveFilterParams<T extends FilterConfigMap>(
     configs: T,
     raw: Record<string, unknown>,
-    options: { pagination?: PaginationOverride } = {}
+    options: { arraySeparator?: string; pagination?: PaginationOverride } = {}
   ): FilterParams<T, PP> {
     // Same `pagination` override shape as `useFilters` (its twin), so options
     // copy across cleanly: `false` off, object overrides `defaultPerPage`.
-    const { pagination = true } = options;
+    const { pagination = true, arraySeparator = cfg.arraySeparator } = options;
     const defaultPerPage =
       typeof pagination === 'object'
         ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
@@ -73,7 +80,7 @@ function makeResolveFilterParams<PP extends Record<string, number>>(cfg: Resolve
     for (const [key, config] of Object.entries(configs)) {
       // Coerce through the same parsers the hook uses, so a loader's params
       // object matches the hook's exactly (and their query keys collide).
-      result[key] = coerceRawValue(config, raw[key]);
+      result[key] = coerceRawValue(config, raw[key], arraySeparator);
     }
     if (pagination !== false) {
       // Mirror the URL keys into `params`, exactly like the hook.

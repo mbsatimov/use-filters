@@ -6,6 +6,7 @@ export type { Filters } from './create-filters';
 export {
   DATE_FORMAT,
   DATE_TIME_FORMAT,
+  DEFAULT_ARRAY_SEPARATOR,
   fromDateTimeValue,
   fromDateValue,
   toDateTimeValue,
