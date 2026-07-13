@@ -1,22 +1,5 @@
 # Changelog
 
-All notable changes to this project are documented here. This project adheres to
-[Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
-include breaking changes.
-
-## Unreleased
-
-### Fixed
-
-- **`searchDebounceMs` on `asyncSelect`/`asyncMultiSelect` now actually
-  debounces `loadOptions`.** Previously the option was documented but never
-  read, so a search box calling `onChange` on every keystroke fired
-  `loadOptions` once per keystroke. Calls within `searchDebounceMs` (default
-  `300`) of each other now collapse into a single underlying call, using the
-  last call's arguments — every caller in that window resolves/rejects
-  together with that call's outcome. No API change beyond the rename:
-  `loadOptions` is wrapped internally.
-
 ## 0.6.0
 
 ### Added
