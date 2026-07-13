@@ -253,21 +253,21 @@ you'd like that built in.
 Build every filter with an `f.*` helper. The builder decides how the value is
 parsed and what type appears in `params`.
 
-| Builder              | Use for                               | `params.<key>` type        | Notable options                          |
-| -------------------- | ------------------------------------- | -------------------------- | ---------------------------------------- |
-| `f.text`             | Search boxes, free text               | `string \| null`           | —                                        |
-| `f.number`           | Amounts, counts, rates                | `number \| null`           | `precision: 'float' \| 'int'`, `unit`    |
-| `f.numberRange`      | Numeric from–to (price/age "between") | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit`    |
-| `f.boolean`          | Toggles, on/off                       | `boolean \| null`          | `trueLabel`, `falseLabel`                |
-| `f.date`             | A single date (or date + time)        | `string \| null`           | `precision: 'date' \| 'datetime'`        |
-| `f.dateRange`        | A from–to range (date or date + time) | `[string, string] \| null` | `precision: 'date' \| 'datetime'`        |
-| `f.time`             | A time of day (no date)               | `string \| null`           | `precision: 'minute' \| 'second'`        |
-| `f.timeRange`        | A from–to time-of-day range (no date) | `[string, string] \| null` | `precision: 'minute' \| 'second'`        |
-| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`                                |
-| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`                                |
-| `f.tags`             | Freeform string list (no options)     | `string[] \| null`         | —                                        |
-| `f.asyncSelect`      | One choice, **server-searched** by id | `V \| null`                | `loadOptions`, `valueType`, `debounceMs` |
-| `f.asyncMultiSelect` | Many choices, **server-searched**     | `V[] \| null`              | `loadOptions`, `valueType`, `debounceMs` |
+| Builder              | Use for                               | `params.<key>` type        | Notable options                                |
+| -------------------- | ------------------------------------- | -------------------------- | ---------------------------------------------- |
+| `f.text`             | Search boxes, free text               | `string \| null`           | —                                              |
+| `f.number`           | Amounts, counts, rates                | `number \| null`           | `precision: 'float' \| 'int'`, `unit`          |
+| `f.numberRange`      | Numeric from–to (price/age "between") | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit`          |
+| `f.boolean`          | Toggles, on/off                       | `boolean \| null`          | `trueLabel`, `falseLabel`                      |
+| `f.date`             | A single date (or date + time)        | `string \| null`           | `precision: 'date' \| 'datetime'`              |
+| `f.dateRange`        | A from–to range (date or date + time) | `[string, string] \| null` | `precision: 'date' \| 'datetime'`              |
+| `f.time`             | A time of day (no date)               | `string \| null`           | `precision: 'minute' \| 'second'`              |
+| `f.timeRange`        | A from–to time-of-day range (no date) | `[string, string] \| null` | `precision: 'minute' \| 'second'`              |
+| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`                                      |
+| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`                                      |
+| `f.tags`             | Freeform string list (no options)     | `string[] \| null`         | —                                              |
+| `f.asyncSelect`      | One choice, **server-searched** by id | `V \| null`                | `loadOptions`, `valueType`, `searchDebounceMs` |
+| `f.asyncMultiSelect` | Many choices, **server-searched**     | `V[] \| null`              | `loadOptions`, `valueType`, `searchDebounceMs` |
 
 `V` is inferred from your `options` (or `valueType` for async): number-valued
 options give `number | null`, a status enum gives `Status | null`, and so on —

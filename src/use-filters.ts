@@ -4,6 +4,8 @@ import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'n
 import * as React from 'react';
 
 import type {
+  AsyncMultiSelectFilterConfig,
+  AsyncSelectFilterConfig,
   FilterCommitMode,
   FilterConfig,
   FilterOption,
@@ -18,7 +20,15 @@ import type {
   SelectedOption
 } from './types';
 
-import { asyncKindOf, buildParser, hasFilterValue, labelKeyOf, valuesEqual } from './lib';
+import {
+  asyncKindOf,
+  buildParser,
+  debounceAsync,
+  DEFAULT_ASYNC_DEBOUNCE_MS,
+  hasFilterValue,
+  labelKeyOf,
+  valuesEqual
+} from './lib';
 
 /** Any value nuqs can serialize for our parsers. */
 type ParamValue = boolean | number | string | number[] | string[] | null;
@@ -323,6 +333,22 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     const [pending, setPending] = React.useState<Record<string, PendingChange>>({});
     const timersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+    // Cache of debounced `loadOptions` wrappers, one per async filter key —
+    // kept outside `resolveFilter` (which reruns most renders) so the debounce
+    // timer/queued callers persist across keystrokes instead of resetting on
+    // every render. Rebuilt for a key only if its `loadOptions` reference or
+    // `searchDebounceMs` actually changes.
+    const debouncedLoadOptionsRef = React.useRef<
+      Record<
+        string,
+        {
+          debounceMs: number;
+          loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption[]>;
+          wrapped: (search: string, signal: AbortSignal) => Promise<FilterOption[]>;
+        }
+      >
+    >({});
+
     const clearTimer = React.useCallback((key: string) => {
       const timer = timersRef.current[key];
       if (timer !== undefined) {
@@ -498,6 +524,29 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         // Async filters: pair values with their labels and expose option-aware
         // setters that write both in one atomic update (via the draft layer).
         const asyncKind = asyncKindOf(config);
+        if (asyncKind) {
+          // Wrap `loadOptions` so calls within `searchDebounceMs` of each
+          // other (a search box calling it on every keystroke, say) collapse
+          // into one real call — see `searchDebounceMs` on
+          // `AsyncSelectFilterConfig`/`AsyncMultiSelectFilterConfig`. Cached per key in
+          // `debouncedLoadOptionsRef` so the debounce timer/queued callers
+          // survive across renders instead of resetting on every keystroke.
+          const asyncConfig = config as AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig;
+          const debounceMs = asyncConfig.searchDebounceMs ?? DEFAULT_ASYNC_DEBOUNCE_MS;
+          const cached = debouncedLoadOptionsRef.current[key];
+          const wrapped =
+            cached &&
+            cached.loadOptions === asyncConfig.loadOptions &&
+            cached.debounceMs === debounceMs
+              ? cached.wrapped
+              : debounceAsync(asyncConfig.loadOptions, debounceMs);
+          debouncedLoadOptionsRef.current[key] = {
+            debounceMs,
+            loadOptions: asyncConfig.loadOptions,
+            wrapped
+          };
+          resolved.loadOptions = wrapped;
+        }
         if (asyncKind === 'single') {
           const value = draftValue as FilterPrimitive | null;
           const label = draftLabels as string | null;
@@ -604,13 +653,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
     // A visible filter is "active" when it differs from its default (or, with no
     // default, when it simply holds a non-empty value).
-    const isFiltered = React.useMemo(
-      () =>
-        entries.some(
-          ([key, config]) => !config.hidden && differsFromDefault(config, values[key] ?? null)
-        ),
-      [entries, values]
-    );
+    // `filters` already excludes `hidden` filters and each already carries its
+    // own `isFiltered` (computed once, in `resolveFilter`) — reuse it instead
+    // of re-deriving `differsFromDefault` a second time for every filter.
+    const isFiltered = React.useMemo(() => filters.some((filter) => filter.isFiltered), [filters]);
 
     // A change is "dirty" until it reaches the URL — i.e. a `debounce` timer is
     // still pending or a `manual` filter is waiting for `apply()`.

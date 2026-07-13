@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FiltersFor } from '../src/types';
 import type { UseFiltersOptions } from '../src/use-filters';
@@ -175,6 +175,44 @@ describe('useFilters — async label sidecar', () => {
       result.current.filterMap.tags.onToggleOption({ value: 'a', label: 'Alpha' });
     });
     expect(result.current.params.tags).toEqual(['b']);
+  });
+});
+
+describe('useFilters — async loadOptions debouncing', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it('collapses rapid loadOptions calls into a single underlying call', async () => {
+    const loadOptions = vi.fn(async (search: string) => [{ label: search, value: search }]);
+    const { result } = renderFilters({
+      customer_id: f.asyncSelect({ label: 'Customer', loadOptions })
+    });
+
+    void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);
+    void result.current.filterMap.customer_id.loadOptions?.('ac', new AbortController().signal);
+    const last = result.current.filterMap.customer_id.loadOptions?.(
+      'acm',
+      new AbortController().signal
+    );
+
+    expect(loadOptions).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(300);
+
+    expect(loadOptions).toHaveBeenCalledTimes(1);
+    expect(loadOptions).toHaveBeenCalledWith('acm', expect.any(AbortSignal));
+    await expect(last).resolves.toEqual([{ label: 'acm', value: 'acm' }]);
+  });
+
+  it('honors a per-filter searchDebounceMs override', async () => {
+    const loadOptions = vi.fn(async () => []);
+    const { result } = renderFilters({
+      customer_id: f.asyncSelect({ label: 'Customer', loadOptions, searchDebounceMs: 50 })
+    });
+
+    void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(loadOptions).toHaveBeenCalledTimes(1);
   });
 });
 

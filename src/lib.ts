@@ -265,3 +265,42 @@ export const coerceInt = (raw: unknown): number | undefined => {
   }
   return undefined;
 };
+
+/** Default debounce for an async filter's `loadOptions`, when `searchDebounceMs` isn't set. */
+export const DEFAULT_ASYNC_DEBOUNCE_MS = 300;
+
+/**
+ * Debounce an async function: calls within `ms` of each other collapse into
+ * one real call to `fn`, using the *last* call's arguments — every caller in
+ * that window resolves/rejects together with that one call's outcome. Used to
+ * debounce an async filter's `loadOptions` (see `searchDebounceMs` on
+ * `AsyncSelectFilterConfig`/`AsyncMultiSelectFilterConfig`), so typing
+ * "search" calls the real `loadOptions` once instead of once per keystroke —
+ * without the library needing to own the search input itself.
+ */
+export const debounceAsync = <Args extends unknown[], R>(
+  fn: (...args: Args) => Promise<R>,
+  ms: number
+): ((...args: Args) => Promise<R>) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let waiting: { reject: (reason: unknown) => void; resolve: (value: R) => void }[] = [];
+
+  return (...args: Args) =>
+    new Promise<R>((resolve, reject) => {
+      waiting.push({ reject, resolve });
+      if (timer !== undefined) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = undefined;
+        const callers = waiting;
+        waiting = [];
+        fn(...args).then(
+          (result) => {
+            for (const caller of callers) caller.resolve(result);
+          },
+          (error: unknown) => {
+            for (const caller of callers) caller.reject(error);
+          }
+        );
+      }, ms);
+    });
+};

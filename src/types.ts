@@ -271,11 +271,11 @@ export interface SelectFilterConfig<
 export interface AsyncSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
-  /** Debounce for the search input, in ms. Defaults to `300`. */
-  debounceMs?: number;
   defaultValue?: NoInfer<V>;
   /** Project-specific UI hints for async-select filters. See `AsyncSelectFilterMeta`. */
   meta?: AsyncSelectFilterMeta;
+  /** Debounce for the search input, in ms. Defaults to `300`. */
+  searchDebounceMs?: number;
   type: 'asyncSelect';
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';
@@ -290,11 +290,11 @@ export interface AsyncSelectFilterConfig<
 export interface AsyncMultiSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
-  /** Debounce for the search input, in ms. Defaults to `300`. */
-  debounceMs?: number;
   defaultValue?: readonly NoInfer<V>[];
   /** Project-specific UI hints for async-multi-select filters. See `AsyncMultiSelectFilterMeta`. */
   meta?: AsyncMultiSelectFilterMeta;
+  /** Debounce for the search input, in ms. Defaults to `300`. */
+  searchDebounceMs?: number;
   type: 'asyncMultiSelect';
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';

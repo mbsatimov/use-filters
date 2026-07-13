@@ -42,7 +42,11 @@ export function App() {
       hours: f.timeRange({ label: 'Business hours' }),
       labels: f.multiSelect({ label: 'Labels', options: tagOptions }),
       keywords: f.tags({ label: 'Keywords', placeholder: 'type + Enter' }),
-      owners: f.asyncMultiSelect({ label: 'Owners', loadOptions: loadCities })
+      owners: f.asyncMultiSelect({
+        label: 'Owners',
+        loadOptions: loadCities,
+        searchDebounceMs: 500
+      })
     },
     { defaultCommit }
   );
