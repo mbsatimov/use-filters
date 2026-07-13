@@ -9,3 +9,9 @@ coverage
 # tsup / vitest bundled-config scratch files
 *.bundled_*.mjs
 *.timestamp-*.mjs
+
+# Locally installed agent skills (npx skills add) — personal tooling, not
+# part of the repo or the published package.
+.agents/
+.claude/skills/
+skills-lock.json
