@@ -259,7 +259,7 @@ function AsyncSingle({ filter }: { filter: Extract<ResolvedFilter, { type: 'asyn
         </div>
       ) : (
         <Input
-          placeholder='search a city…'
+          placeholder={`search ${filter.label.toLowerCase()}…`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -288,7 +288,7 @@ function AsyncMulti({ filter }: { filter: Extract<ResolvedFilter, { type: 'async
   return (
     <div className='flex flex-col gap-2'>
       <Input
-        placeholder='search cities…'
+        placeholder={`search ${filter.label.toLowerCase()}…`}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />

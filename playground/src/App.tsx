@@ -8,13 +8,13 @@ import { Hero, TopBar } from '@/components/site-header';
 import { StatePanel } from '@/components/state-panel';
 import { Card, CardContent } from '@/components/ui/card';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { loadCities, statusOptions, tagOptions } from '@/data/mock-data';
+import { loadOwners, loadProducts, statusOptions, tagOptions } from '@/data/mock-data';
 
 const { useFilters, f } = createFilters();
 
 /** Purely presentational grouping — which section each filter key renders under. */
 const SECTIONS: { title: string; keys: string[] }[] = [
-  { title: 'Search & status', keys: ['q', 'status', 'city'] },
+  { title: 'Search & status', keys: ['q', 'status', 'product'] },
   { title: 'Amounts & toggles', keys: ['min_amount', 'price', 'active'] },
   { title: 'Dates & times', keys: ['created', 'period', 'opens_at', 'hours'] },
   { title: 'Choices', keys: ['labels', 'keywords', 'owners'] }
@@ -22,7 +22,7 @@ const SECTIONS: { title: string; keys: string[] }[] = [
 
 export function App() {
   // Hook-level default `commit` — applies to filters without their own `commit`
-  // (min_amount, price, …). q/status/city set their own, so they ignore it.
+  // (min_amount, price, …). q/status/product set their own, so they ignore it.
   const [defaultCommit, setDefaultCommit] = React.useState<FilterCommitMode>('instant');
 
   const filters = useFilters(
@@ -30,7 +30,7 @@ export function App() {
       // Commit modes are the stars of the show:
       q: f.text({ label: 'Search', placeholder: 'debounced 500ms…', commit: { debounce: 500 } }),
       status: f.select({ label: 'Status', options: statusOptions, commit: 'manual' }),
-      city: f.asyncSelect({ label: 'City', loadOptions: loadCities, commit: 'manual' }),
+      product: f.asyncSelect({ label: 'Product', loadOptions: loadProducts, commit: 'manual' }),
 
       // The rest are plain instant filters, one per kind:
       min_amount: f.number({ label: 'Min amount', unit: '$' }),
@@ -42,9 +42,13 @@ export function App() {
       hours: f.timeRange({ label: 'Business hours' }),
       labels: f.multiSelect({ label: 'Labels', options: tagOptions }),
       keywords: f.tags({ label: 'Keywords', placeholder: 'type + Enter' }),
-      owners: f.asyncMultiSelect({ label: 'Owners', loadOptions: loadCities })
+      owners: f.asyncMultiSelect({
+        label: 'Owners',
+        loadOptions: loadOwners,
+        searchDebounceMs: 500
+      })
     },
-    { defaultCommit }
+    { defaultCommit, arraySeparator: '|' }
   );
 
   const byKey = filters.filterMap as Record<string, ResolvedFilter>;
