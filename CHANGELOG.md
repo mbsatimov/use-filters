@@ -4,6 +4,19 @@ All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/); while pre-1.0, minor versions may
 include breaking changes.
 
+## 0.6.0
+
+### Added
+
+- **Configurable array separator.** The delimiter joining/splitting an
+  array-shaped param's items in the URL (`multiSelect`, `asyncMultiSelect`,
+  `tags`, and the range kinds) defaults to `','` as before, but is now
+  overridable: `createFilters({ arraySeparator: '|' })` sets a project-wide
+  default, `useFilters(configs, { arraySeparator: '|' })` overrides it per
+  call, and `resolveFilterParams`'s matching option keeps route-loader parity.
+  An async multi-select's label sidecar uses the same separator as its value.
+  Exports the `DEFAULT_ARRAY_SEPARATOR` constant (`','`).
+
 ## 0.5.0
 
 ### Fixed

@@ -690,6 +690,16 @@ export interface FiltersConfig<
   PageKey extends string = string,
   PerPageKey extends string = string
 > {
+  /**
+   * Delimiter joining/splitting an array-shaped param's items in the URL —
+   * `multiSelect`, `asyncMultiSelect`, `tags`, and the range kinds
+   * (`numberRange`/`dateRange`/`timeRange`). Defaults to `','`. Change it if a
+   * comma can appear inside an item's own value (or your backend just expects
+   * something else), or if it collides with a comma used elsewhere in your URL
+   * scheme. Overridable per `useFilters`/`resolveFilterParams` call (their
+   * `arraySeparator` option).
+   */
+  arraySeparator?: string;
   /** Date (de)serialization for `date` filters. See {@link DateConfig}. */
   date?: DateConfig;
   /**
@@ -709,6 +719,7 @@ export interface FiltersConfig<
  * `FiltersConfig`); this is the normalized form the internals consume.
  */
 export interface ResolvedFiltersConfig {
+  arraySeparator: string;
   defaultCommit: FilterCommitMode;
   defaultPerPage: number;
   firstPage: number;
