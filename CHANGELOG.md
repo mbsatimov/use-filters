@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+### Minor Changes
+
+- 014be90: `asyncSelect`/`asyncMultiSelect` now actually debounce `loadOptions`. Previously the option was documented but never read, so a search box calling `onChange` on every keystroke fired `loadOptions` once per keystroke. Calls within the debounce window (default `300`) of each other now collapse into a single underlying call, using the last call's arguments — every caller in that window resolves/rejects together with that call's outcome. `loadOptions` is wrapped internally; no change to the function you pass in.
+
+  **Breaking:** the option is renamed from `debounceMs` to `searchDebounceMs`, to distinguish it from a filter's `commit: { debounce }` delay now that it actually does something.
+
 ## 0.6.0
 
 ### Added
@@ -49,7 +57,7 @@
 
 - **Default `commit` mode.** Set a fallback `commit` at the factory
   (`createFilters({ defaultCommit })`) or per call (`useFilters(configs, {
-  defaultCommit })`) instead of repeating it on every filter. Precedence:
+defaultCommit })`) instead of repeating it on every filter. Precedence:
   per-filter `commit` → `useFilters` `defaultCommit` → `createFilters`
   `defaultCommit` → `'instant'`. Each resolved filter now exposes its effective
   mode as `filterMap[key].commit`.
@@ -59,7 +67,7 @@
   filter specifically has an uncommitted change), `committedValue` (its actual
   value in `params`/the URL, independent of any pending draft), `isFiltered`
   (this filter's own active/inactive state, based on its committed value), and
-  `isFilteredDraft` (the same check against the *draft* value — use it for a
+  `isFilteredDraft` (the same check against the _draft_ value — use it for a
   "Clear" button that should react instantly, since `isFiltered` still shows
   the old committed state until a `commit: 'manual'` change is applied).
   `commit` is now typed as always-present on a resolved filter (it was
