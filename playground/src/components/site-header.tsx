@@ -24,7 +24,7 @@ const CONFIG_SNIPPET = `const {
   // 'commit' controls WHEN a change reaches params/the URL:
   q:      f.text({ label: 'Search', commit: { debounce: 500 } }), // commit 500ms after last keystroke
   status: f.select({ label: 'Status', options, commit: 'manual' }), // commit only on apply()
-  city:   f.asyncSelect({ label: 'City', loadOptions, commit: 'manual' }),
+  product: f.asyncSelect({ label: 'Product', loadOptions, commit: 'manual' }),
 
   // Default commit is 'instant' — one filter per kind:
   min_amount: f.number({ label: 'Min amount' }),
