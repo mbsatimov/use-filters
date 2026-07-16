@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { loadOwners, loadProducts, statusOptions, tagOptions } from '@/data/mock-data';
 
-const { useFilters, f } = createFilters();
+const { useFilters, f } = createFilters({ pagination: { pageKey: 'page', perPageKey: 'perPage' } });
 
 /** Purely presentational grouping — which section each filter key renders under. */
 const SECTIONS: { title: string; keys: string[] }[] = [

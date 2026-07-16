@@ -1,4 +1,4 @@
-import type { FilterCommitMode, UseFiltersReturn } from '@mbsatimov/use-filters';
+import type { FilterCommitMode, FilterConfigMap, UseFiltersReturn } from '@mbsatimov/use-filters';
 
 import { Filter, Pencil } from 'lucide-react';
 
@@ -15,13 +15,28 @@ const DEFAULT_COMMIT_OPTIONS: { label: string; value: FilterCommitMode }[] = [
   { label: 'manual', value: 'manual' }
 ];
 
-interface StatePanelProps {
+interface StatePanelProps<
+  PP extends Record<string, number> = Record<string, number>,
+  T extends FilterConfigMap = FilterConfigMap
+> {
   defaultCommit: FilterCommitMode;
   onDefaultCommitChange: (mode: FilterCommitMode) => void;
-  filters: UseFiltersReturn;
+  // Generic over BOTH the pagination shape (`PP`) and the config map (`T`) so a
+  // concrete `useFilters(...)` return is accepted whatever its pagination keys
+  // (`createFilters({ pagination: { perPageKey } })`) or filter types. Pinning
+  // either — e.g. hardcoding `PaginationParams` — rejects a return that renamed
+  // a key; and a typed `onChange` (status's `'open' | 'closed'`) isn't
+  // assignable to one over the wide `FilterPrimitive` (parameters are
+  // contravariant), so `T` must stay generic too. StatePanel reads `filters`
+  // opaquely and just carries them through.
+  filters: UseFiltersReturn<never, PP, T>;
 }
 
-export function StatePanel({ defaultCommit, onDefaultCommitChange, filters }: StatePanelProps) {
+export function StatePanel<PP extends Record<string, number>, T extends FilterConfigMap>({
+  defaultCommit,
+  onDefaultCommitChange,
+  filters
+}: StatePanelProps<PP, T>) {
   const { params, filterMap, isFiltered, isDirty, apply, cancel, reset } = filters;
 
   const draftValues = Object.fromEntries(Object.entries(filterMap).map(([k, v]) => [k, v.value]));

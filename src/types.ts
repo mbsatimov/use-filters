@@ -5,6 +5,24 @@ import type * as React from 'react';
 export type FilterPrimitive = number | string;
 
 /**
+ * The URL value-type token for a choice filter (`select` / `multiSelect`),
+ * constrained to match the option value type `V`:
+ *
+ * - numeric options (`V` is a number) → must be `'number'`
+ * - string options (`V` is a string) → must be `'string'`
+ * - dynamic / untyped options (`V` is the open `FilterPrimitive`) → either
+ *
+ * Because it is checked against `V`, a token that contradicts the options is a
+ * compile error. The tuple wrappers stop the conditional from distributing over
+ * a union of literals (so `1 | 2` resolves to `'number'`, not `'number'`-per-member).
+ */
+export type ChoiceValueType<V extends FilterPrimitive> = [V] extends [number]
+  ? 'number'
+  : [V] extends [string]
+    ? 'string'
+    : 'number' | 'string';
+
+/**
  * Fields shared by every filter kind's `meta` — augment this for a hint that
  * makes sense everywhere (e.g. a shared layout `variant`). Every per-kind meta
  * interface below (`SelectFilterMeta`, `NumberFilterMeta`, …) extends this one,
@@ -96,21 +114,50 @@ export type FilterNuqsOptions = NuqsOptions;
  */
 export type FilterCommitMode = 'instant' | 'manual' | { debounce: number };
 
-/** A selectable option for `select` / `multiSelect` filters. */
+/**
+ * Extension point for per-option UI hints (`FilterOption.meta`) — the option
+ * counterpart to {@link FilterMeta}. Augment it once in your app for hints
+ * your option rows need (an icon, a color swatch, a shortcut label):
+ *
+ * @example
+ * declare module '@mbsatimov/use-filters' {
+ *   interface FilterOptionMeta {
+ *     icon?: React.ComponentType;
+ *     swatch?: string;
+ *   }
+ * }
+ *
+ * // usage:
+ * options: [{ label: 'Open', value: 'open', meta: { swatch: '#22c55e' } }]
+ */
+export interface FilterOptionMeta {}
+
+/**
+ * A selectable option for `select` / `multiSelect` (and their async variants).
+ * Options are **data** — everything on them flows through to `filters` /
+ * `selectedOption(s)` untouched. Rendering hints beyond `label` belong in
+ * `meta` (see {@link FilterOptionMeta}).
+ */
 export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
+  /** Facet count shown next to the option — e.g. result counts from your backend. */
   count?: number;
+  /**
+   * @deprecated Rendering hints don't belong on the headless core — declare an
+   * `icon` field on {@link FilterOptionMeta} in your app and pass it via
+   * `meta` instead (same data, typed by you). Will be removed in 1.0.
+   */
   icon?: React.FC<React.SVGProps<SVGSVGElement>>;
   label: string;
   /**
-   * Custom content rendered at the start of the option row, after the
-   * checkbox and in place of `icon` — e.g. a color swatch or an avatar.
-   * Takes priority over `icon` when both are set.
+   * @deprecated Like `icon` — move custom row content into `meta` (see
+   * {@link FilterOptionMeta}). Will be removed in 1.0.
    */
   leftSlot?: React.ReactNode;
+  /** Project-specific UI hints for this option. See {@link FilterOptionMeta}. */
+  meta?: FilterOptionMeta;
   /**
-   * Custom content rendered at the end of the option row, in place of the
-   * `count` badge — e.g. a shortcut hint or a secondary value. Takes
-   * priority over `count` when both are set.
+   * @deprecated Like `icon` — move custom row content into `meta` (see
+   * {@link FilterOptionMeta}). Will be removed in 1.0.
    */
   rightSlot?: React.ReactNode;
   value: V;
@@ -120,7 +167,11 @@ export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
 export type FilterType = FilterConfig['type'];
 
 interface FilterBase {
-  /** Extra classes for the control wrapper. */
+  /**
+   * @deprecated Styling hints don't belong on the headless core — declare a
+   * `className` field on {@link FilterMeta} in your app and pass it via
+   * `meta` instead (same data, typed by you). Will be removed in 1.0.
+   */
   className?: string;
   /**
    * When this filter's change reaches `params`/the URL — `'instant'` (default),
@@ -266,6 +317,17 @@ export interface SelectFilterConfig<
   meta?: SelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'select';
+  /**
+   * How this filter's value round-trips through the URL — `'number'` or
+   * `'string'`. Inferred from `options` when they're static, so you rarely set
+   * it. **Set it when the options are fetched at runtime:** the same config is
+   * then also used somewhere the options aren't loaded (a route loader calling
+   * `resolveFilterParams`), where the inference has nothing to read and the two
+   * call sites can otherwise disagree on the value type. An explicit token makes
+   * parsing deterministic and identical everywhere. Type-checked against the
+   * option value type, so it can't contradict them. See {@link ChoiceValueType}.
+   */
+  valueType?: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface AsyncSelectFilterConfig<
@@ -280,9 +342,11 @@ export interface AsyncSelectFilterConfig<
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';
   /**
-   * Fetch options matching the search text — called (debounced) on every
-   * keystroke, so search runs server-side. Return a reasonably small page
-   * (e.g. `limit: 20`); results are cached per search string.
+   * Fetch options matching the search text — search runs server-side. Calls
+   * within `searchDebounceMs` of each other collapse into one request, and
+   * `signal` aborts stale ones. Return a reasonably small page (e.g.
+   * `limit: 20`). Results are **not** cached — pair with your data layer
+   * (React Query etc.) if you want caching.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -299,9 +363,11 @@ export interface AsyncMultiSelectFilterConfig<
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';
   /**
-   * Fetch options matching the search text — called (debounced) on every
-   * keystroke, so search runs server-side. Return a reasonably small page
-   * (e.g. `limit: 20`); results are cached per search string.
+   * Fetch options matching the search text — search runs server-side. Calls
+   * within `searchDebounceMs` of each other collapse into one request, and
+   * `signal` aborts stale ones. Return a reasonably small page (e.g.
+   * `limit: 20`). Results are **not** cached — pair with your data layer
+   * (React Query etc.) if you want caching.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -315,6 +381,14 @@ export interface MultiSelectFilterConfig<
   meta?: MultiSelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'multiSelect';
+  /**
+   * How this filter's values round-trip through the URL — `'number'` or
+   * `'string'`. Inferred from `options` when they're static; **set it when the
+   * options are fetched at runtime** so `resolveFilterParams` (which sees no
+   * options in a loader) parses the same type the hook does. Type-checked
+   * against the option value type. See {@link ChoiceValueType}.
+   */
+  valueType?: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface TagsFilterConfig extends FilterBase {

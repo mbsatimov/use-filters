@@ -1,0 +1,45 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: e.g. 0.8.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Framework/router + adapter, nuqs version, React version
+      placeholder: e.g. Next.js 15 App Router, nuqs 2.6, React 19
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The filter config, the URL you start from, and the steps. A snippet is
+        usually enough; a StackBlitz/repo link is even better. Please check the
+        live playground (https://use-filters.vercel.app) first to rule out
+        app-specific setup.
+      placeholder: |
+        ```ts
+        const { params } = useFilters({
+          status: f.select({ label: 'Status', options })
+        });
+        ```
+        1. Open /loans?status=open
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+      description: What did you expect `params` / the URL / the resolved filter to be, and what happened instead?
+    validations:
+      required: true

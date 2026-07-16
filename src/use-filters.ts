@@ -25,8 +25,11 @@ import {
   buildParser,
   debounceAsync,
   DEFAULT_ASYNC_DEBOUNCE_MS,
+  fingerprintNuqsOptions,
   hasFilterValue,
   labelKeyOf,
+  reparseChoiceValue,
+  resolveChoiceValueType,
   valuesEqual
 } from './lib';
 
@@ -55,6 +58,38 @@ const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
   config.defaultValue !== undefined
     ? !valuesEqual(value, config.defaultValue)
     : hasFilterValue(value);
+
+/**
+ * Dev-only guard for a silent async-filter footgun: `valueType` defaults to
+ * `'number'`, so string ids (UUIDs, slugs) parse from the URL as `null` unless
+ * `valueType: 'string'` is set — with no signal that anything is wrong. Wraps
+ * `loadOptions` to compare the resolved options' actual value type against the
+ * configured one and warn once per filter. Pass-through in production builds.
+ */
+const withValueTypeCheck = (
+  key: string,
+  config: AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig,
+  warned: Set<string>
+): ((search: string, signal: AbortSignal) => Promise<FilterOption[]>) => {
+  if (process.env.NODE_ENV === 'production') return config.loadOptions;
+  return async (search, signal) => {
+    const options = await config.loadOptions(search, signal);
+    const expected = config.valueType ?? 'number';
+    const sample = options.find((option) => option.value != null);
+    const actual = typeof sample?.value === 'number' ? 'number' : 'string';
+    if (sample && actual !== expected && !warned.has(key)) {
+      warned.add(key);
+      console.warn(
+        `[useFilters] "${key}": loadOptions returned ${actual}-valued options, but its valueType is '${expected}'${
+          config.valueType === undefined ? ' (the default)' : ''
+        } — URL values won't round-trip${
+          expected === 'number' ? ' (string ids parse back as null)' : ''
+        }. Set valueType: '${actual}' on this filter.`
+      );
+    }
+    return options;
+  };
+};
 
 export interface UseFiltersOptions {
   /**
@@ -266,20 +301,29 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     );
 
     // Structural fingerprint of everything that affects parser construction
-    // (keys, types, defaults, value/precision, per-filter nuqs opts). Consumers
-    // routinely pass an inline config literal — a new object every render — so
-    // memoizing `parsers` on the `configs`/`entries` *reference* would rebuild
-    // them (and re-key `useQueryStates`) on every render. Keying on this
-    // fingerprint instead keeps URL state stable regardless of config identity.
+    // (keys, types, defaults, value family/precision, per-filter nuqs opts).
+    // Consumers routinely pass an inline config literal — a new object every
+    // render — so memoizing `parsers` on the `configs`/`entries` *reference*
+    // would rebuild them (and re-key `useQueryStates`) on every render. Keying
+    // on this fingerprint instead keeps URL state stable regardless of config
+    // identity.
     const parserSignature = React.useMemo(
       () =>
         entries
-          .map(
-            ([key, config]) =>
-              `${key}:${config.type}:${(config as { valueType?: string }).valueType ?? ''}:${
-                (config as { precision?: string }).precision ?? ''
-              }:${JSON.stringify(config.defaultValue ?? null)}:${config.nuqs ? '1' : '0'}`
-          )
+          .map(([key, config]) => {
+            // select/multiSelect pick a numeric or string parser from their
+            // options' values. Backend-driven options often start `[]` and
+            // arrive on a later render, so the resolved value family must be
+            // part of the signature — otherwise the first (string) parser
+            // sticks and `?ids=1,2` stays `['1','2']` forever.
+            const valueFamily =
+              config.type === 'select' || config.type === 'multiSelect'
+                ? resolveChoiceValueType(config)
+                : ((config as { valueType?: string }).valueType ?? '');
+            return `${key}:${config.type}:${valueFamily}:${
+              (config as { precision?: string }).precision ?? ''
+            }:${JSON.stringify(config.defaultValue ?? null)}:${fingerprintNuqsOptions(config.nuqs)}`;
+          })
           .join('|'),
       [entries]
     );
@@ -324,7 +368,24 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // eslint-disable-next-line react/exhaustive-deps
     }, [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]);
 
-    const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
+    const [rawValues, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
+
+    // nuqs caches parsed state per query string, so when a select/multiSelect's
+    // value family changes at runtime (backend-driven options arriving after
+    // mount), an already-committed param keeps its stale parse even though the
+    // parser map above was rebuilt. Normalize such values through the current
+    // parser so every read below matches a fresh mount (see `reparseChoiceValue`).
+    const values = React.useMemo(() => {
+      let normalized: Record<string, unknown> | undefined;
+      for (const [key, config] of entries) {
+        const reparsed = reparseChoiceValue(config, rawValues[key], arraySeparator);
+        if (reparsed !== rawValues[key]) {
+          normalized ??= { ...rawValues };
+          normalized[key] = reparsed;
+        }
+      }
+      return (normalized ?? rawValues) as typeof rawValues;
+    }, [rawValues, entries, arraySeparator]);
 
     // Draft layer: changes for non-`instant` filters land here first and only
     // reach `values`/the URL once their `commit` mode fires (a debounce timer,
@@ -348,6 +409,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         }
       >
     >({});
+
+    // Filter keys already warned about a loadOptions/valueType mismatch (dev
+    // only) — one warning per filter, not one per keystroke.
+    const warnedValueTypesRef = React.useRef<Set<string>>(new Set());
 
     const clearTimer = React.useCallback((key: string) => {
       const timer = timersRef.current[key];
@@ -539,7 +604,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
             cached.loadOptions === asyncConfig.loadOptions &&
             cached.debounceMs === debounceMs
               ? cached.wrapped
-              : debounceAsync(asyncConfig.loadOptions, debounceMs);
+              : debounceAsync(
+                  withValueTypeCheck(key, asyncConfig, warnedValueTypesRef.current),
+                  debounceMs
+                );
           debouncedLoadOptionsRef.current[key] = {
             debounceMs,
             loadOptions: asyncConfig.loadOptions,

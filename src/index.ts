@@ -12,6 +12,7 @@ export {
   toDateTimeValue,
   toDateValue
 } from './lib';
+export type { RawSearchParams } from './lib';
 export type {
   AsyncMultiSelectFilterConfig,
   AsyncMultiSelectFilterMeta,
@@ -19,6 +20,7 @@ export type {
   AsyncSelectFilterMeta,
   BooleanFilterConfig,
   BooleanFilterMeta,
+  ChoiceValueType,
   DateConfig,
   DateFilterConfig,
   DateFilterMeta,
@@ -30,6 +32,7 @@ export type {
   FilterMeta,
   FilterNuqsOptions,
   FilterOption,
+  FilterOptionMeta,
   FilterParams,
   FilterPrimitive,
   FiltersConfig,

@@ -174,6 +174,11 @@ export const f = {
    *
    * `params.<key>` → `V | null` (where `V` is your option value type)
    *
+   * With static options the value type is inferred from them. If the options
+   * are **fetched at runtime**, set `valueType: 'number' | 'string'` so parsing
+   * stays identical where the options aren't loaded (e.g. `resolveFilterParams`
+   * in a route loader) — it's type-checked against your option values.
+   *
    * @example
    * status: f.select({
    *   label: 'Status',
@@ -183,6 +188,10 @@ export const f = {
    *   ]
    * })
    * // params.status -> 'open' | 'closed' | null
+   *
+   * @example
+   * // options fetched later — declare the value type up front
+   * customer_id: f.select({ label: 'Customer', valueType: 'number', options: [] })
    */
   select: <const V extends FilterPrimitive>(
     config: Omit<SelectFilterConfig<V>, 'type'>
