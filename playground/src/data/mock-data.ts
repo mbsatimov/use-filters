@@ -55,7 +55,7 @@ export const loadOwners = async (search: string, signal?: AbortSignal): Promise<
   }));
 };
 
-export const statusOptions: FilterOption[] = [
+export const statusOptions: { value: 'open' | 'in_progress' | 'closed'; label: string }[] = [
   { label: 'Open', value: 'open' },
   { label: 'In progress', value: 'in_progress' },
   { label: 'Closed', value: 'closed' }

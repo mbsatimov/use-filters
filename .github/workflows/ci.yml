@@ -6,6 +6,24 @@ on:
     branches: [main]
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run build
+      # Validate that the published types resolve under every module system
+      # (node10 / node16 CJS / node16 ESM / bundler) — guards the exports map.
+      - run: npm run check:exports
+      # Defend the "lightweight" claim: fails if dist exceeds the size budget.
+      - run: npm run size
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -17,9 +35,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version-file: .nvmrc
       - run: npm ci
       - run: npm install --no-save react@${{ matrix.react }} react-dom@${{ matrix.react }}
       - run: npm run typecheck
       - run: npm run test
-      - run: npm run build

@@ -51,14 +51,59 @@ describe('useFilters — params', () => {
 
 describe('useFilters — pagination', () => {
   it('resets to the first page on filter change', () => {
-    const { result } = renderFilters({
-      status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
-    });
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
+        }),
+      { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
+    );
+    expect(result.current.params.page).toBe(3);
 
     act(() => {
       result.current.setFilter('status', 'a');
     });
     expect(result.current.params.page).toBe(1);
+  });
+
+  it('keeps the page on filter change with `resetPageOnFilterChange: false` (factory)', () => {
+    const noReset = createFilters({ pagination: { resetPageOnFilterChange: false } });
+    const { result } = renderHook(
+      () =>
+        noReset.useFilters({
+          status: noReset.f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
+        }),
+      { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
+    );
+
+    act(() => {
+      result.current.setFilter('status', 'a');
+    });
+    expect(result.current.params.status).toBe('a');
+    expect(result.current.params.page).toBe(3);
+
+    // The whole-set reset() clears filters but leaves the page alone too.
+    act(() => {
+      result.current.reset();
+    });
+    expect(result.current.params.status).toBeNull();
+    expect(result.current.params.page).toBe(3);
+  });
+
+  it('per-call `pagination: { resetPageOnFilterChange: false }` overrides the factory', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters(
+          { status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] }) },
+          { pagination: { resetPageOnFilterChange: false } }
+        ),
+      { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
+    );
+
+    act(() => {
+      result.current.setFilter('status', 'a');
+    });
+    expect(result.current.params.page).toBe(3);
   });
 
   it('exposes params under the configured keys (renamed perPageKey)', () => {
@@ -183,9 +228,11 @@ describe('useFilters — async loadOptions debouncing', () => {
   afterEach(() => vi.useRealTimers());
 
   it('collapses rapid loadOptions calls into a single underlying call', async () => {
+    // valueType 'string' matches the string-valued options, so the dev-mode
+    // loadOptions/valueType mismatch warning stays quiet.
     const loadOptions = vi.fn(async (search: string) => [{ label: search, value: search }]);
     const { result } = renderFilters({
-      customer_id: f.asyncSelect({ label: 'Customer', loadOptions })
+      customer_id: f.asyncSelect({ label: 'Customer', valueType: 'string', loadOptions })
     });
 
     void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);

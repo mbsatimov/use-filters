@@ -40,6 +40,39 @@ describe('resolveFilterParams — filter values', () => {
   });
 });
 
+describe('resolveFilterParams — raw search shapes', () => {
+  const { f, resolveFilterParams } = createFilters();
+
+  const configs = {
+    search: f.text({ label: 'Search' }),
+    customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] }),
+    tags: f.tags({ label: 'Tags' })
+  };
+
+  it('accepts a URLSearchParams (React Router loaders)', () => {
+    const search = new URL('https://x.test/loans?search=acme&customer_id=5&page=3').searchParams;
+    const params = resolveFilterParams(configs, search);
+    expect(params).toEqual({ search: 'acme', customer_id: 5, tags: null, page: 3, per_page: 10 });
+  });
+
+  it('accepts a raw query string, with or without the leading "?"', () => {
+    const expected = { search: 'acme', customer_id: 5, tags: ['a', 'b'], page: 1, per_page: 10 };
+    expect(resolveFilterParams(configs, '?search=acme&customer_id=5&tags=a,b')).toEqual(expected);
+    expect(resolveFilterParams(configs, 'search=acme&customer_id=5&tags=a,b')).toEqual(expected);
+  });
+
+  it('produces the identical object for every shape (queryKey parity)', () => {
+    const fromObject = resolveFilterParams(configs, { search: 'acme', customer_id: '5' });
+    const fromString = resolveFilterParams(configs, '?search=acme&customer_id=5');
+    const fromSearchParams = resolveFilterParams(
+      configs,
+      new URLSearchParams('search=acme&customer_id=5')
+    );
+    expect(fromString).toEqual(fromObject);
+    expect(fromSearchParams).toEqual(fromObject);
+  });
+});
+
 describe('resolveFilterParams — pagination', () => {
   const { f, resolveFilterParams } = createFilters();
   const configs = { search: f.text({ label: 'Search' }) };

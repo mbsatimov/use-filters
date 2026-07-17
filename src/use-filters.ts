@@ -25,8 +25,11 @@ import {
   buildParser,
   debounceAsync,
   DEFAULT_ASYNC_DEBOUNCE_MS,
+  fingerprintNuqsOptions,
   hasFilterValue,
   labelKeyOf,
+  reparseChoiceValue,
+  resolveChoiceValueType,
   valuesEqual
 } from './lib';
 
@@ -55,6 +58,38 @@ const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
   config.defaultValue !== undefined
     ? !valuesEqual(value, config.defaultValue)
     : hasFilterValue(value);
+
+/**
+ * Dev-only guard for a silent async-filter footgun: `valueType` defaults to
+ * `'number'`, so string ids (UUIDs, slugs) parse from the URL as `null` unless
+ * `valueType: 'string'` is set — with no signal that anything is wrong. Wraps
+ * `loadOptions` to compare the resolved options' actual value type against the
+ * configured one and warn once per filter. Pass-through in production builds.
+ */
+const withValueTypeCheck = (
+  key: string,
+  config: AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig,
+  warned: Set<string>
+): ((search: string, signal: AbortSignal) => Promise<FilterOption[]>) => {
+  if (process.env.NODE_ENV === 'production') return config.loadOptions;
+  return async (search, signal) => {
+    const options = await config.loadOptions(search, signal);
+    const expected = config.valueType ?? 'number';
+    const sample = options.find((option) => option.value != null);
+    const actual = typeof sample?.value === 'number' ? 'number' : 'string';
+    if (sample && actual !== expected && !warned.has(key)) {
+      warned.add(key);
+      console.warn(
+        `[useFilters] "${key}": loadOptions returned ${actual}-valued options, but its valueType is '${expected}'${
+          config.valueType === undefined ? ' (the default)' : ''
+        } — URL values won't round-trip${
+          expected === 'number' ? ' (string ids parse back as null)' : ''
+        }. Set valueType: '${actual}' on this filter.`
+      );
+    }
+    return options;
+  };
+};
 
 export interface UseFiltersOptions {
   /**
@@ -190,6 +225,60 @@ export interface UseFiltersReturn<
 }
 
 /**
+ * The return of *any* `useFilters` call, whatever config produced it — for
+ * pass-through components (a shared filter toolbar, a debug panel, a mobile
+ * filter sheet) that receive a `useFilters` return as a prop and read it
+ * opaquely. Every concrete return is assignable to this, so such a component
+ * needs no generics:
+ *
+ * @example
+ * interface FilterSheetProps {
+ *   filters: AnyUseFiltersReturn;
+ * }
+ * function FilterSheet({ filters }: FilterSheetProps) {
+ *   return (
+ *     <>
+ *       {filters.filters.map((f) => <MyControl key={f.key} filter={f} />)}
+ *       <button disabled={!filters.isDirty} onClick={filters.apply}>Apply</button>
+ *     </>
+ *   );
+ * }
+ *
+ * What loosens compared to the concrete return: `params` values are `unknown`,
+ * `filterMap` is keyed by `string` (values are the same `ResolvedFilter` union
+ * as `filters`), and `setFilter` is uncallable — a component that doesn't know
+ * the keys can't name one anyway; change values through the typed handlers on
+ * each resolved filter (`onChange`, `reset`, …). The call site's own return
+ * stays fully typed — this only describes the prop.
+ */
+export interface AnyUseFiltersReturn {
+  /** Same as the concrete return's `filterMap`, keyed by `string`. Includes hidden filters. */
+  filterMap: Record<string, ResolvedFilter>;
+  /** Resolved filters (config + value + handlers) — same as the concrete return. */
+  filters: ResolvedFilter[];
+  /** `true` when at least one filter has a change that hasn't reached the URL yet. */
+  isDirty: boolean;
+  /** `true` when at least one filter is active. */
+  isFiltered: boolean;
+  /** The `meta` passed to `useFilters` (or `{}` when omitted). */
+  meta: FiltersMeta;
+  /** Current values (plus pagination) — values are `unknown` here since the keys aren't known. */
+  params: Record<string, unknown>;
+  /** Commit every pending change at once. */
+  apply: () => void;
+  /** Discard every pending change. */
+  cancel: () => void;
+  /** Clear every filter at once. */
+  reset: () => void;
+  /**
+   * Present so the shape matches the concrete return, but uncallable here
+   * (`never` keys): a pass-through component doesn't know the config's keys.
+   * Use the typed handlers on each resolved filter instead.
+   */
+  setFilter: (key: never, value: never) => void;
+}
+
+/**
  * Build a `useFilters` hook bound to a resolved per-project config. You don't
  * call this yourself — `createFilters` does, and re-exports the resulting hook
  * (plus a matching `resolveFilterParams`) so both share the same constants.
@@ -250,13 +339,18 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     } = options;
 
     // `pagination` is `false` (off), `true`/omitted (factory as-is), or an
-    // object overriding the per-call-safe `defaultPerPage`. Keys / `firstPage`
-    // always come from the factory so `params` matches `resolveFilterParams`.
+    // object overriding the per-call-safe fields (`defaultPerPage`,
+    // `resetPageOnFilterChange`). Keys / `firstPage` always come from the
+    // factory so `params` matches `resolveFilterParams`.
     const paginationEnabled = pagination !== false;
     const defaultPerPage =
       typeof pagination === 'object'
         ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
         : cfg.defaultPerPage;
+    const resetPageOnFilterChange =
+      typeof pagination === 'object'
+        ? (pagination.resetPageOnFilterChange ?? cfg.resetPageOnFilterChange)
+        : cfg.resetPageOnFilterChange;
 
     const entries = React.useMemo(
       // `T` may be an all-optional map when `P` is given; runtime only ever sees
@@ -266,20 +360,29 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     );
 
     // Structural fingerprint of everything that affects parser construction
-    // (keys, types, defaults, value/precision, per-filter nuqs opts). Consumers
-    // routinely pass an inline config literal — a new object every render — so
-    // memoizing `parsers` on the `configs`/`entries` *reference* would rebuild
-    // them (and re-key `useQueryStates`) on every render. Keying on this
-    // fingerprint instead keeps URL state stable regardless of config identity.
+    // (keys, types, defaults, value family/precision, per-filter nuqs opts).
+    // Consumers routinely pass an inline config literal — a new object every
+    // render — so memoizing `parsers` on the `configs`/`entries` *reference*
+    // would rebuild them (and re-key `useQueryStates`) on every render. Keying
+    // on this fingerprint instead keeps URL state stable regardless of config
+    // identity.
     const parserSignature = React.useMemo(
       () =>
         entries
-          .map(
-            ([key, config]) =>
-              `${key}:${config.type}:${(config as { valueType?: string }).valueType ?? ''}:${
-                (config as { precision?: string }).precision ?? ''
-              }:${JSON.stringify(config.defaultValue ?? null)}:${config.nuqs ? '1' : '0'}`
-          )
+          .map(([key, config]) => {
+            // select/multiSelect pick a numeric or string parser from their
+            // options' values. Backend-driven options often start `[]` and
+            // arrive on a later render, so the resolved value family must be
+            // part of the signature — otherwise the first (string) parser
+            // sticks and `?ids=1,2` stays `['1','2']` forever.
+            const valueFamily =
+              config.type === 'select' || config.type === 'multiSelect'
+                ? resolveChoiceValueType(config)
+                : ((config as { valueType?: string }).valueType ?? '');
+            return `${key}:${config.type}:${valueFamily}:${
+              (config as { precision?: string }).precision ?? ''
+            }:${JSON.stringify(config.defaultValue ?? null)}:${fingerprintNuqsOptions(config.nuqs)}`;
+          })
           .join('|'),
       [entries]
     );
@@ -324,7 +427,24 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // eslint-disable-next-line react/exhaustive-deps
     }, [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]);
 
-    const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
+    const [rawValues, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
+
+    // nuqs caches parsed state per query string, so when a select/multiSelect's
+    // value family changes at runtime (backend-driven options arriving after
+    // mount), an already-committed param keeps its stale parse even though the
+    // parser map above was rebuilt. Normalize such values through the current
+    // parser so every read below matches a fresh mount (see `reparseChoiceValue`).
+    const values = React.useMemo(() => {
+      let normalized: Record<string, unknown> | undefined;
+      for (const [key, config] of entries) {
+        const reparsed = reparseChoiceValue(config, rawValues[key], arraySeparator);
+        if (reparsed !== rawValues[key]) {
+          normalized ??= { ...rawValues };
+          normalized[key] = reparsed;
+        }
+      }
+      return (normalized ?? rawValues) as typeof rawValues;
+    }, [rawValues, entries, arraySeparator]);
 
     // Draft layer: changes for non-`instant` filters land here first and only
     // reach `values`/the URL once their `commit` mode fires (a debounce timer,
@@ -348,6 +468,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         }
       >
     >({});
+
+    // Filter keys already warned about a loadOptions/valueType mismatch (dev
+    // only) — one warning per filter, not one per keystroke.
+    const warnedValueTypesRef = React.useRef<Set<string>>(new Set());
 
     const clearTimer = React.useCallback((key: string) => {
       const timer = timersRef.current[key];
@@ -406,11 +530,12 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         const updates: Record<string, ParamValue> = { [key]: value ?? null };
         // Keep the label sidecar in sync — cleared together, written together.
         if (config && asyncKindOf(config)) updates[labelKeyOf(key)] = labels;
-        // Changing any filter returns to the first page.
-        if (paginationEnabled) updates[pageKey] = null;
+        // Changing any filter returns to the first page (unless opted out —
+        // `resetPageOnFilterChange: false` means the hook never writes the page).
+        if (paginationEnabled && resetPageOnFilterChange) updates[pageKey] = null;
         void setValues(updates);
       },
-      [setValues, paginationEnabled, configByKey]
+      [setValues, paginationEnabled, resetPageOnFilterChange, configByKey]
     );
 
     // Route a change through its filter's `commit` mode. `instant` writes to the
@@ -539,7 +664,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
             cached.loadOptions === asyncConfig.loadOptions &&
             cached.debounceMs === debounceMs
               ? cached.wrapped
-              : debounceAsync(asyncConfig.loadOptions, debounceMs);
+              : debounceAsync(
+                  withValueTypeCheck(key, asyncConfig, warnedValueTypesRef.current),
+                  debounceMs
+                );
           debouncedLoadOptionsRef.current[key] = {
             debounceMs,
             loadOptions: asyncConfig.loadOptions,
@@ -694,9 +822,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         cleared[key] = (config.defaultValue ?? null) as ParamValue;
         if (asyncKindOf(config)) cleared[labelKeyOf(key)] = null;
       }
-      if (paginationEnabled) cleared[pageKey] = null;
+      if (paginationEnabled && resetPageOnFilterChange) cleared[pageKey] = null;
       void setValues(cleared);
-    }, [paginationEnabled, setValues, entries]);
+    }, [paginationEnabled, resetPageOnFilterChange, setValues, entries]);
 
     return {
       params,

@@ -1,4 +1,4 @@
-import type { FilterCommitMode, UseFiltersReturn } from '@mbsatimov/use-filters';
+import type { AnyUseFiltersReturn, FilterCommitMode } from '@mbsatimov/use-filters';
 
 import { Filter, Pencil } from 'lucide-react';
 
@@ -18,11 +18,18 @@ const DEFAULT_COMMIT_OPTIONS: { label: string; value: FilterCommitMode }[] = [
 interface StatePanelProps {
   defaultCommit: FilterCommitMode;
   onDefaultCommitChange: (mode: FilterCommitMode) => void;
-  filters: UseFiltersReturn;
+  // `AnyUseFiltersReturn` accepts the return of any `useFilters` call,
+  // whatever its config or pagination keys — the type made for pass-through
+  // components like this one, which read the set opaquely.
+  filtersConfig: AnyUseFiltersReturn;
 }
 
-export function StatePanel({ defaultCommit, onDefaultCommitChange, filters }: StatePanelProps) {
-  const { params, filterMap, isFiltered, isDirty, apply, cancel, reset } = filters;
+export function StatePanel({
+  defaultCommit,
+  onDefaultCommitChange,
+  filtersConfig
+}: StatePanelProps) {
+  const { params, filterMap, isFiltered, isDirty, apply, cancel, reset } = filtersConfig;
 
   const draftValues = Object.fromEntries(Object.entries(filterMap).map(([k, v]) => [k, v.value]));
 

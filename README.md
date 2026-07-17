@@ -1,5 +1,10 @@
 # @mbsatimov/use-filters
 
+[![npm version](https://img.shields.io/npm/v/%40mbsatimov%2Fuse-filters?color=cb3837)](https://www.npmjs.com/package/@mbsatimov/use-filters)
+[![CI](https://github.com/mbsatimov/use-filters/actions/workflows/ci.yml/badge.svg)](https://github.com/mbsatimov/use-filters/actions/workflows/ci.yml)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/%40mbsatimov%2Fuse-filters?label=min%2Bgzip)](https://bundlephobia.com/package/@mbsatimov/use-filters)
+[![license](https://img.shields.io/npm/l/%40mbsatimov%2Fuse-filters)](./LICENSE)
+
 Headless, URL-synced filter state for React. You declare your filters once as a
 plain object; the hook keeps their state in the URL query string and hands back
 a typed `params` object for fetching data plus ready-to-render filter state. It
@@ -248,6 +253,45 @@ with nuqs directly and spread it into your query key next to `params`, or ask fo
 a `useSort` companion bound to the same `createFilters` config — open an issue if
 you'd like that built in.
 
+### Pass-through components: `AnyUseFiltersReturn`
+
+A shared component that receives a whole `useFilters` return as a prop — a
+design-system filter toolbar, a mobile filter sheet, a debug panel — doesn't
+know which config produced it, so its prop can't name the concrete return
+type. Type it `AnyUseFiltersReturn` and skip the generics:
+
+```tsx
+import type { AnyUseFiltersReturn } from '@mbsatimov/use-filters';
+
+interface FilterSheetProps {
+  filters: AnyUseFiltersReturn; // the return of ANY useFilters call
+}
+
+function FilterSheet({ filters }: FilterSheetProps) {
+  return (
+    <>
+      {filters.filters.map((f) => (
+        <MyControl key={f.key} filter={f} />
+      ))}
+      <button disabled={!filters.isDirty} onClick={filters.apply}>
+        Apply
+      </button>
+    </>
+  );
+}
+
+// Any call site just passes its (fully typed) return:
+const filters = useFilters({ status: f.select({ label: 'Status', options }) });
+<FilterSheet filters={filters} />;
+```
+
+Reads stay typed — `filters.filters` is the usual `ResolvedFilter[]`, and
+`filterMap` is the same map keyed by `string`. What loosens is only what a
+key-agnostic component couldn't use anyway: `params` values are `unknown`, and
+`setFilter` is uncallable (change values through each resolved filter's own
+typed handlers instead). The call site's return stays fully typed — this type
+only describes the prop.
+
 ## Filter kinds
 
 Build every filter with an `f.*` helper. The builder decides how the value is
@@ -263,8 +307,8 @@ parsed and what type appears in `params`.
 | `f.dateRange`        | A from–to range (date or date + time) | `[string, string] \| null` | `precision: 'date' \| 'datetime'`              |
 | `f.time`             | A time of day (no date)               | `string \| null`           | `precision: 'minute' \| 'second'`              |
 | `f.timeRange`        | A from–to time-of-day range (no date) | `[string, string] \| null` | `precision: 'minute' \| 'second'`              |
-| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`                                      |
-| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`                                      |
+| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`, `valueType`                         |
+| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`, `valueType`                         |
 | `f.tags`             | Freeform string list (no options)     | `string[] \| null`         | —                                              |
 | `f.asyncSelect`      | One choice, **server-searched** by id | `V \| null`                | `loadOptions`, `valueType`, `searchDebounceMs` |
 | `f.asyncMultiSelect` | Many choices, **server-searched**     | `V[] \| null`              | `loadOptions`, `valueType`, `searchDebounceMs` |
@@ -273,8 +317,18 @@ parsed and what type appears in `params`.
 options give `number | null`, a status enum gives `Status | null`, and so on —
 no annotations needed.
 
+> **Fetching `select` / `multiSelect` options at runtime?** Add
+> `valueType: 'number' | 'string'`. The value type is normally inferred from
+> `options`, but if the same config is also used where the options aren't loaded
+> — a route loader calling `resolveFilterParams` — that inference has nothing to
+> read and the two sites can parse the URL to **different types** (`5` vs `'5'`),
+> splitting your query key. `valueType` is the static source of truth that keeps
+> them identical; it's type-checked against your option values, and dev builds
+> warn if a loader hits an options-less choice filter without it. See
+> [Choosing a value type](#choosing-a-value-type-for-fetched-options).
+
 Every kind also accepts the shared options `label` (required), `placeholder`,
-`defaultValue`, `hidden`, `className`, `meta`, and `nuqs` (see
+`defaultValue`, `hidden`, `meta`, and `nuqs` (see
 [API reference](#per-filter-options-shared-by-every-kind)).
 
 ## Typing `params` from your API
@@ -340,6 +394,17 @@ export const { useFilters } = createFilters({
 });
 ```
 
+**Managing the page entirely yourself?** By default, changing any filter resets
+the page to `firstPage` (a changed filter invalidates the old result window).
+If pagination is driven outside the hook and it should never write the page
+param, opt out — factory-wide or per call:
+
+```ts
+createFilters({ pagination: { resetPageOnFilterChange: false } });
+// or for one screen:
+useFilters(configs, { pagination: { resetPageOnFilterChange: false } });
+```
+
 **Offset-based API?** There's no built-in mapping — derive `limit` / `offset`
 where you fetch, straight from `params`:
 
@@ -365,6 +430,40 @@ See the [config reference](#createfilters-config) for every option.
 > read context. Closing over them keeps the hook and the loader helper in lockstep
 > (so their query keys match), with no runtime context lookup and full type safety.
 
+### Multiple APIs, multiple conventions: one factory each
+
+In a large project, different backends often page differently — one uses
+`page` / `per_page` (1-based), another `page` / `page_size` (0-based). The
+pagination keys and `firstPage` are deliberately **not** overridable per
+`useFilters` call: if they were, every call site and its paired
+`resolveFilterParams` loader would have to repeat the same override, and the
+moment one drifted, the hook and loader would silently disagree (wrong query
+keys, wrong page resets). Instead, create **one factory per API convention**
+and name the exports:
+
+```ts
+// src/lib/filters/crm.ts — 1-based, page/per_page
+export const {
+  useFilters: useCrmFilters,
+  resolveFilterParams: resolveCrmParams,
+  f
+} = createFilters({
+  pagination: { pageKey: 'page', perPageKey: 'per_page' }
+});
+
+// src/lib/filters/billing.ts — 0-based, page/page_size
+export const { useFilters: useBillingFilters, resolveFilterParams: resolveBillingParams } =
+  createFilters({
+    pagination: { perPageKey: 'page_size', firstPage: 0 }
+  });
+```
+
+Each factory is a self-documenting statement of one API's conventions, each
+hook's `params` is typed to its own keys, and the hook/loader pairing is
+guaranteed by construction — it's impossible to use billing pagination on a
+CRM route by accident. (`defaultPerPage` **is** per-call overridable, because
+it changes no keys and no shape — just a default number.)
+
 ## Route loaders: `resolveFilterParams`
 
 If you prefetch data in a route loader (TanStack Router, React Router), you need
@@ -373,15 +472,25 @@ on mount — otherwise the prefetch lands under a different query key and gets
 thrown away. `resolveFilterParams` is that framework-agnostic twin:
 
 ```ts
-// TanStack Router
+// TanStack Router — search is already a parsed object
 loader: ({ context: { queryClient }, location: { search } }) =>
   queryClient.ensureQueryData(loanQueryOptions(resolveFilterParams(loanFilterConfigs, search)));
 ```
 
-It takes your config map and the raw search params, applies the same defaults
-and pagination mapping as the hook, coerces values to the same types (so
-`?status=5` becomes `5`, not `'5'`), and drops extras like async `_label`
-sidecars. Share the same config map object between the loader and the hook.
+```ts
+// React Router — pass the URLSearchParams straight in
+export async function loader({ request }: LoaderFunctionArgs) {
+  const params = resolveFilterParams(loanFilterConfigs, new URL(request.url).searchParams);
+  return queryClient.ensureQueryData(loanQueryOptions(params));
+}
+```
+
+It accepts the raw search in whatever shape your router provides — a parsed
+object, a `URLSearchParams`, or the raw `location.search` string — applies the
+same defaults and pagination mapping as the hook, coerces values to the same
+types (so `?status=5` becomes `5`, not `'5'`), and drops extras like async
+`_label` sidecars. Share the same config map object between the loader and the
+hook.
 
 ## Async (server-searched) filters
 
@@ -419,6 +528,54 @@ value and label together, so you never have to manage the sidecar yourself:
 
 The `_label` params are display-only and never appear in `params` sent to your
 API. (One rule: don't name a filter `something_label` — that suffix is reserved.)
+
+**String ids?** Async values round-trip through the URL as **numbers by
+default** — a string id (UUID, slug) would parse back as `null`. Set
+`valueType: 'string'` on the filter to match. Development builds warn when
+`loadOptions` resolves options whose values contradict the configured
+`valueType`, so this can't fail silently.
+
+### Choosing a value type for fetched options
+
+A `select` / `multiSelect` stores either numbers or strings in the URL, and it
+has to parse them back to the **same** runtime type everywhere the config is
+used — otherwise `params` from the hook and `params` from a route loader are
+different objects and their query keys don't match. With static `options` the
+type is inferred from them. But a very common setup breaks that inference:
+
+```tsx
+// The options are fetched, so the loader and the component build the config
+// with DIFFERENT options — the loader has none.
+const configs = {
+  // ❌ no valueType: the component (numeric options loaded) parses `?customer_id=5`
+  //    as the number 5; the loader (no options) parses it as the string '5'.
+  customer_id: f.select({ label: 'Customer', options: fetchedCustomerOptions })
+};
+```
+
+Declare `valueType` once and both sides agree, regardless of whether options are
+present:
+
+```tsx
+customer_id: f.select({
+  label: 'Customer',
+  valueType: 'number', // ← the static source of truth for parsing
+  options: fetchedCustomerOptions // (component) — omit / [] in the loader config
+});
+```
+
+`valueType` is the declaration: when set, it drives the value type — `params`
+comes out as `number | null` even with empty options — and your `options` are
+type-checked against it (a string-valued option under `valueType: 'number'` is
+a compile error on that option), so the two can't drift out of sync. In
+development, `resolveFilterParams` **warns** if it meets a `select` /
+`multiSelect` that has no options and no `valueType` — the exact shape of this
+bug — so a loader can't quietly disagree with the hook. Static-options filters
+need none of this; they keep inferring as before.
+
+> This is also why async filters (`asyncSelect` / `asyncMultiSelect`) have
+> always taken `valueType` (defaulting to `'number'`) — their options are
+> _never_ in memory up front, so the type has to be declared, not sniffed.
 
 ## Dynamic / backend-driven filters
 
@@ -663,7 +820,7 @@ means.
 Your custom UI often needs extra per-filter hints (a layout variant, a group, a
 step). Attach them via `meta` — fully typed, with zero changes to this package.
 Augment the interfaces once in your app; each filter kind has its own so a hint
-can be specific to just one:
+can be specific to just one, and options have their own too:
 
 ```ts
 // e.g. src/app/types/filters.ts in your app
@@ -674,6 +831,9 @@ declare module '@mbsatimov/use-filters' {
   interface SelectFilterMeta {
     group?: 'primary' | 'advanced'; // only on select filters
   }
+  interface FilterOptionMeta {
+    icon?: React.ComponentType; // on every FilterOption
+  }
   interface FiltersMeta {
     layout?: 'toolbar' | 'sidebar'; // the whole filter set
   }
@@ -681,12 +841,21 @@ declare module '@mbsatimov/use-filters' {
 ```
 
 ```ts
-status: f.select({ label: 'Status', options, meta: { group: 'primary' } });
+status: f.select({
+  label: 'Status',
+  options: [{ label: 'Open', value: 'open', meta: { icon: OpenIcon } }],
+  meta: { group: 'primary' }
+});
 useFilters(configs, { meta: { layout: 'sidebar' } });
 ```
 
 This package never reads `meta` — it only carries it through to `filters` /
 `filterMap` / the return value for your UI to branch on.
+
+> The old `FilterOption.icon` / `leftSlot` / `rightSlot` fields and the
+> per-filter `className` are **deprecated** — they were rendering concerns baked
+> into a headless core. Declare the fields you need on `FilterOptionMeta` /
+> `FilterMeta` instead (same data, typed by you). They keep working until 1.0.
 
 ## API reference
 
@@ -712,15 +881,15 @@ These **override the `createFilters` config for this call** (precedence: per-fil
 > `useFilters` option > `createFilters` config > default), plus a few call-only
 > URL-behavior settings.
 
-| Option           | Default       | Description                                                                                                                                                                                           |
-| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pagination`     | `true`        | `false` disables pagination for this call; `{ defaultPerPage }` overrides the per-page default. Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
-| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                   |
-| `arraySeparator` | factory value | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) for this call. See below.                                                                                                           |
-| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                  |
-| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                   |
-| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                             |
-| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                                                                   |
+| Option           | Default       | Description                                                                                                                                                                                                                                  |
+| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pagination`     | `true`        | `false` disables pagination for this call; an object overrides the per-call-safe fields (`defaultPerPage`, `resetPageOnFilterChange`). Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
+| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                                                          |
+| `arraySeparator` | factory value | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) for this call. See below.                                                                                                                                                  |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                                                         |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                                                          |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                                                                    |
+| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                                                                                                          |
 
 ### Per-filter options (shared by every kind)
 
@@ -730,7 +899,7 @@ These **override the `createFilters` config for this call** (precedence: per-fil
 | `placeholder`  | Optional placeholder (defaults to `label`).                                                                                                                |
 | `defaultValue` | Value when the URL param is absent. A filter sitting at its default counts as inactive.                                                                    |
 | `hidden`       | Keep the value in `params` but omit it from `filters` (still in `filterMap`).                                                                              |
-| `className`    | Extra classes for your control wrapper.                                                                                                                    |
+| `className`    | **Deprecated** — declare a `className` on `FilterMeta` and pass it via `meta` instead. Removed in 1.0.                                                     |
 | `meta`         | Per-filter UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                       |
 | `commit`       | When the change reaches `params`/URL: `'instant'` (default), `{ debounce: ms }`, or `'manual'`. See [Deferred commits](#deferred-commits-debounce--apply). |
 | `nuqs`         | Per-filter nuqs options, e.g. `{ history: 'push' }` or `{ limitUrlUpdates: debounce(500) }`. Overrides the hook defaults.                                  |
@@ -759,12 +928,13 @@ The rest is grouped into `pagination` and `date`.
 
 **`pagination`**
 
-| Option           | Default      | Description                                                                                                                                                       |
-| ---------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pageKey`        | `'page'`     | URL key for the page number, and its key in `params`.                                                                                                             |
-| `perPageKey`     | `'per_page'` | URL key for the per-page count, and its key in `params`.                                                                                                          |
-| `firstPage`      | `1`          | The number the first page is counted from — the value when the URL has none, what reset writes, and the base your API pages from. Set to `0` for a 0-indexed API. |
-| `defaultPerPage` | `10`         | Per-page count assumed when the URL has none.                                                                                                                     |
+| Option                    | Default      | Description                                                                                                                                                                                                            |
+| ------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pageKey`                 | `'page'`     | URL key for the page number, and its key in `params`.                                                                                                                                                                  |
+| `perPageKey`              | `'per_page'` | URL key for the per-page count, and its key in `params`.                                                                                                                                                               |
+| `firstPage`               | `1`          | The number the first page is counted from — the value when the URL has none, what reset writes, and the base your API pages from. Set to `0` for a 0-indexed API.                                                      |
+| `defaultPerPage`          | `10`         | Per-page count assumed when the URL has none.                                                                                                                                                                          |
+| `resetPageOnFilterChange` | `true`       | Whether changing a filter resets the page to `firstPage`. Set `false` when pagination is driven entirely outside the hook — it then never writes the page param (applies to `reset()` too). Also per-call overridable. |
 
 **`date`**
 
@@ -781,6 +951,14 @@ The rest is grouped into `pagination` and `date`.
   [setup](#one-time-setup-the-nuqs-adapter).
 - **Reserved suffix:** don't name a filter `*_label`; async filters use that
   suffix for their label sidecar. (A dev-mode warning fires if you do.)
+- **String ids need `valueType: 'string'`:** async filters parse URL values as
+  numbers by default, so a UUID id would come back `null`. Dev builds warn when
+  `loadOptions` returns options that don't match the configured `valueType`.
+- **Fetched `select` / `multiSelect` options need a `valueType`:** the value
+  type is inferred from `options`, so a config used both with options (the
+  component) and without (a route loader) can parse the URL to two different
+  types. Set `valueType` to pin it. See
+  [Choosing a value type](#choosing-a-value-type-for-fetched-options).
 - **`params` includes `null`s** for unset filters. If your client can't send
   nulls, strip them before the request.
 - **Explicit `<P>` vs. inferred:** passing `useFilters<ListParams>` validates
@@ -802,12 +980,17 @@ using this hook underneath.
 ## Development
 
 ```bash
+nvm use               # Node version from .nvmrc (tests need >= 20.19 for require(esm))
 npm install
-npm run typecheck    # tsc (src + tests)
-npm run test         # vitest
-npm run build        # tsup -> dist/ (ESM + CJS + .d.ts)
-npm run playground   # vite dev server for the interactive demo (playground/)
+npm run typecheck     # tsc (src + tests — includes the type-level tests)
+npm run test          # vitest
+npm run build         # tsup -> dist/ (ESM + CJS + .d.ts)
+npm run check:exports # attw — published types resolve under every module system
+npm run size          # size-limit budget for dist
+npm run playground    # vite dev server for the interactive demo (playground/)
 ```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full contributor guide.
 
 The [`playground/`](playground/) app exercises every filter kind and commit mode
 against the live `src`, styled with Tailwind CSS v4 and [shadcn/ui](https://ui.shadcn.com)
@@ -820,13 +1003,17 @@ there reaches the published package. It deploys to Vercel as the
 
 ## Publishing
 
-Publishes to the public npm registry via `.github/workflows/publish.yml` on
-every GitHub Release:
+Releases are automated with [Changesets](https://github.com/changesets/changesets)
+via [`.github/workflows/release.yml`](.github/workflows/release.yml):
 
-1. Bump `version` in `package.json` and update `CHANGELOG.md`.
-2. Commit, push, then create a GitHub Release with a matching tag (e.g. `v0.2.0`).
-3. The workflow typechecks, tests, builds, and runs `npm publish` automatically.
+1. Land your change with a changeset: run `npx changeset`, pick the bump level,
+   describe the change, and commit the generated `.changeset/*.md` with your PR.
+2. On push to `main`, the workflow opens (or updates) a **"Version Packages"**
+   PR that bumps `package.json` and rewrites `CHANGELOG.md` from the pending
+   changesets.
+3. Merging that PR publishes to npm with provenance and tags the release.
+   `prepublishOnly` typechecks, tests, builds, and verifies the published types
+   (`attw`) and the size budget first.
 
 Requires an `NPM_TOKEN` repository secret (an npm automation token with publish
-rights to the `@mbsatimov` scope). To publish locally instead, run `npm login`
-then `npm publish`.
+rights to the `@mbsatimov` scope).

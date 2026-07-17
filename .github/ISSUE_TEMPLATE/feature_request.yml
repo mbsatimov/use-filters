@@ -1,0 +1,28 @@
+name: Feature request
+description: Propose a new capability or an API improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What are you trying to build that the current API can't express (or
+        makes awkward)? Concrete UI scenarios help most.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: >-
+        Sketch what the config / hook usage would look like. Keep in mind the
+        package's scope: headless URL-synced filter state — rendering hints go
+        through `meta`, and configs stay serializable data.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you considered
+      description: Can `meta`, `filterMap` + `setFilter`, or a wrapper in your app cover it today?

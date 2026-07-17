@@ -5,6 +5,27 @@ import type * as React from 'react';
 export type FilterPrimitive = number | string;
 
 /**
+ * The URL value-type token for a choice filter (`select` / `multiSelect`),
+ * constrained to match the option value type `V`:
+ *
+ * - numeric options (`V` is a number) → must be `'number'`
+ * - string options (`V` is a string) → must be `'string'`
+ * - dynamic / untyped options (`V` is the open `FilterPrimitive`) → either
+ *
+ * Because it is checked against `V`, a token that contradicts the options is a
+ * compile error. In the `f.select` / `f.multiSelect` builders the token is the
+ * declaration — when present it drives `V`, and `options` are checked against
+ * it, so the error lands on the mismatched option. The tuple wrappers stop the
+ * conditional from distributing over a union of literals (so `1 | 2` resolves
+ * to `'number'`, not `'number'`-per-member).
+ */
+export type ChoiceValueType<V extends FilterPrimitive> = [V] extends [number]
+  ? 'number'
+  : [V] extends [string]
+    ? 'string'
+    : 'number' | 'string';
+
+/**
  * Fields shared by every filter kind's `meta` — augment this for a hint that
  * makes sense everywhere (e.g. a shared layout `variant`). Every per-kind meta
  * interface below (`SelectFilterMeta`, `NumberFilterMeta`, …) extends this one,
@@ -96,21 +117,50 @@ export type FilterNuqsOptions = NuqsOptions;
  */
 export type FilterCommitMode = 'instant' | 'manual' | { debounce: number };
 
-/** A selectable option for `select` / `multiSelect` filters. */
+/**
+ * Extension point for per-option UI hints (`FilterOption.meta`) — the option
+ * counterpart to {@link FilterMeta}. Augment it once in your app for hints
+ * your option rows need (an icon, a color swatch, a shortcut label):
+ *
+ * @example
+ * declare module '@mbsatimov/use-filters' {
+ *   interface FilterOptionMeta {
+ *     icon?: React.ComponentType;
+ *     swatch?: string;
+ *   }
+ * }
+ *
+ * // usage:
+ * options: [{ label: 'Open', value: 'open', meta: { swatch: '#22c55e' } }]
+ */
+export interface FilterOptionMeta {}
+
+/**
+ * A selectable option for `select` / `multiSelect` (and their async variants).
+ * Options are **data** — everything on them flows through to `filters` /
+ * `selectedOption(s)` untouched. Rendering hints beyond `label` belong in
+ * `meta` (see {@link FilterOptionMeta}).
+ */
 export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
+  /** Facet count shown next to the option — e.g. result counts from your backend. */
   count?: number;
+  /**
+   * @deprecated Rendering hints don't belong on the headless core — declare an
+   * `icon` field on {@link FilterOptionMeta} in your app and pass it via
+   * `meta` instead (same data, typed by you). Will be removed in 1.0.
+   */
   icon?: React.FC<React.SVGProps<SVGSVGElement>>;
   label: string;
   /**
-   * Custom content rendered at the start of the option row, after the
-   * checkbox and in place of `icon` — e.g. a color swatch or an avatar.
-   * Takes priority over `icon` when both are set.
+   * @deprecated Like `icon` — move custom row content into `meta` (see
+   * {@link FilterOptionMeta}). Will be removed in 1.0.
    */
   leftSlot?: React.ReactNode;
+  /** Project-specific UI hints for this option. See {@link FilterOptionMeta}. */
+  meta?: FilterOptionMeta;
   /**
-   * Custom content rendered at the end of the option row, in place of the
-   * `count` badge — e.g. a shortcut hint or a secondary value. Takes
-   * priority over `count` when both are set.
+   * @deprecated Like `icon` — move custom row content into `meta` (see
+   * {@link FilterOptionMeta}). Will be removed in 1.0.
    */
   rightSlot?: React.ReactNode;
   value: V;
@@ -120,7 +170,11 @@ export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
 export type FilterType = FilterConfig['type'];
 
 interface FilterBase {
-  /** Extra classes for the control wrapper. */
+  /**
+   * @deprecated Styling hints don't belong on the headless core — declare a
+   * `className` field on {@link FilterMeta} in your app and pass it via
+   * `meta` instead (same data, typed by you). Will be removed in 1.0.
+   */
   className?: string;
   /**
    * When this filter's change reaches `params`/the URL — `'instant'` (default),
@@ -266,6 +320,19 @@ export interface SelectFilterConfig<
   meta?: SelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'select';
+  /**
+   * How this filter's value round-trips through the URL — `'number'` or
+   * `'string'`. Inferred from `options` when they're static, so you rarely set
+   * it. **Set it when the options are fetched at runtime:** the same config is
+   * then also used somewhere the options aren't loaded (a route loader calling
+   * `resolveFilterParams`), where the inference has nothing to read and the two
+   * call sites can otherwise disagree on the value type. An explicit token makes
+   * parsing deterministic and identical everywhere. The token is the
+   * declaration: in the `f.select` builder it drives the value type, and
+   * `options` are checked against it — a mismatched option is a compile error
+   * on that option. See {@link ChoiceValueType}.
+   */
+  valueType?: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface AsyncSelectFilterConfig<
@@ -280,9 +347,11 @@ export interface AsyncSelectFilterConfig<
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';
   /**
-   * Fetch options matching the search text — called (debounced) on every
-   * keystroke, so search runs server-side. Return a reasonably small page
-   * (e.g. `limit: 20`); results are cached per search string.
+   * Fetch options matching the search text — search runs server-side. Calls
+   * within `searchDebounceMs` of each other collapse into one request, and
+   * `signal` aborts stale ones. Return a reasonably small page (e.g.
+   * `limit: 20`). Results are **not** cached — pair with your data layer
+   * (React Query etc.) if you want caching.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -299,9 +368,11 @@ export interface AsyncMultiSelectFilterConfig<
   /** How values round-trip through the URL. Defaults to `'number'` (ids). */
   valueType?: 'number' | 'string';
   /**
-   * Fetch options matching the search text — called (debounced) on every
-   * keystroke, so search runs server-side. Return a reasonably small page
-   * (e.g. `limit: 20`); results are cached per search string.
+   * Fetch options matching the search text — search runs server-side. Calls
+   * within `searchDebounceMs` of each other collapse into one request, and
+   * `signal` aborts stale ones. Return a reasonably small page (e.g.
+   * `limit: 20`). Results are **not** cached — pair with your data layer
+   * (React Query etc.) if you want caching.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -315,6 +386,15 @@ export interface MultiSelectFilterConfig<
   meta?: MultiSelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'multiSelect';
+  /**
+   * How this filter's values round-trip through the URL — `'number'` or
+   * `'string'`. Inferred from `options` when they're static; **set it when the
+   * options are fetched at runtime** so `resolveFilterParams` (which sees no
+   * options in a loader) parses the same type the hook does. When set (in the
+   * `f.multiSelect` builder) it drives the value type and `options` are
+   * checked against it. See {@link ChoiceValueType}.
+   */
+  valueType?: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface TagsFilterConfig extends FilterBase {
@@ -377,21 +457,37 @@ export interface SelectedOption<V extends FilterPrimitive = FilterPrimitive> {
   value: V;
 }
 
-/** Extra handlers/state async filters get — they write value + label atomically. */
+/**
+ * Extra handlers/state async filters get — they write value + label atomically.
+ *
+ * The handlers use method syntax (`onSelectOption(...)`, not
+ * `onSelectOption: (...) =>`) deliberately: TypeScript checks method
+ * parameters bivariantly, which is what lets a narrowly-typed resolved filter
+ * (`V = 'open' | 'closed'`) be assignable to the wide `ResolvedFilter` union —
+ * the relation `filterMap` values, `AnyUseFiltersReturn`, and any
+ * `ResolvedFilter`-typed prop all rely on. The unsafe direction (assigning a
+ * wide filter where a narrow one is expected) stays rejected via the
+ * covariant `value`/`selectedOption` properties. The lint rule banning method
+ * syntax exists to prevent accidental bivariance — here it's the point, hence
+ * the targeted disables.
+ */
 type AsyncResolvedExtras<C> =
   C extends AsyncSelectFilterConfig<infer V>
     ? {
         /** Select an option (or `null` to clear) — writes value and label sidecar together. */
-        onSelectOption: (option: FilterOption<V> | null) => void;
+        // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+        onSelectOption(option: FilterOption<V> | null): void;
         /** Current selection paired with its URL-stored label. */
         selectedOption: SelectedOption<V> | null;
       }
     : C extends AsyncMultiSelectFilterConfig<infer V>
       ? {
           /** Replace the whole selection at once (batch apply from the mobile sheet). */
-          onSetOptions: (options: FilterOption<V>[]) => void;
+          // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+          onSetOptions(options: FilterOption<V>[]): void;
           /** Toggle an option in/out of the selection — keeps value/label arrays paired. */
-          onToggleOption: (option: FilterOption<V>) => void;
+          // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+          onToggleOption(option: FilterOption<V>): void;
           /** Current selections paired with their URL-stored labels. */
           selectedOptions: SelectedOption<V>[];
         }
@@ -514,7 +610,11 @@ export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends un
          */
         instantReset: () => void;
         key: string;
-        onChange: (value: FilterValue<C>) => void;
+        // Method syntax on purpose — bivariant params keep a narrow resolved
+        // filter assignable to the wide `ResolvedFilter` union (see
+        // `AsyncResolvedExtras`' doc comment).
+        // eslint-disable-next-line ts/method-signature-style -- intentional bivariance
+        onChange(value: FilterValue<C>): void;
         /**
          * @deprecated Use `reset` instead — same behavior, kept as an alias
          * (identical function reference). Will be removed in a future major
@@ -619,6 +719,15 @@ export interface PaginationConfig<
   pageKey?: PageKey;
   /** URL key holding the per-page count, and its key in `params`. Defaults to `'per_page'`. */
   perPageKey?: PerPageKey;
+  /**
+   * Whether changing a filter resets the page to `firstPage`. Defaults to
+   * `true` — a changed filter invalidates the old result window, so staying on
+   * page 7 of results that no longer exist is almost never right. Set `false`
+   * when pagination is driven entirely outside this hook and it should never
+   * write the page param; this also applies to the whole-set `reset()`.
+   * Overridable per call (see {@link PaginationOverride}).
+   */
+  resetPageOnFilterChange?: boolean;
 }
 
 /**
@@ -628,13 +737,16 @@ export interface PaginationConfig<
  * - `false` disables pagination entirely for this call (no `page` / `per_page`
  *   in `params`, no reset-to-first-page on change).
  * - `true` (or omitted) keeps the factory's pagination as-is.
- * - An object overrides only the *safe* per-call field — `defaultPerPage` —
- *   for this call, merged over the factory. The page/per-page **keys** and
- *   `firstPage` are deliberately not overridable here: they come from
- *   `createFilters` so the hook's `params` stays byte-identical to what
- *   `resolveFilterParams` produces (see {@link FiltersConfig}).
+ * - An object overrides only the *safe* per-call fields — `defaultPerPage` and
+ *   `resetPageOnFilterChange` — for this call, merged over the factory. Safe
+ *   because neither changes the `params` shape or the URL keys. The
+ *   page/per-page **keys** and `firstPage` are deliberately not overridable
+ *   here: they come from `createFilters` so the hook's `params` stays
+ *   byte-identical to what `resolveFilterParams` produces (see
+ *   {@link FiltersConfig}).
  */
-export type PaginationOverride = boolean | Pick<PaginationConfig, 'defaultPerPage'>;
+export type PaginationOverride =
+  boolean | Pick<PaginationConfig, 'defaultPerPage' | 'resetPageOnFilterChange'>;
 
 /**
  * How `date` filters (de)serialize between a stored URL string and a `Date`.
@@ -725,6 +837,7 @@ export interface ResolvedFiltersConfig {
   firstPage: number;
   pageKey: string;
   perPageKey: string;
+  resetPageOnFilterChange: boolean;
   parseDate: (value: string) => Date | undefined;
   parseDateTime: (value: string) => Date | undefined;
   serializeDate: (date: Date) => string;

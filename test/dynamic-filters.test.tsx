@@ -86,6 +86,38 @@ describe('dynamic / backend-driven filters', () => {
     expect(result.current.isFiltered).toBe(true);
   });
 
+  it('re-keys the parser when numeric options arrive after mount (regression)', () => {
+    // Backend-driven facets: the URL already holds `?brand_ids=1,2` on mount,
+    // but the options haven't loaded yet — an empty `options` array resolves to
+    // the *string* parser. When the numeric options arrive on a later render,
+    // the parser must rebuild so the committed values re-parse as numbers
+    // (matching what `resolveFilterParams` computes in a loader).
+    const makeConfigs = (values: { label: string; value: number }[]) => ({
+      brand_ids: f.multiSelect({ label: 'Brands', options: values })
+    });
+
+    const { result, rerender } = renderHook(
+      ({ configs }: { configs: Record<string, FilterConfig> }) => useFilters(configs),
+      {
+        wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?brand_ids=1,2' }),
+        initialProps: { configs: makeConfigs([]) }
+      }
+    );
+
+    // Pre-options: no way to know the value family, so strings are expected.
+    expect(result.current.params).toMatchObject({ brand_ids: ['1', '2'] });
+
+    rerender({
+      configs: makeConfigs([
+        { label: 'Nike', value: 1 },
+        { label: 'Adidas', value: 2 }
+      ])
+    });
+
+    // Post-options: the same URL now parses as numbers.
+    expect(result.current.params).toMatchObject({ brand_ids: [1, 2] });
+  });
+
   it('supports a changing set of filters without breaking hook rules', () => {
     const { result, rerender } = renderHook(
       ({ configs }: { configs: Record<string, FilterConfig> }) => useFilters(configs),

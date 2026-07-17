@@ -1,3 +1,4 @@
+import type { RawSearchParams } from './lib';
 import type {
   FilterConfigMap,
   FilterParams,
@@ -18,8 +19,10 @@ import {
   DEFAULT_PER_PAGE_KEY,
   fromDateTimeValue as fromDateTimeValueBase,
   fromDateValue as fromDateValueBase,
+  normalizeRawSearch,
   toDateTimeValue as toDateTimeValueBase,
-  toDateValue as toDateValueBase
+  toDateValue as toDateValueBase,
+  warnIndeterminateChoiceValueType
 } from './lib';
 import { makeUseFilters } from './use-filters';
 
@@ -42,6 +45,7 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
     // store dates in whatever shape or library the app uses.
     parseDate: date.parse ?? fromDateValueBase,
     parseDateTime: date.parseDateTime ?? fromDateTimeValueBase,
+    resetPageOnFilterChange: pagination.resetPageOnFilterChange ?? true,
     serializeDate: date.serialize ?? toDateValueBase,
     serializeDateTime: date.serializeDateTime ?? toDateTimeValueBase
   };
@@ -49,12 +53,16 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
 
 /**
  * Framework-agnostic mirror of `useFilters`'s `params` derivation, bound to the
- * same config. Given the config map and a raw search object (e.g. a route
- * `loader`'s `location.search`), it produces the identical shape `useFilters`
- * computes on mount: every configured key falls back to its `defaultValue` (or
- * `null`), the `page` / `per_page` values are mirrored into `params` under the
- * configured keys, and extra keys on `raw` — like an async filter's `_label`
- * sidecar — are dropped.
+ * same config. Given the config map and the raw search params, it produces the
+ * identical shape `useFilters` computes on mount: every configured key falls
+ * back to its `defaultValue` (or `null`), the `page` / `per_page` values are
+ * mirrored into `params` under the configured keys, and extra keys on `raw` —
+ * like an async filter's `_label` sidecar — are dropped.
+ *
+ * `raw` is accepted in whatever shape your router provides ({@link RawSearchParams}):
+ * a parsed object (TanStack Router's `location.search`), a `URLSearchParams`
+ * (React Router — `new URL(request.url).searchParams`), or the raw query
+ * string itself (`location.search`).
  *
  * Use it in a route `loader` so its prefetch queryKey matches the `useQuery`
  * the page's filtered table runs. Passing raw search params straight through
@@ -63,9 +71,12 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
  * never gets reused.
  */
 function makeResolveFilterParams<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig) {
+  // Dedupe the indeterminate-choice dev warning per factory — a route loader
+  // calls `resolveFilterParams` on every navigation, so warn once per key.
+  const warnedIndeterminate = new Set<string>();
   return function resolveFilterParams<T extends FilterConfigMap>(
     configs: T,
-    raw: Record<string, unknown>,
+    raw: RawSearchParams,
     options: { arraySeparator?: string; pagination?: PaginationOverride } = {}
   ): FilterParams<T, PP> {
     // Same `pagination` override shape as `useFilters` (its twin), so options
@@ -76,16 +87,21 @@ function makeResolveFilterParams<PP extends Record<string, number>>(cfg: Resolve
         ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
         : cfg.defaultPerPage;
 
+    const search = normalizeRawSearch(raw);
     const result: Record<string, unknown> = {};
     for (const [key, config] of Object.entries(configs)) {
+      // A choice filter with no loaded options and no `valueType` can't be
+      // parsed to a determinate type here — warn (dev) so it can't silently
+      // diverge from the hook, which may have the options (see the helper).
+      warnIndeterminateChoiceValueType(key, config, warnedIndeterminate);
       // Coerce through the same parsers the hook uses, so a loader's params
       // object matches the hook's exactly (and their query keys collide).
-      result[key] = coerceRawValue(config, raw[key], arraySeparator);
+      result[key] = coerceRawValue(config, search[key], arraySeparator);
     }
     if (pagination !== false) {
       // Mirror the URL keys into `params`, exactly like the hook.
-      result[cfg.pageKey] = coerceInt(raw[cfg.pageKey]) ?? cfg.firstPage;
-      result[cfg.perPageKey] = coerceInt(raw[cfg.perPageKey]) ?? defaultPerPage;
+      result[cfg.pageKey] = coerceInt(search[cfg.pageKey]) ?? cfg.firstPage;
+      result[cfg.perPageKey] = coerceInt(search[cfg.perPageKey]) ?? defaultPerPage;
     }
     return result as FilterParams<T, PP>;
   };
