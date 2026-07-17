@@ -55,6 +55,7 @@ export type {
   SelectedOption,
   SelectFilterConfig,
   SelectFilterMeta,
+  SharedFilterCallOptions,
   TagsFilterConfig,
   TagsFilterMeta,
   TextFilterConfig,
@@ -76,3 +77,4 @@ const defaultFilters = createFilters();
 
 export const useFilters = defaultFilters.useFilters;
 export const resolveFilterParams = defaultFilters.resolveFilterParams;
+export const defineFilters = defaultFilters.defineFilters;
