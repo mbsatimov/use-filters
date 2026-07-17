@@ -7,6 +7,9 @@ import {
   coerceRawValue,
   debounceAsync,
   hasFilterValue,
+  isLabelKey,
+  labelKeyOf,
+  resolvePaginationOverride,
   valuesEqual
 } from '../src/lib';
 
@@ -126,6 +129,47 @@ describe('coerceInt', () => {
     expect(coerceInt('x')).toBeUndefined();
     expect(coerceInt(undefined)).toBeUndefined();
     expect(coerceInt(Number.NaN)).toBeUndefined();
+  });
+});
+
+describe('labelKeyOf / isLabelKey', () => {
+  it('round-trips: a key built by labelKeyOf is detected by isLabelKey', () => {
+    expect(labelKeyOf('customer_id')).toBe('customer_id_label');
+    expect(isLabelKey(labelKeyOf('customer_id'))).toBe(true);
+    expect(isLabelKey('customer_id')).toBe(false);
+  });
+});
+
+describe('resolvePaginationOverride', () => {
+  const defaults = { defaultPerPage: 10, resetPageOnFilterChange: true };
+
+  it('true / omitted keeps the factory defaults, enabled', () => {
+    expect(resolvePaginationOverride(true, defaults)).toEqual({
+      enabled: true,
+      defaultPerPage: 10,
+      resetPageOnFilterChange: true
+    });
+  });
+
+  it('false disables and still reports the factory defaults', () => {
+    expect(resolvePaginationOverride(false, defaults)).toEqual({
+      enabled: false,
+      defaultPerPage: 10,
+      resetPageOnFilterChange: true
+    });
+  });
+
+  it('an object overrides only the fields it sets', () => {
+    expect(resolvePaginationOverride({ defaultPerPage: 50 }, defaults)).toEqual({
+      enabled: true,
+      defaultPerPage: 50,
+      resetPageOnFilterChange: true
+    });
+    expect(resolvePaginationOverride({ resetPageOnFilterChange: false }, defaults)).toEqual({
+      enabled: true,
+      defaultPerPage: 10,
+      resetPageOnFilterChange: false
+    });
   });
 });
 
