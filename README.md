@@ -492,6 +492,46 @@ types (so `?status=5` becomes `5`, not `'5'`), and drops extras like async
 `_label` sidecars. Share the same config map object between the loader and the
 hook.
 
+### Keeping the loader and the hook in sync: `defineFilters`
+
+`useFilters` and `resolveFilterParams` also share a **third, per-call option**
+— `{ arraySeparator, pagination }` — and it has to match too: a different
+`arraySeparator` parses an array-shaped param differently, and a different
+`pagination` override changes whether/how the page keys appear. Passing that
+object to both calls by hand works, but nothing stops it from drifting if only
+one side gets updated:
+
+```ts
+// ❌ Easy to update one and forget the other.
+useFilters(loanFilterConfigs, { arraySeparator: '|' });
+resolveFilterParams(loanFilterConfigs, search); // forgot arraySeparator here
+```
+
+`defineFilters` binds `configs` and this shared option **once**, and hands back
+a hook and a loader helper that can't disagree:
+
+```ts
+// src/features/loans/filters.ts
+export const loanFilters = defineFilters(
+  {
+    search: f.text({ label: 'Search' }),
+    status: f.select({ label: 'Status', options: statusOptions })
+  },
+  { arraySeparator: '|' }
+);
+
+// component:
+const { params, filters } = loanFilters.useFilters({ defaultCommit: 'manual' });
+
+// route loader — same arraySeparator, guaranteed:
+const params = loanFilters.resolveFilterParams(new URL(request.url).searchParams);
+```
+
+`useFilters` still takes hook-only options per call (`defaultCommit`, `meta`,
+`history`, `shallow`, `clearOnDefault`) — those can't affect
+`resolveFilterParams` either way, so they're safe to vary. Only `arraySeparator`
+and `pagination` are locked once at the `defineFilters` call.
+
 ## Async (server-searched) filters
 
 Use `f.asyncSelect` / `f.asyncMultiSelect` when the choices live on the server

@@ -2,7 +2,12 @@ import type { SingleParserBuilder } from 'nuqs';
 
 import { parseAsArrayOf, parseAsBoolean, parseAsFloat, parseAsInteger, parseAsString } from 'nuqs';
 
-import type { FilterConfig, MultiSelectFilterConfig, SelectFilterConfig } from './types';
+import type {
+  FilterConfig,
+  MultiSelectFilterConfig,
+  PaginationOverride,
+  SelectFilterConfig
+} from './types';
 
 /** Every non-null value one of our parsers can produce/serialize. */
 export type FilterParserValue = boolean | number | string | number[] | string[];
@@ -300,11 +305,22 @@ export const reparseChoiceValue = (
 };
 
 /**
+ * Suffix appended to a filter key to form its async label-sidecar param. The
+ * one source of truth for the convention — {@link labelKeyOf} builds a sidecar
+ * key with it, {@link isLabelKey} detects one, so the "reserved suffix" rule
+ * can't drift between where it's produced and where it's guarded against.
+ */
+export const LABEL_SUFFIX = '_label';
+
+/**
  * URL key of the label sidecar for an async filter — stores the selected
  * option's display label(s) next to the value(s), so labels survive a refresh
  * without needing a by-id endpoint. Reserved suffix: don't name filters `*_label`.
  */
-export const labelKeyOf = (key: string): string => `${key}_label`;
+export const labelKeyOf = (key: string): string => `${key}${LABEL_SUFFIX}`;
+
+/** Whether `key` is (or collides with) an async filter's label sidecar. See {@link LABEL_SUFFIX}. */
+export const isLabelKey = (key: string): boolean => key.endsWith(LABEL_SUFFIX);
 
 /** Async filter kinds carry a label sidecar param. */
 export const asyncKindOf = (config: FilterConfig): 'multi' | 'single' | null =>
@@ -374,6 +390,35 @@ export const coerceInt = (raw: unknown): number | undefined => {
     return Number.isNaN(parsed) ? undefined : parsed;
   }
   return undefined;
+};
+
+/** A per-call `pagination` override resolved against the factory defaults. */
+export interface ResolvedPagination {
+  /** Per-page count assumed when the URL has none. */
+  defaultPerPage: number;
+  /** Whether pagination is active this call (`false` when the override is `false`). */
+  enabled: boolean;
+  /** Whether a filter change resets the page (hook-only; the loader ignores it). */
+  resetPageOnFilterChange: boolean;
+}
+
+/**
+ * Resolve a per-call `PaginationOverride` against the factory config — the one
+ * place the override shape is unpacked, shared by `useFilters` and its loader
+ * twin `resolveFilterParams` so they can't derive a different effective
+ * `defaultPerPage` (which would split their query keys). `resetPageOnFilterChange`
+ * is resolved too, though only the hook reads it — the loader never writes pages.
+ */
+export const resolvePaginationOverride = (
+  pagination: PaginationOverride,
+  defaults: { defaultPerPage: number; resetPageOnFilterChange: boolean }
+): ResolvedPagination => {
+  const override = typeof pagination === 'object' ? pagination : undefined;
+  return {
+    enabled: pagination !== false,
+    defaultPerPage: override?.defaultPerPage ?? defaults.defaultPerPage,
+    resetPageOnFilterChange: override?.resetPageOnFilterChange ?? defaults.resetPageOnFilterChange
+  };
 };
 
 /** Default debounce for an async filter's `loadOptions`, when `searchDebounceMs` isn't set. */

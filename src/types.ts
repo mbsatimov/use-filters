@@ -749,6 +749,36 @@ export type PaginationOverride =
   boolean | Pick<PaginationConfig, 'defaultPerPage' | 'resetPageOnFilterChange'>;
 
 /**
+ * The options `useFilters` and `resolveFilterParams` share — the two fields
+ * that must be *identical* between them for their `params` to match (a
+ * different `arraySeparator` parses an array-shaped value differently; a
+ * different `pagination` override changes whether/how page keys appear).
+ * `UseFiltersOptions` extends this rather than the reverse: everything it adds
+ * on top (`defaultCommit`, `meta`, `history`, `shallow`, `clearOnDefault`) is
+ * hook-only UI behavior that `resolveFilterParams` doesn't take and can't
+ * disagree on. `resolveFilterParams`'s own `options` parameter is typed
+ * against this directly (not a hand-copied duplicate), so the two can't drift
+ * out of sync — see `defineFilters`, which binds both to one instance of it.
+ */
+export interface SharedFilterCallOptions {
+  /**
+   * Delimiter joining/splitting an array-shaped param's items in the URL for
+   * this call, overriding the `createFilters` config. Defaults to the
+   * factory's `arraySeparator` (`','` unless set). See
+   * {@link FiltersConfig.arraySeparator}.
+   */
+  arraySeparator?: string;
+  /**
+   * Pagination for this call, overriding the `createFilters` config: `false`
+   * turns it off, `true` (default) keeps the factory's, and an object
+   * overrides the per-call-safe fields (`defaultPerPage`,
+   * `resetPageOnFilterChange`). The page/per-page keys and `firstPage` stay
+   * factory-only. See {@link PaginationOverride}.
+   */
+  pagination?: PaginationOverride;
+}
+
+/**
  * How `date` filters (de)serialize between a stored URL string and a `Date`.
  * Grouped under {@link FiltersConfig.date}. Override in pairs (`parse` +
  * `serialize`, `parseDateTime` + `serializeDateTime`) so each is an exact

@@ -13,11 +13,11 @@ import type {
   FilterPrimitive,
   FiltersFor,
   FiltersMeta,
-  PaginationOverride,
   PaginationParams,
   ResolvedFilter,
   ResolvedFiltersConfig,
-  SelectedOption
+  SelectedOption,
+  SharedFilterCallOptions
 } from './types';
 
 import {
@@ -27,9 +27,12 @@ import {
   DEFAULT_ASYNC_DEBOUNCE_MS,
   fingerprintNuqsOptions,
   hasFilterValue,
+  isLabelKey,
+  LABEL_SUFFIX,
   labelKeyOf,
   reparseChoiceValue,
   resolveChoiceValueType,
+  resolvePaginationOverride,
   valuesEqual
 } from './lib';
 
@@ -91,14 +94,13 @@ const withValueTypeCheck = (
   };
 };
 
-export interface UseFiltersOptions {
-  /**
-   * Delimiter joining/splitting an array-shaped param's items in the URL for
-   * this call, overriding the `createFilters` config. Defaults to the
-   * factory's `arraySeparator` (`','` unless set). See
-   * {@link FiltersConfig.arraySeparator}.
-   */
-  arraySeparator?: string;
+/**
+ * `useFilters`' per-call options. Extends {@link SharedFilterCallOptions}
+ * (`arraySeparator`, `pagination`) — the two fields `resolveFilterParams`
+ * also takes, and must agree with for their `params` to match — with
+ * hook-only UI behavior that has no loader counterpart.
+ */
+export interface UseFiltersOptions extends SharedFilterCallOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
   /**
@@ -116,13 +118,6 @@ export interface UseFiltersOptions {
    * custom filter UI can read it without prop-drilling from the call site.
    */
   meta?: FiltersMeta;
-  /**
-   * Pagination for this call, overriding the `createFilters` config: `false`
-   * turns it off, `true` (default) keeps the factory's, and an object overrides
-   * the per-call-safe field (`defaultPerPage`). The page/per-page keys and
-   * `firstPage` stay factory-only. See {@link PaginationOverride}.
-   */
-  pagination?: PaginationOverride;
   /** Keep navigation client-side. Defaults to `true`. */
   shallow?: boolean;
 }
@@ -341,16 +336,13 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     // `pagination` is `false` (off), `true`/omitted (factory as-is), or an
     // object overriding the per-call-safe fields (`defaultPerPage`,
     // `resetPageOnFilterChange`). Keys / `firstPage` always come from the
-    // factory so `params` matches `resolveFilterParams`.
-    const paginationEnabled = pagination !== false;
-    const defaultPerPage =
-      typeof pagination === 'object'
-        ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
-        : cfg.defaultPerPage;
-    const resetPageOnFilterChange =
-      typeof pagination === 'object'
-        ? (pagination.resetPageOnFilterChange ?? cfg.resetPageOnFilterChange)
-        : cfg.resetPageOnFilterChange;
+    // factory so `params` matches `resolveFilterParams` — which resolves the
+    // override through the same `resolvePaginationOverride` helper.
+    const {
+      enabled: paginationEnabled,
+      defaultPerPage,
+      resetPageOnFilterChange
+    } = resolvePaginationOverride(pagination, cfg);
 
     const entries = React.useMemo(
       // `T` may be an all-optional map when `P` is given; runtime only ever sees
@@ -393,9 +385,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // `ParserMap`). Our own value typing is recovered downstream via `params`.
       const map: ParserMap = {};
       for (const [key, config] of entries) {
-        if (process.env.NODE_ENV !== 'production' && key.endsWith('_label')) {
+        if (process.env.NODE_ENV !== 'production' && isLabelKey(key)) {
           console.warn(
-            `[useFilters] "${key}" ends with the reserved "_label" suffix used by async filter label sidecars — rename it to avoid collisions.`
+            `[useFilters] "${key}" ends with the reserved "${LABEL_SUFFIX}" suffix used by async filter label sidecars — rename it to avoid collisions.`
           );
         }
         const parser = buildParser(config, arraySeparator);
