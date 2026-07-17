@@ -30,9 +30,11 @@ Packaging, correctness, and headless-purity hardening.
 
 - **`valueType` on `select` / `multiSelect`.** Choice filters now take an
   optional `valueType: 'number' | 'string'` — a static declaration of how the
-  value round-trips through the URL, type-checked against the option values.
-  With static options the type is still inferred, so nothing changes for the
-  common case. It matters when **options are fetched at runtime**: the same
+  value round-trips through the URL. The token is the declaration: when set it
+  drives the value type (empty options still give a `number | null` param
+  under `valueType: 'number'`), and `options` are type-checked against it — a
+  mismatched option is a compile error on that option. With static options and
+  no token the type is still inferred, so nothing changes for the common case. It matters when **options are fetched at runtime**: the same
   config is then also used somewhere the options aren't loaded (a route loader
   calling `resolveFilterParams`), where the previous approach — sniffing the
   option values — had nothing to read and the hook and loader could parse the

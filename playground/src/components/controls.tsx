@@ -1,4 +1,4 @@
-import type { FilterOption, ResolvedFilter } from '@mbsatimov/use-filters';
+import type { FilterOption, ResolvedFilter, ResolvedFilterOf } from '@mbsatimov/use-filters';
 
 import { X } from 'lucide-react';
 import * as React from 'react';
@@ -97,7 +97,7 @@ export function Control({ filter }: { filter: ResolvedFilter }) {
       );
 
     case 'multiSelect': {
-      const selected = (filter.value as (number | string)[] | null) ?? [];
+      const selected = filter.value ?? [];
       return (
         <ToggleGroup
           type='multiple'
@@ -240,7 +240,7 @@ function useAsyncSearch(
   return { search, setSearch, results };
 }
 
-function AsyncSingle({ filter }: { filter: Extract<ResolvedFilter, { type: 'asyncSelect' }> }) {
+function AsyncSingle({ filter }: { filter: ResolvedFilterOf<'asyncSelect'> }) {
   const { search, setSearch, results } = useAsyncSearch(filter.loadOptions);
   const selected = filter.selectedOption;
   return (
@@ -282,7 +282,7 @@ function AsyncSingle({ filter }: { filter: Extract<ResolvedFilter, { type: 'asyn
   );
 }
 
-function AsyncMulti({ filter }: { filter: Extract<ResolvedFilter, { type: 'asyncMultiSelect' }> }) {
+function AsyncMulti({ filter }: { filter: ResolvedFilterOf<'asyncMultiSelect'> }) {
   const { search, setSearch, results } = useAsyncSearch(filter.loadOptions);
   const selectedValues = filter.selectedOptions.map((o) => o.value);
   return (

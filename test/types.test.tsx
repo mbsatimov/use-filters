@@ -2,7 +2,8 @@ import { renderHook } from '@testing-library/react';
 import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import type { FilterOption } from '../src/types';
+import type { FilterOption, ResolvedFilter } from '../src/types';
+import type { AnyUseFiltersReturn } from '../src/use-filters';
 
 import { createFilters } from '../src/create-filters';
 
@@ -166,24 +167,37 @@ describe('type checking — choice valueType', () => {
       useFilters({
         id: f.select({ label: 'Id', valueType: 'number', options: [{ label: 'One', value: 1 }] })
       });
-    const useDynamicEither = () =>
-      // Untyped/dynamic options accept either token.
-      useFilters({ id: f.select({ label: 'Id', valueType: 'string', options: [] }) });
     expectTypeOf(useNumeric).toBeFunction();
-    expectTypeOf(useDynamicEither).toBeFunction();
   });
 
-  it('rejects a valueType that contradicts the option values', () => {
+  it('drives the params type from the token when options are empty (dynamic)', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          id: f.select({ label: 'Id', valueType: 'number', options: [] }),
+          slug: f.select({ label: 'Slug', valueType: 'string', options: [] }),
+          ids: f.multiSelect({ label: 'Ids', valueType: 'number', options: [] })
+        }),
+      { wrapper }
+    );
+    expectTypeOf(result.current.params.id).toEqualTypeOf<number | null>();
+    expectTypeOf(result.current.params.slug).toEqualTypeOf<string | null>();
+    expectTypeOf(result.current.params.ids).toEqualTypeOf<number[] | null>();
+  });
+
+  it('rejects an option that contradicts the declared valueType (error on the option)', () => {
+    // `valueType` is the declaration; `options` are checked against it, so the
+    // compile error lands on the mismatched option, not on the token.
     f.select({
       label: 'Id',
-      // @ts-expect-error — numeric options require valueType 'number', not 'string'
       valueType: 'string',
+      // @ts-expect-error — declared 'string', so a numeric option value is rejected
       options: [{ label: 'One', value: 1 }]
     });
     f.multiSelect({
       label: 'Tags',
-      // @ts-expect-error — string options require valueType 'string', not 'number'
       valueType: 'number',
+      // @ts-expect-error — declared 'number', so a string option value is rejected
       options: [{ label: 'A', value: 'a' }]
     });
     expect(true).toBe(true);
@@ -204,5 +218,74 @@ describe('type inference — resolveFilterParams', () => {
     expectTypeOf(params.customer_id).toEqualTypeOf<1 | null>();
     expectTypeOf(params.page).toEqualTypeOf<number>();
     expect(params).toEqual({ search: 'acme', customer_id: 1, page: 3, per_page: 10 });
+  });
+});
+
+describe('AnyUseFiltersReturn — pass-through component prop', () => {
+  // A pass-through component's prop position — plain assignment, the
+  // strictest relation. If any concrete return stops being assignable
+  // here, shared toolbar/panel components break, so lock it in.
+  const takesAny = (r: AnyUseFiltersReturn) => r.isDirty;
+
+  it('accepts an inferred-config return (typed onChange, async, multiSelect)', () => {
+    const useConfigured = () =>
+      useFilters({
+        status: f.select({ label: 'Status', options: statusOptions }),
+        ids: f.multiSelect({ label: 'Ids', options: [{ label: 'One', value: 1 }] }),
+        owner: f.asyncSelect({ label: 'Owner', loadOptions: async () => [] }),
+        amount: f.number({ label: 'Amount' })
+      });
+    const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);
+    expectTypeOf(useConfigured).toBeFunction();
+    expectTypeOf(check).toBeFunction();
+  });
+
+  it('accepts an explicit-<P> return', () => {
+    interface ListParams {
+      page: number;
+      per_page: number;
+      q?: string;
+    }
+    const useConfigured = () => useFilters<ListParams>({ q: f.text({ label: 'Q' }) });
+    const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);
+    expectTypeOf(useConfigured).toBeFunction();
+    expectTypeOf(check).toBeFunction();
+  });
+
+  it('accepts a return with renamed pagination keys', () => {
+    const renamed = createFilters({ pagination: { pageKey: 'p', perPageKey: 'limit' } });
+    const useConfigured = () => renamed.useFilters({ q: renamed.f.text({ label: 'Q' }) });
+    const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);
+    expectTypeOf(useConfigured).toBeFunction();
+    expectTypeOf(check).toBeFunction();
+  });
+
+  it('exposes opaque reads and keeps setFilter uncallable', () => {
+    const inspect = (r: AnyUseFiltersReturn) => {
+      expectTypeOf(r.filters).toEqualTypeOf<ResolvedFilter[]>();
+      expectTypeOf(r.filterMap).toEqualTypeOf<Record<string, ResolvedFilter>>();
+      expectTypeOf(r.params).toEqualTypeOf<Record<string, unknown>>();
+      // Uncallable by design: a pass-through component doesn't know the keys.
+      // @ts-expect-error — setFilter takes `never`, so no key is accepted
+      r.setFilter('status', 'open');
+    };
+    expectTypeOf(inspect).toBeFunction();
+  });
+
+  it('still rejects the unsafe direction: a wide filter where a narrow one is expected', () => {
+    // The narrow→wide widening above comes from bivariant (method-syntax)
+    // handlers on `ResolvedFilter` — make sure that loosening didn't also
+    // open the reverse door, which `value`'s covariance must keep shut.
+    const useConfigured = () =>
+      useFilters({ status: f.select({ label: 'Status', options: statusOptions }) });
+    const assignWideToNarrow = (
+      wide: ResolvedFilter,
+      narrow: ReturnType<typeof useConfigured>['filterMap']
+    ) => {
+      // @ts-expect-error — a generic ResolvedFilter isn't a status filter
+      narrow.status = wide;
+    };
+    expectTypeOf(useConfigured).toBeFunction();
+    expectTypeOf(assignWideToNarrow).toBeFunction();
   });
 });

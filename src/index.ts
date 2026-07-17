@@ -64,7 +64,7 @@ export type {
   TimeRangeFilterConfig,
   TimeRangeFilterMeta
 } from './types';
-export type { UseFiltersOptions, UseFiltersReturn } from './use-filters';
+export type { AnyUseFiltersReturn, UseFiltersOptions, UseFiltersReturn } from './use-filters';
 
 /**
  * Zero-config default instance — a `useFilters` / `resolveFilterParams` pair

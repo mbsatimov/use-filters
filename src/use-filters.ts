@@ -225,6 +225,60 @@ export interface UseFiltersReturn<
 }
 
 /**
+ * The return of *any* `useFilters` call, whatever config produced it — for
+ * pass-through components (a shared filter toolbar, a debug panel, a mobile
+ * filter sheet) that receive a `useFilters` return as a prop and read it
+ * opaquely. Every concrete return is assignable to this, so such a component
+ * needs no generics:
+ *
+ * @example
+ * interface FilterSheetProps {
+ *   filters: AnyUseFiltersReturn;
+ * }
+ * function FilterSheet({ filters }: FilterSheetProps) {
+ *   return (
+ *     <>
+ *       {filters.filters.map((f) => <MyControl key={f.key} filter={f} />)}
+ *       <button disabled={!filters.isDirty} onClick={filters.apply}>Apply</button>
+ *     </>
+ *   );
+ * }
+ *
+ * What loosens compared to the concrete return: `params` values are `unknown`,
+ * `filterMap` is keyed by `string` (values are the same `ResolvedFilter` union
+ * as `filters`), and `setFilter` is uncallable — a component that doesn't know
+ * the keys can't name one anyway; change values through the typed handlers on
+ * each resolved filter (`onChange`, `reset`, …). The call site's own return
+ * stays fully typed — this only describes the prop.
+ */
+export interface AnyUseFiltersReturn {
+  /** Same as the concrete return's `filterMap`, keyed by `string`. Includes hidden filters. */
+  filterMap: Record<string, ResolvedFilter>;
+  /** Resolved filters (config + value + handlers) — same as the concrete return. */
+  filters: ResolvedFilter[];
+  /** `true` when at least one filter has a change that hasn't reached the URL yet. */
+  isDirty: boolean;
+  /** `true` when at least one filter is active. */
+  isFiltered: boolean;
+  /** The `meta` passed to `useFilters` (or `{}` when omitted). */
+  meta: FiltersMeta;
+  /** Current values (plus pagination) — values are `unknown` here since the keys aren't known. */
+  params: Record<string, unknown>;
+  /** Commit every pending change at once. */
+  apply: () => void;
+  /** Discard every pending change. */
+  cancel: () => void;
+  /** Clear every filter at once. */
+  reset: () => void;
+  /**
+   * Present so the shape matches the concrete return, but uncallable here
+   * (`never` keys): a pass-through component doesn't know the config's keys.
+   * Use the typed handlers on each resolved filter instead.
+   */
+  setFilter: (key: never, value: never) => void;
+}
+
+/**
  * Build a `useFilters` hook bound to a resolved per-project config. You don't
  * call this yourself — `createFilters` does, and re-exports the resulting hook
  * (plus a matching `resolveFilterParams`) so both share the same constants.
@@ -285,13 +339,18 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     } = options;
 
     // `pagination` is `false` (off), `true`/omitted (factory as-is), or an
-    // object overriding the per-call-safe `defaultPerPage`. Keys / `firstPage`
-    // always come from the factory so `params` matches `resolveFilterParams`.
+    // object overriding the per-call-safe fields (`defaultPerPage`,
+    // `resetPageOnFilterChange`). Keys / `firstPage` always come from the
+    // factory so `params` matches `resolveFilterParams`.
     const paginationEnabled = pagination !== false;
     const defaultPerPage =
       typeof pagination === 'object'
         ? (pagination.defaultPerPage ?? cfg.defaultPerPage)
         : cfg.defaultPerPage;
+    const resetPageOnFilterChange =
+      typeof pagination === 'object'
+        ? (pagination.resetPageOnFilterChange ?? cfg.resetPageOnFilterChange)
+        : cfg.resetPageOnFilterChange;
 
     const entries = React.useMemo(
       // `T` may be an all-optional map when `P` is given; runtime only ever sees
@@ -471,11 +530,12 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         const updates: Record<string, ParamValue> = { [key]: value ?? null };
         // Keep the label sidecar in sync — cleared together, written together.
         if (config && asyncKindOf(config)) updates[labelKeyOf(key)] = labels;
-        // Changing any filter returns to the first page.
-        if (paginationEnabled) updates[pageKey] = null;
+        // Changing any filter returns to the first page (unless opted out —
+        // `resetPageOnFilterChange: false` means the hook never writes the page).
+        if (paginationEnabled && resetPageOnFilterChange) updates[pageKey] = null;
         void setValues(updates);
       },
-      [setValues, paginationEnabled, configByKey]
+      [setValues, paginationEnabled, resetPageOnFilterChange, configByKey]
     );
 
     // Route a change through its filter's `commit` mode. `instant` writes to the
@@ -762,9 +822,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         cleared[key] = (config.defaultValue ?? null) as ParamValue;
         if (asyncKindOf(config)) cleared[labelKeyOf(key)] = null;
       }
-      if (paginationEnabled) cleared[pageKey] = null;
+      if (paginationEnabled && resetPageOnFilterChange) cleared[pageKey] = null;
       void setValues(cleared);
-    }, [paginationEnabled, setValues, entries]);
+    }, [paginationEnabled, resetPageOnFilterChange, setValues, entries]);
 
     return {
       params,

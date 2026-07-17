@@ -253,6 +253,45 @@ with nuqs directly and spread it into your query key next to `params`, or ask fo
 a `useSort` companion bound to the same `createFilters` config — open an issue if
 you'd like that built in.
 
+### Pass-through components: `AnyUseFiltersReturn`
+
+A shared component that receives a whole `useFilters` return as a prop — a
+design-system filter toolbar, a mobile filter sheet, a debug panel — doesn't
+know which config produced it, so its prop can't name the concrete return
+type. Type it `AnyUseFiltersReturn` and skip the generics:
+
+```tsx
+import type { AnyUseFiltersReturn } from '@mbsatimov/use-filters';
+
+interface FilterSheetProps {
+  filters: AnyUseFiltersReturn; // the return of ANY useFilters call
+}
+
+function FilterSheet({ filters }: FilterSheetProps) {
+  return (
+    <>
+      {filters.filters.map((f) => (
+        <MyControl key={f.key} filter={f} />
+      ))}
+      <button disabled={!filters.isDirty} onClick={filters.apply}>
+        Apply
+      </button>
+    </>
+  );
+}
+
+// Any call site just passes its (fully typed) return:
+const filters = useFilters({ status: f.select({ label: 'Status', options }) });
+<FilterSheet filters={filters} />;
+```
+
+Reads stay typed — `filters.filters` is the usual `ResolvedFilter[]`, and
+`filterMap` is the same map keyed by `string`. What loosens is only what a
+key-agnostic component couldn't use anyway: `params` values are `unknown`, and
+`setFilter` is uncallable (change values through each resolved filter's own
+typed handlers instead). The call site's return stays fully typed — this type
+only describes the prop.
+
 ## Filter kinds
 
 Build every filter with an `f.*` helper. The builder decides how the value is
@@ -355,6 +394,17 @@ export const { useFilters } = createFilters({
 });
 ```
 
+**Managing the page entirely yourself?** By default, changing any filter resets
+the page to `firstPage` (a changed filter invalidates the old result window).
+If pagination is driven outside the hook and it should never write the page
+param, opt out — factory-wide or per call:
+
+```ts
+createFilters({ pagination: { resetPageOnFilterChange: false } });
+// or for one screen:
+useFilters(configs, { pagination: { resetPageOnFilterChange: false } });
+```
+
 **Offset-based API?** There's no built-in mapping — derive `limit` / `offset`
 where you fetch, straight from `params`:
 
@@ -379,6 +429,40 @@ See the [config reference](#createfilters-config) for every option.
 > `resolveFilterParams`, which runs in route loaders **outside** React and can't
 > read context. Closing over them keeps the hook and the loader helper in lockstep
 > (so their query keys match), with no runtime context lookup and full type safety.
+
+### Multiple APIs, multiple conventions: one factory each
+
+In a large project, different backends often page differently — one uses
+`page` / `per_page` (1-based), another `page` / `page_size` (0-based). The
+pagination keys and `firstPage` are deliberately **not** overridable per
+`useFilters` call: if they were, every call site and its paired
+`resolveFilterParams` loader would have to repeat the same override, and the
+moment one drifted, the hook and loader would silently disagree (wrong query
+keys, wrong page resets). Instead, create **one factory per API convention**
+and name the exports:
+
+```ts
+// src/lib/filters/crm.ts — 1-based, page/per_page
+export const {
+  useFilters: useCrmFilters,
+  resolveFilterParams: resolveCrmParams,
+  f
+} = createFilters({
+  pagination: { pageKey: 'page', perPageKey: 'per_page' }
+});
+
+// src/lib/filters/billing.ts — 0-based, page/page_size
+export const { useFilters: useBillingFilters, resolveFilterParams: resolveBillingParams } =
+  createFilters({
+    pagination: { perPageKey: 'page_size', firstPage: 0 }
+  });
+```
+
+Each factory is a self-documenting statement of one API's conventions, each
+hook's `params` is typed to its own keys, and the hook/loader pairing is
+guaranteed by construction — it's impossible to use billing pagination on a
+CRM route by accident. (`defaultPerPage` **is** per-call overridable, because
+it changes no keys and no shape — just a default number.)
 
 ## Route loaders: `resolveFilterParams`
 
@@ -480,8 +564,10 @@ customer_id: f.select({
 });
 ```
 
-`valueType` is type-checked against your option values (a `'string'` token on
-numeric options is a compile error), so it can't drift out of sync. In
+`valueType` is the declaration: when set, it drives the value type — `params`
+comes out as `number | null` even with empty options — and your `options` are
+type-checked against it (a string-valued option under `valueType: 'number'` is
+a compile error on that option), so the two can't drift out of sync. In
 development, `resolveFilterParams` **warns** if it meets a `select` /
 `multiSelect` that has no options and no `valueType` — the exact shape of this
 bug — so a loader can't quietly disagree with the hook. Static-options filters
@@ -795,15 +881,15 @@ These **override the `createFilters` config for this call** (precedence: per-fil
 > `useFilters` option > `createFilters` config > default), plus a few call-only
 > URL-behavior settings.
 
-| Option           | Default       | Description                                                                                                                                                                                           |
-| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pagination`     | `true`        | `false` disables pagination for this call; `{ defaultPerPage }` overrides the per-page default. Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
-| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                   |
-| `arraySeparator` | factory value | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) for this call. See below.                                                                                                           |
-| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                  |
-| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                   |
-| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                             |
-| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                                                                   |
+| Option           | Default       | Description                                                                                                                                                                                                                                  |
+| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pagination`     | `true`        | `false` disables pagination for this call; an object overrides the per-call-safe fields (`defaultPerPage`, `resetPageOnFilterChange`). Page/per-page **keys** and `firstPage` stay factory-only (so `params` matches `resolveFilterParams`). |
+| `defaultCommit`  | factory value | Default `commit` mode for all filters this call, overridable per filter. See [Deferred commits](#deferred-commits-debounce--apply).                                                                                                          |
+| `arraySeparator` | factory value | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) for this call. See below.                                                                                                                                                  |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                                                                                                                         |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                                                                                                                          |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                                                                                                                                    |
+| `meta`           | `{}`          | Whole-set UI hints — see [`meta`](#project-specific-ui-hints-meta).                                                                                                                                                                          |
 
 ### Per-filter options (shared by every kind)
 
@@ -842,12 +928,13 @@ The rest is grouped into `pagination` and `date`.
 
 **`pagination`**
 
-| Option           | Default      | Description                                                                                                                                                       |
-| ---------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pageKey`        | `'page'`     | URL key for the page number, and its key in `params`.                                                                                                             |
-| `perPageKey`     | `'per_page'` | URL key for the per-page count, and its key in `params`.                                                                                                          |
-| `firstPage`      | `1`          | The number the first page is counted from — the value when the URL has none, what reset writes, and the base your API pages from. Set to `0` for a 0-indexed API. |
-| `defaultPerPage` | `10`         | Per-page count assumed when the URL has none.                                                                                                                     |
+| Option                    | Default      | Description                                                                                                                                                                                                            |
+| ------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pageKey`                 | `'page'`     | URL key for the page number, and its key in `params`.                                                                                                                                                                  |
+| `perPageKey`              | `'per_page'` | URL key for the per-page count, and its key in `params`.                                                                                                                                                               |
+| `firstPage`               | `1`          | The number the first page is counted from — the value when the URL has none, what reset writes, and the base your API pages from. Set to `0` for a 0-indexed API.                                                      |
+| `defaultPerPage`          | `10`         | Per-page count assumed when the URL has none.                                                                                                                                                                          |
+| `resetPageOnFilterChange` | `true`       | Whether changing a filter resets the page to `firstPage`. Set `false` when pagination is driven entirely outside the hook — it then never writes the page param (applies to `reset()` too). Also per-call overridable. |
 
 **`date`**
 

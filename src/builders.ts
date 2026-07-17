@@ -16,6 +16,20 @@ import type {
 } from './types';
 
 /**
+ * The base primitive a `valueType` token declares. When a choice filter sets
+ * `valueType`, it is the declaration and `options` are checked against it —
+ * so a mismatched option errors on the option, not on the token. With no
+ * token, the value type is inferred from `options` as usual.
+ */
+type ChoiceBase<VT> = [VT] extends [never]
+  ? FilterPrimitive
+  : VT extends 'number'
+    ? number
+    : VT extends 'string'
+      ? string
+      : FilterPrimitive;
+
+/**
  * `f` — the filter builders. Use these to declare each filter you pass to
  * `useFilters`; the map key becomes the URL query param, and the builder you
  * pick decides how that param is parsed and what type shows up in `params`.
@@ -177,7 +191,9 @@ export const f = {
    * With static options the value type is inferred from them. If the options
    * are **fetched at runtime**, set `valueType: 'number' | 'string'` so parsing
    * stays identical where the options aren't loaded (e.g. `resolveFilterParams`
-   * in a route loader) — it's type-checked against your option values.
+   * in a route loader). The token is the declaration: when set, it drives the
+   * value type and `options` are checked against it — a mismatched option is a
+   * compile error on that option.
    *
    * @example
    * status: f.select({
@@ -192,22 +208,36 @@ export const f = {
    * @example
    * // options fetched later — declare the value type up front
    * customer_id: f.select({ label: 'Customer', valueType: 'number', options: [] })
+   * // params.customer_id -> number | null
    */
-  select: <const V extends FilterPrimitive>(
-    config: Omit<SelectFilterConfig<V>, 'type'>
-  ): SelectFilterConfig<V> => ({ ...config, type: 'select' }),
+  select: <
+    VT extends 'number' | 'string' = never,
+    const V extends FilterPrimitive & ChoiceBase<VT> = FilterPrimitive & ChoiceBase<VT>
+  >(
+    config: Omit<SelectFilterConfig<V>, 'type' | 'valueType'> & { valueType?: VT }
+  ): SelectFilterConfig<V> =>
+    // The cast bridges `VT` to the interface's `ChoiceValueType<V>` — the
+    // constraint above already guarantees they agree.
+    ({ ...config, type: 'select' }) as SelectFilterConfig<V>,
 
   /**
-   * Multiple choices from a fixed, in-memory list of `options`.
+   * Multiple choices from a fixed, in-memory list of `options`. Like `select`,
+   * an explicit `valueType` drives the value type when the options are fetched
+   * at runtime (options are checked against it).
    *
    * `params.<key>` → `V[] | null`
    *
    * @example
    * tags: f.multiSelect({ label: 'Tags', options: tagOptions })
    */
-  multiSelect: <const V extends FilterPrimitive>(
-    config: Omit<MultiSelectFilterConfig<V>, 'type'>
-  ): MultiSelectFilterConfig<V> => ({ ...config, type: 'multiSelect' }),
+  multiSelect: <
+    VT extends 'number' | 'string' = never,
+    const V extends FilterPrimitive & ChoiceBase<VT> = FilterPrimitive & ChoiceBase<VT>
+  >(
+    config: Omit<MultiSelectFilterConfig<V>, 'type' | 'valueType'> & { valueType?: VT }
+  ): MultiSelectFilterConfig<V> =>
+    // Same `VT` -> `ChoiceValueType<V>` bridge as `select`.
+    ({ ...config, type: 'multiSelect' }) as MultiSelectFilterConfig<V>,
 
   /**
    * Freeform multi-value text — a list of arbitrary strings the user types in,

@@ -21,18 +21,18 @@ const SECTIONS: { title: string; keys: string[] }[] = [
 ];
 
 export function App() {
-  // Hook-level default `commit` — applies to filters without their own `commit`
+  // Hook-level default `commit` — applies to filtersConfig without their own `commit`
   // (min_amount, price, …). q/status/product set their own, so they ignore it.
   const [defaultCommit, setDefaultCommit] = React.useState<FilterCommitMode>('instant');
 
-  const filters = useFilters(
+  const filtersConfig = useFilters(
     {
       // Commit modes are the stars of the show:
       q: f.text({ label: 'Search', placeholder: 'debounced 500ms…', commit: { debounce: 500 } }),
       status: f.select({ label: 'Status', options: statusOptions, commit: 'manual' }),
       product: f.asyncSelect({ label: 'Product', loadOptions: loadProducts, commit: 'manual' }),
 
-      // The rest are plain instant filters, one per kind:
+      // The rest are plain instant filtersConfig, one per kind:
       min_amount: f.number({ label: 'Min amount', unit: '$' }),
       price: f.numberRange({ label: 'Price range', unit: '$' }),
       active: f.boolean({ label: 'Active', trueLabel: 'Active', falseLabel: 'Archived' }),
@@ -51,7 +51,9 @@ export function App() {
     { defaultCommit, arraySeparator: '|' }
   );
 
-  const byKey = filters.filterMap as Record<string, ResolvedFilter>;
+  // Plain assignment, no cast — a concrete `filterMap` is assignable to the
+  // string-keyed record (same widening `AnyUseFiltersReturn` relies on).
+  const byKey: Record<string, ResolvedFilter> = filtersConfig.filterMap;
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -82,7 +84,7 @@ export function App() {
             <StatePanel
               defaultCommit={defaultCommit}
               onDefaultCommitChange={setDefaultCommit}
-              filters={filters}
+              filtersConfig={filtersConfig}
             />
           </div>
         </div>

@@ -45,6 +45,7 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
     // store dates in whatever shape or library the app uses.
     parseDate: date.parse ?? fromDateValueBase,
     parseDateTime: date.parseDateTime ?? fromDateTimeValueBase,
+    resetPageOnFilterChange: pagination.resetPageOnFilterChange ?? true,
     serializeDate: date.serialize ?? toDateValueBase,
     serializeDateTime: date.serializeDateTime ?? toDateTimeValueBase
   };

@@ -13,8 +13,11 @@ export type FilterPrimitive = number | string;
  * - dynamic / untyped options (`V` is the open `FilterPrimitive`) → either
  *
  * Because it is checked against `V`, a token that contradicts the options is a
- * compile error. The tuple wrappers stop the conditional from distributing over
- * a union of literals (so `1 | 2` resolves to `'number'`, not `'number'`-per-member).
+ * compile error. In the `f.select` / `f.multiSelect` builders the token is the
+ * declaration — when present it drives `V`, and `options` are checked against
+ * it, so the error lands on the mismatched option. The tuple wrappers stop the
+ * conditional from distributing over a union of literals (so `1 | 2` resolves
+ * to `'number'`, not `'number'`-per-member).
  */
 export type ChoiceValueType<V extends FilterPrimitive> = [V] extends [number]
   ? 'number'
@@ -324,8 +327,10 @@ export interface SelectFilterConfig<
    * then also used somewhere the options aren't loaded (a route loader calling
    * `resolveFilterParams`), where the inference has nothing to read and the two
    * call sites can otherwise disagree on the value type. An explicit token makes
-   * parsing deterministic and identical everywhere. Type-checked against the
-   * option value type, so it can't contradict them. See {@link ChoiceValueType}.
+   * parsing deterministic and identical everywhere. The token is the
+   * declaration: in the `f.select` builder it drives the value type, and
+   * `options` are checked against it — a mismatched option is a compile error
+   * on that option. See {@link ChoiceValueType}.
    */
   valueType?: ChoiceValueType<NoInfer<V>>;
 }
@@ -385,8 +390,9 @@ export interface MultiSelectFilterConfig<
    * How this filter's values round-trip through the URL — `'number'` or
    * `'string'`. Inferred from `options` when they're static; **set it when the
    * options are fetched at runtime** so `resolveFilterParams` (which sees no
-   * options in a loader) parses the same type the hook does. Type-checked
-   * against the option value type. See {@link ChoiceValueType}.
+   * options in a loader) parses the same type the hook does. When set (in the
+   * `f.multiSelect` builder) it drives the value type and `options` are
+   * checked against it. See {@link ChoiceValueType}.
    */
   valueType?: ChoiceValueType<NoInfer<V>>;
 }
@@ -451,21 +457,37 @@ export interface SelectedOption<V extends FilterPrimitive = FilterPrimitive> {
   value: V;
 }
 
-/** Extra handlers/state async filters get — they write value + label atomically. */
+/**
+ * Extra handlers/state async filters get — they write value + label atomically.
+ *
+ * The handlers use method syntax (`onSelectOption(...)`, not
+ * `onSelectOption: (...) =>`) deliberately: TypeScript checks method
+ * parameters bivariantly, which is what lets a narrowly-typed resolved filter
+ * (`V = 'open' | 'closed'`) be assignable to the wide `ResolvedFilter` union —
+ * the relation `filterMap` values, `AnyUseFiltersReturn`, and any
+ * `ResolvedFilter`-typed prop all rely on. The unsafe direction (assigning a
+ * wide filter where a narrow one is expected) stays rejected via the
+ * covariant `value`/`selectedOption` properties. The lint rule banning method
+ * syntax exists to prevent accidental bivariance — here it's the point, hence
+ * the targeted disables.
+ */
 type AsyncResolvedExtras<C> =
   C extends AsyncSelectFilterConfig<infer V>
     ? {
         /** Select an option (or `null` to clear) — writes value and label sidecar together. */
-        onSelectOption: (option: FilterOption<V> | null) => void;
+        // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+        onSelectOption(option: FilterOption<V> | null): void;
         /** Current selection paired with its URL-stored label. */
         selectedOption: SelectedOption<V> | null;
       }
     : C extends AsyncMultiSelectFilterConfig<infer V>
       ? {
           /** Replace the whole selection at once (batch apply from the mobile sheet). */
-          onSetOptions: (options: FilterOption<V>[]) => void;
+          // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+          onSetOptions(options: FilterOption<V>[]): void;
           /** Toggle an option in/out of the selection — keeps value/label arrays paired. */
-          onToggleOption: (option: FilterOption<V>) => void;
+          // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see doc comment
+          onToggleOption(option: FilterOption<V>): void;
           /** Current selections paired with their URL-stored labels. */
           selectedOptions: SelectedOption<V>[];
         }
@@ -588,7 +610,11 @@ export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends un
          */
         instantReset: () => void;
         key: string;
-        onChange: (value: FilterValue<C>) => void;
+        // Method syntax on purpose — bivariant params keep a narrow resolved
+        // filter assignable to the wide `ResolvedFilter` union (see
+        // `AsyncResolvedExtras`' doc comment).
+        // eslint-disable-next-line ts/method-signature-style -- intentional bivariance
+        onChange(value: FilterValue<C>): void;
         /**
          * @deprecated Use `reset` instead — same behavior, kept as an alias
          * (identical function reference). Will be removed in a future major
@@ -693,6 +719,15 @@ export interface PaginationConfig<
   pageKey?: PageKey;
   /** URL key holding the per-page count, and its key in `params`. Defaults to `'per_page'`. */
   perPageKey?: PerPageKey;
+  /**
+   * Whether changing a filter resets the page to `firstPage`. Defaults to
+   * `true` — a changed filter invalidates the old result window, so staying on
+   * page 7 of results that no longer exist is almost never right. Set `false`
+   * when pagination is driven entirely outside this hook and it should never
+   * write the page param; this also applies to the whole-set `reset()`.
+   * Overridable per call (see {@link PaginationOverride}).
+   */
+  resetPageOnFilterChange?: boolean;
 }
 
 /**
@@ -702,13 +737,16 @@ export interface PaginationConfig<
  * - `false` disables pagination entirely for this call (no `page` / `per_page`
  *   in `params`, no reset-to-first-page on change).
  * - `true` (or omitted) keeps the factory's pagination as-is.
- * - An object overrides only the *safe* per-call field — `defaultPerPage` —
- *   for this call, merged over the factory. The page/per-page **keys** and
- *   `firstPage` are deliberately not overridable here: they come from
- *   `createFilters` so the hook's `params` stays byte-identical to what
- *   `resolveFilterParams` produces (see {@link FiltersConfig}).
+ * - An object overrides only the *safe* per-call fields — `defaultPerPage` and
+ *   `resetPageOnFilterChange` — for this call, merged over the factory. Safe
+ *   because neither changes the `params` shape or the URL keys. The
+ *   page/per-page **keys** and `firstPage` are deliberately not overridable
+ *   here: they come from `createFilters` so the hook's `params` stays
+ *   byte-identical to what `resolveFilterParams` produces (see
+ *   {@link FiltersConfig}).
  */
-export type PaginationOverride = boolean | Pick<PaginationConfig, 'defaultPerPage'>;
+export type PaginationOverride =
+  boolean | Pick<PaginationConfig, 'defaultPerPage' | 'resetPageOnFilterChange'>;
 
 /**
  * How `date` filters (de)serialize between a stored URL string and a `Date`.
@@ -799,6 +837,7 @@ export interface ResolvedFiltersConfig {
   firstPage: number;
   pageKey: string;
   perPageKey: string;
+  resetPageOnFilterChange: boolean;
   parseDate: (value: string) => Date | undefined;
   parseDateTime: (value: string) => Date | undefined;
   serializeDate: (date: Date) => string;
