@@ -57,11 +57,16 @@
     "type": "git",
     "url": "git+https://github.com/mbsatimov/use-filters.git"
   },
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "playground": "vite --config playground/vite.config.ts",
-    "build:playground": "vite build --config playground/vite.config.ts",
+    "playground": "npm run dev --workspace @use-filters/playground",
+    "build:playground": "npm run build --workspace @use-filters/playground",
+    "docs": "npm run dev --workspace @use-filters/docs",
+    "build:docs": "npm run build --workspace @use-filters/docs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

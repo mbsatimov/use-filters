@@ -1,0 +1,32 @@
+{
+  "name": "@use-filters/docs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "@mbsatimov/use-filters": "^0.9.0",
+    "fumadocs-core": "^16.11.5",
+    "fumadocs-ui": "^16.11.5",
+    "next": "^16.2.10",
+    "nuqs": "^2.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.2",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "fumadocs-mdx": "^15.2.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.9.0"
+  }
+}

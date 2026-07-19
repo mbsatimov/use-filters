@@ -1,0 +1,37 @@
+---
+title: Installation
+description: Install the package and mount the nuqs adapter.
+---
+
+## Install
+
+```bash
+npm install @mbsatimov/use-filters nuqs
+```
+
+`react` (>=18) and `nuqs` (>=2) are peer dependencies — install them in your app
+if they aren't already there.
+
+## Mount the nuqs adapter
+
+State lives in the URL via [nuqs](https://nuqs.dev), which needs its adapter
+mounted **once** at your app root. Pick the adapter for your router:
+
+```tsx
+// Next.js App Router
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <NuqsAdapter>{children}</NuqsAdapter>
+      </body>
+    </html>
+  );
+}
+```
+
+Adapters also exist for the Next Pages Router, React Router, Remix, TanStack
+Router, and plain React — see the [nuqs adapter docs](https://nuqs.dev/docs/adapters).
+Without an adapter mounted, `useFilters` will throw.

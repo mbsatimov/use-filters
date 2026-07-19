@@ -1,0 +1,56 @@
+---
+title: Quickstart
+description: Declare filters, fetch with params, render filters.
+---
+
+```tsx
+import { f, useFilters } from '@mbsatimov/use-filters';
+import { useQuery } from '@tanstack/react-query';
+
+const statusOptions = [
+  { label: 'Open', value: 'open' },
+  { label: 'Closed', value: 'closed' }
+];
+
+function LoansPage() {
+  const { params, filters, isFiltered, reset } = useFilters({
+    search: f.text({ label: 'Search' }),
+    status: f.select({ label: 'Status', options: statusOptions })
+  });
+
+  // `params` = { search, status, page, per_page } — use it to fetch, and as the
+  // query key so results refetch/cache correctly when a filter changes.
+  const { data } = useQuery({
+    queryKey: ['loans', params],
+    queryFn: () => loanApi.getAll(params)
+  });
+
+  return (
+    <>
+      <FilterToolbar filters={filters} />
+      {isFiltered && <button onClick={reset}>Clear filters</button>}
+      <LoanTable rows={data} />
+    </>
+  );
+}
+```
+
+That's the whole loop: **declare filters → fetch with `params` → render
+`filters`.**
+
+## Rendering a filter
+
+Each entry in `filters` is a **resolved filter** — your original config plus a
+live `value` and handlers. You decide how to render it:
+
+```tsx
+filters.map((filter) => (
+  <label key={filter.key}>
+    {filter.label}
+    <input
+      value={filter.value ?? ''}
+      onChange={(e) => filter.onChange(e.target.value || null)}
+    />
+  </label>
+));
+```

@@ -21,7 +21,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Import the library by its published name so the playground mirrors real usage.
-      '@mbsatimov/use-filters': resolve(__dirname, '../src/index.ts'),
+      '@mbsatimov/use-filters': resolve(__dirname, '../../src/index.ts'),
       // shadcn/ui convention — components/lib import via `@/...`.
       '@': resolve(__dirname, 'src')
     }
