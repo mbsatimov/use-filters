@@ -1,5 +1,24 @@
 {
-  "title": "Docs",
+  "title": "Documentation",
   "root": true,
-  "pages": ["index", "installation", "quickstart"]
+  "pages": [
+    "index",
+    "installation",
+    "quickstart",
+    "---Guides---",
+    "rendering-ui",
+    "filter-kinds",
+    "commit-modes",
+    "async-filters",
+    "dates-and-times",
+    "typing-params",
+    "create-filters",
+    "route-loaders",
+    "define-filters",
+    "dynamic-filters",
+    "meta",
+    "---Reference---",
+    "api-reference",
+    "gotchas"
+  ]
 }

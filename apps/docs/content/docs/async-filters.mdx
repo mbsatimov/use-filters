@@ -1,0 +1,88 @@
+---
+title: Async (server-searched) filters
+description: Server-searched selects with label sidecars and explicit value types.
+---
+
+Use `f.asyncSelect` / `f.asyncMultiSelect` when the choices live on the server and
+are too many to load up front — e.g. "pick a customer" out of thousands. Options
+are fetched (debounced) as the user types:
+
+```ts
+customer_id: f.asyncSelect({
+  label: 'Customer',
+  // called on each keystroke; return a small page. `signal` aborts stale requests.
+  loadOptions: (search, signal) =>
+    customerApi
+      .getAll({ params: { search, limit: 20 }, signal })
+      .then((list) => list.map((c) => ({ value: c.id, label: c.full_name })))
+});
+```
+
+## The label sidecar
+
+The URL only stores the chosen id — but after a refresh or on a shared link
+there's nothing in memory to turn that id back into a name. So async filters also
+store the selected label in a companion param, `<key>_label`, and give you the
+pair back ready to render:
+
+```
+?customer_id=42&customer_id_label=Acme+Corp
+```
+
+Because of this, async resolved filters expose option-aware handlers that write
+value and label together, so you never have to manage the sidecar yourself:
+
+| Kind               | Read              | Write                                          |
+| ------------------ | ----------------- | ---------------------------------------------- |
+| `asyncSelect`      | `selectedOption`  | `onSelectOption(option \| null)`               |
+| `asyncMultiSelect` | `selectedOptions` | `onToggleOption(option)`, `onSetOptions(list)` |
+
+The `_label` params are display-only and never appear in `params` sent to your
+API.
+
+<Callout type="warn">
+  Don't name a filter `something_label` — that suffix is reserved for the label
+  sidecar. A dev-mode warning fires if you do.
+</Callout>
+
+**String ids?** Async values round-trip through the URL as **numbers by default** —
+a string id (UUID, slug) would parse back as `null`. Set `valueType: 'string'` on
+the filter to match. Development builds warn when `loadOptions` resolves options
+whose values contradict the configured `valueType`.
+
+## Choosing a value type for fetched options
+
+A `select` / `multiSelect` stores either numbers or strings in the URL, and it has
+to parse them back to the **same** runtime type everywhere the config is used —
+otherwise `params` from the hook and `params` from a route loader are different
+objects and their query keys don't match. With static `options` the type is
+inferred from them. But a very common setup breaks that inference:
+
+```tsx
+// The options are fetched, so the loader and the component build the config
+// with DIFFERENT options — the loader has none.
+const configs = {
+  // ❌ no valueType: the component (numeric options loaded) parses `?customer_id=5`
+  //    as the number 5; the loader (no options) parses it as the string '5'.
+  customer_id: f.select({ label: 'Customer', options: fetchedCustomerOptions })
+};
+```
+
+Declare `valueType` once and both sides agree, regardless of whether options are
+present:
+
+```tsx
+customer_id: f.select({
+  label: 'Customer',
+  valueType: 'number', // ← the static source of truth for parsing
+  options: fetchedCustomerOptions // (component) — omit / [] in the loader config
+});
+```
+
+`valueType` is the declaration: when set, it drives the value type — `params` comes
+out as `number | null` even with empty options — and your `options` are
+type-checked against it (a string-valued option under `valueType: 'number'` is a
+compile error on that option). In development, `resolveFilterParams` **warns** if
+it meets a `select` / `multiSelect` that has no options and no `valueType` — the
+exact shape of this bug. Static-options filters need none of this; they keep
+inferring as before.

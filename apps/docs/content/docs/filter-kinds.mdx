@@ -1,0 +1,39 @@
+---
+title: Filter kinds
+description: The f.* builders and the value type each one produces.
+---
+
+Build every filter with an `f.*` helper. The builder decides how the value is
+parsed and what type appears in `params`.
+
+| Builder              | Use for                               | `params.<key>` type        | Notable options                                |
+| -------------------- | ------------------------------------- | -------------------------- | ---------------------------------------------- |
+| `f.text`             | Search boxes, free text               | `string \| null`           | —                                              |
+| `f.number`           | Amounts, counts, rates                | `number \| null`           | `precision: 'float' \| 'int'`, `unit`          |
+| `f.numberRange`      | Numeric from–to (price/age "between") | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit`          |
+| `f.boolean`          | Toggles, on/off                       | `boolean \| null`          | `trueLabel`, `falseLabel`                      |
+| `f.date`             | A single date (or date + time)        | `string \| null`           | `precision: 'date' \| 'datetime'`              |
+| `f.dateRange`        | A from–to range (date or date + time) | `[string, string] \| null` | `precision: 'date' \| 'datetime'`              |
+| `f.time`             | A time of day (no date)               | `string \| null`           | `precision: 'minute' \| 'second'`              |
+| `f.timeRange`        | A from–to time-of-day range (no date) | `[string, string] \| null` | `precision: 'minute' \| 'second'`              |
+| `f.select`           | One choice from a fixed list          | `V \| null`                | `options`, `valueType`                         |
+| `f.multiSelect`      | Many choices from a fixed list        | `V[] \| null`              | `options`, `valueType`                         |
+| `f.tags`             | Freeform string list (no options)     | `string[] \| null`         | —                                              |
+| `f.asyncSelect`      | One choice, **server-searched** by id | `V \| null`                | `loadOptions`, `valueType`, `searchDebounceMs` |
+| `f.asyncMultiSelect` | Many choices, **server-searched**     | `V[] \| null`              | `loadOptions`, `valueType`, `searchDebounceMs` |
+
+`V` is inferred from your `options` (or `valueType` for async): number-valued
+options give `number | null`, a status enum gives `Status | null`, and so on — no
+annotations needed.
+
+<Callout title="Fetching select / multiSelect options at runtime?">
+  Add `valueType: 'number' | 'string'`. The value type is normally inferred from
+  `options`, but if the same config is also used where the options aren't loaded —
+  a route loader calling `resolveFilterParams` — that inference has nothing to
+  read and the two sites can parse the URL to **different types** (`5` vs `'5'`),
+  splitting your query key. See [Async filters](/docs/async-filters#choosing-a-value-type-for-fetched-options).
+</Callout>
+
+Every kind also accepts the shared options `label` (required), `placeholder`,
+`defaultValue`, `hidden`, `meta`, and `nuqs` — see the
+[API reference](/docs/api-reference#per-filter-options-shared-by-every-kind).

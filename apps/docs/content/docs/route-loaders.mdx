@@ -1,0 +1,34 @@
+---
+title: Route loaders — resolveFilterParams
+description: Compute the exact same params in a route loader so prefetches hit the same query key.
+---
+
+If you prefetch data in a route loader (TanStack Router, React Router), you need
+the loader to compute the **exact same** `params` object the hook will compute on
+mount — otherwise the prefetch lands under a different query key and gets thrown
+away. `resolveFilterParams` is that framework-agnostic twin:
+
+```ts
+// TanStack Router — search is already a parsed object
+loader: ({ context: { queryClient }, location: { search } }) =>
+  queryClient.ensureQueryData(loanQueryOptions(resolveFilterParams(loanFilterConfigs, search)));
+```
+
+```ts
+// React Router — pass the URLSearchParams straight in
+export async function loader({ request }: LoaderFunctionArgs) {
+  const params = resolveFilterParams(loanFilterConfigs, new URL(request.url).searchParams);
+  return queryClient.ensureQueryData(loanQueryOptions(params));
+}
+```
+
+It accepts the raw search in whatever shape your router provides — a parsed object,
+a `URLSearchParams`, or the raw `location.search` string — applies the same
+defaults and pagination mapping as the hook, coerces values to the same types (so
+`?status=5` becomes `5`, not `'5'`), and drops extras like async `_label` sidecars.
+
+<Callout>
+  Share the same config map object between the loader and the hook. For the shared
+  `{ arraySeparator, pagination }` call option, [`defineFilters`](/docs/define-filters)
+  removes the risk of the two drifting.
+</Callout>
