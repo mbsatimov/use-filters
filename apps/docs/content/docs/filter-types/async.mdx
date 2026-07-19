@@ -1,0 +1,82 @@
+---
+title: Async
+description: f.asyncSelect and f.asyncMultiSelect — server-searched choices with label sidecars.
+---
+
+import { AsyncDemo } from '@/components/demo/demos/async';
+
+Use these when the choices live on the server and are too many to load up front —
+"pick a customer" out of thousands. Options are fetched via `loadOptions` as the
+user types (start typing in the demo):
+
+<AsyncDemo />
+
+## `f.asyncSelect`
+
+`loadOptions(search, signal)` runs your server search and returns a page of options.
+The `signal` lets you abort stale requests:
+
+```ts
+assignee: f.asyncSelect({
+  label: 'Assignee',
+  loadOptions: (search, signal) =>
+    userApi
+      .search({ q: search, limit: 20 }, { signal })
+      .then((users) => users.map((u) => ({ value: u.id, label: u.name })))
+});
+```
+
+The resolved filter gives you `loadOptions` (wrapped and debounced), `selectedOption`,
+and `onSelectOption(option | null)` to set or clear the choice.
+
+## `f.asyncMultiSelect`
+
+The multiple-choice variant. It exposes `selectedOptions`, `onToggleOption(option)`,
+and `onSetOptions(list)`.
+
+## The label sidecar
+
+The URL stores only the chosen **id**. After a refresh there's nothing in memory to
+turn that id back into a name — so async filters also store the selected label in a
+companion param, `<key>_label`, and hand you the pair back ready to render:
+
+```text
+?assignee=42&assignee_label=Ada+Lovelace
+```
+
+You never manage this sidecar yourself; the option-aware handlers write the value
+and label together. The `_label` params are display-only and never appear in the
+`params` you send to your API.
+
+<Callout type="warn">
+  Don't name a filter `something_label` — that suffix is reserved for the sidecar. A
+  dev-mode warning fires if you do.
+</Callout>
+
+## Value types
+
+Async values round-trip through the URL as **numbers by default**. If your ids are
+strings (UUIDs, slugs), set `valueType: 'string'` or they'll parse back as `null`:
+
+```ts
+assignee: f.asyncSelect({ label: 'Assignee', valueType: 'string', loadOptions });
+```
+
+This applies to static `select` / `multiSelect` too when their options are
+**fetched at runtime**. The value type is normally inferred from `options`, but if
+the same config is also used where the options aren't loaded — a
+[route loader](/docs/guides/route-loaders) calling `resolveFilterParams` — that
+inference has nothing to read, and the hook and loader can parse the same URL to
+different types (`5` vs `'5'`), splitting your query key. Declaring `valueType`
+fixes the type in both places:
+
+```ts
+owner: f.select({
+  label: 'Owner',
+  valueType: 'number', // the static source of truth
+  options: fetchedOwnerOptions // present in the component, empty in the loader
+});
+```
+
+`valueType` is type-checked against your option values, and dev builds warn if a
+loader meets an options-less choice filter without it.

@@ -1,0 +1,40 @@
+---
+title: Custom date formats
+description: Override how date filters serialize to and from the URL.
+---
+
+`date` / `dateRange` filters store dates as strings. The default format is a fixed
+`yyyy-MM-dd` (and `yyyy-MM-ddTHH:mm:ss` for `precision: 'datetime'`) — deliberately
+fixed, with no format-string option, so parsing can't silently misfire.
+
+To store dates differently — a `dd.MM.yyyy` UI string, a different library, a
+timezone-aware or non-Gregorian representation — override the (de)serialization on
+`createFilters`. Supply `date.serialize` (Date → string) and `date.parse`
+(string → Date | undefined) as an inverse pair:
+
+```ts
+import dayjs from 'dayjs';
+
+export const { useFilters, f, toDateValue, fromDateValue } = createFilters({
+  date: {
+    serialize: (date) => dayjs(date).format('DD.MM.YYYY'),
+    parse: (value) => {
+      const d = dayjs(value, 'DD.MM.YYYY', true);
+      return d.isValid() ? d.toDate() : undefined;
+    }
+  }
+});
+```
+
+The `toDateValue` / `fromDateValue` helpers returned from `createFilters` then use
+your functions, so your UI conversion and the URL storage always agree:
+
+```ts
+filter.onChange(toDateValue(pickedDate)); // uses your serialize
+const date = fromDateValue(filter.value); // uses your parse
+```
+
+For datetime filters, override the counterparts `date.serializeDateTime` /
+`date.parseDateTime` and use `toDateTimeValue` / `fromDateTimeValue`. Returning
+`undefined` from a parser marks the input invalid, so malformed URLs resolve to
+"no value" rather than crashing.

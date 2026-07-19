@@ -1,0 +1,47 @@
+---
+title: Text & number
+description: f.text, f.number, and f.numberRange.
+---
+
+import { TextNumberDemo } from '@/components/demo/demos/text-number';
+
+<TextNumberDemo />
+
+## `f.text`
+
+Free text — search boxes, names, anything typed. Stored and returned as a string.
+
+```ts
+search: f.text({ label: 'Search', placeholder: 'Name or SKU' });
+// params.search → string | null
+```
+
+A search box usually wants a [debounced commit](/docs/concepts/values-and-commits)
+so it doesn't refetch on every keystroke:
+
+```ts
+search: f.text({ label: 'Search', commit: { debounce: 400 } });
+```
+
+## `f.number`
+
+A single number — amounts, counts, rates. Keeps decimals by default; pass
+`precision: 'int'` to parse whole numbers only. `unit` is a display hint carried
+through to the resolved filter for your UI.
+
+```ts
+min_price: f.number({ label: 'Min price', unit: '$' });
+page_count: f.number({ label: 'Pages', precision: 'int' });
+// params.min_price → number | null
+```
+
+## `f.numberRange`
+
+A `[min, max]` pair — "price between", "age between". Same `precision` / `unit`
+options as `f.number`; the value is a two-element tuple.
+
+```ts
+price: f.numberRange({ label: 'Price', unit: '$' });
+// params.price → [number, number] | null
+// onChange([min, max])
+```

@@ -1,0 +1,46 @@
+---
+title: defineFilters
+description: Bind a screen's config and shared options once for the hook and the loader.
+---
+
+```ts
+defineFilters(configs, options?) => {
+  configs,
+  useFilters,
+  resolveFilterParams
+}
+```
+
+Binds one screen's `configs` and the shared call option `{ arraySeparator, pagination }`
+so `useFilters` and `resolveFilterParams` can't drift. Available on every
+[`createFilters`](/docs/api/create-filters) instance and the default export. See
+[Sharing setup](/docs/guides/shared-setup#definefilters).
+
+- **`configs`** — a map of `key → f.*()`.
+- **`options`** — the shared, drift-prone options only: `arraySeparator`,
+  `pagination`.
+
+## Returns
+
+| Property              | Description                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `configs`             | The bound config map, for reference (e.g. building UI metadata from it).                       |
+| `useFilters`          | The hook with `configs` + shared options applied. Still takes hook-only options per call.      |
+| `resolveFilterParams` | The loader helper with `configs` + shared options applied. Takes only the raw search params.   |
+
+```ts
+export const productFilters = defineFilters(
+  { search: f.text({ label: 'Search' }), brand: f.select({ label: 'Brand', options }) },
+  { arraySeparator: '|' }
+);
+
+// component (hook-only options still allowed):
+const { params, filters } = productFilters.useFilters({ defaultCommit: 'manual' });
+
+// loader (same config + separator, guaranteed):
+const params = productFilters.resolveFilterParams(new URL(request.url).searchParams);
+```
+
+The per-call `useFilters` accepts the hook-only options (`defaultCommit`, `meta`,
+`history`, `shallow`, `clearOnDefault`) — never `arraySeparator` / `pagination`,
+which are fixed at the `defineFilters` call so the two sides stay identical.

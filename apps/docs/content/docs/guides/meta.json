@@ -1,0 +1,15 @@
+{
+  "title": "Guides",
+  "pages": [
+    "fetching-data",
+    "building-a-toolbar",
+    "apply-panel",
+    "search-sort-and-placement",
+    "dynamic-filters",
+    "route-loaders",
+    "shared-setup",
+    "typed-params",
+    "custom-date-formats",
+    "ui-metadata"
+  ]
+}

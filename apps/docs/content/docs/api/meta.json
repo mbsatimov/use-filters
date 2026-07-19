@@ -1,0 +1,11 @@
+{
+  "title": "API reference",
+  "pages": [
+    "use-filters",
+    "create-filters",
+    "define-filters",
+    "resolve-filter-params",
+    "builders",
+    "types"
+  ]
+}

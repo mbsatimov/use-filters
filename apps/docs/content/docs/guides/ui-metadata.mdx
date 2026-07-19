@@ -1,0 +1,59 @@
+---
+title: Project-specific UI hints (meta)
+description: Attach your own typed metadata to filters and options without changing the core.
+---
+
+Your UI often needs extra per-filter information that the library has no opinion
+about — a layout variant, a group, an icon, a step size. Attach it via `meta`. The
+core never reads `meta`; it only carries it through to `filters` / `filterMap` for
+your UI to branch on. Because the shapes are yours, they're **fully typed** — you
+declare them once by augmenting the library's interfaces:
+
+```ts
+// e.g. src/types/filters.d.ts
+declare module '@mbsatimov/use-filters' {
+  interface FilterMeta {
+    variant?: 'inline' | 'stacked'; // available on EVERY filter kind
+  }
+  interface SelectFilterMeta {
+    group?: 'primary' | 'advanced'; // only on select filters
+  }
+  interface FilterOptionMeta {
+    icon?: React.ComponentType; // on every option
+  }
+  interface FiltersMeta {
+    layout?: 'toolbar' | 'sidebar'; // the whole set
+  }
+}
+```
+
+Now pass `meta` where it's relevant, checked against the shape you declared:
+
+```ts
+status: f.select({
+  label: 'Status',
+  options: [{ label: 'Open', value: 'open', meta: { icon: OpenIcon } }],
+  meta: { group: 'primary' }
+});
+
+useFilters(configs, { meta: { layout: 'sidebar' } });
+```
+
+And read it back when rendering:
+
+```tsx
+filters.map((filter) =>
+  filter.meta.group === 'advanced' ? <AdvancedSlot filter={filter} /> : <Control filter={filter} />
+);
+```
+
+There's a per-kind interface (`SelectFilterMeta`, `NumberFilterMeta`, …) so a hint
+can be specific to one kind, a shared `FilterMeta` for hints that apply to all, a
+`FilterOptionMeta` for options, and a `FiltersMeta` for the whole set.
+
+<Callout>
+  The old `FilterOption.icon` / `leftSlot` / `rightSlot` and the per-filter
+  `className` are **deprecated** — rendering concerns don't belong on a headless
+  core. Declare what you need on `FilterOptionMeta` / `FilterMeta` and pass it via
+  `meta` (same data, typed by you). They keep working until 1.0.
+</Callout>

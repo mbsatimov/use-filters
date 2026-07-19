@@ -1,0 +1,81 @@
+---
+title: Building a toolbar
+description: Render the filters array generically, with a reset button.
+---
+
+import { ToolbarDemo } from '@/components/demo/demos/toolbar';
+
+The `filters` array is a list of **resolved filters** ready to render. A toolbar is
+just a `.map` over it, switching on each filter's `type`:
+
+<ToolbarDemo />
+
+## Render by type
+
+Each resolved filter carries its `type`, `label`, `value`, and `onChange`. A small
+`switch` covers the kinds you use:
+
+```tsx
+function Control({ filter }: { filter: ResolvedFilter }) {
+  switch (filter.type) {
+    case 'text':
+      return (
+        <input
+          placeholder={filter.label}
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        />
+      );
+    case 'select':
+      return (
+        <select value={filter.value ?? ''} onChange={(e) => filter.onChange(e.target.value || null)}>
+          <option value="">{filter.label}</option>
+          {filter.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+    // ...one case per kind you use
+    default:
+      return null;
+  }
+}
+```
+
+TypeScript narrows `filter` inside each `case` — under `case 'select'`, `filter.options`
+and the correct `value` type are available.
+
+## The toolbar
+
+```tsx
+function Toolbar({ filters }: { filters: ResolvedFilter[] }) {
+  return (
+    <div className="toolbar">
+      {filters.map((filter) => (
+        <Control key={filter.key} filter={filter} />
+      ))}
+    </div>
+  );
+}
+```
+
+## A reset button
+
+The hook's `isFiltered` is `true` when any visible filter is active, and `reset()`
+clears them all — exactly what a "Clear filters" button needs:
+
+```tsx
+const { filters, isFiltered, reset } = useFilters(configs);
+
+{isFiltered && <button onClick={reset}>Clear filters</button>}
+```
+
+## Per-filter state
+
+Each resolved filter also exposes its own state (`isDirty`, `committedValue`,
+`isFiltered`, `commit`, …) and its own `apply` / `cancel` / `reset` — so a control
+never needs `params` passed in to know its status. See the
+[`ResolvedFilter` reference](/docs/api/types#resolvedfilter) for the full surface,
+and [Apply panel](/docs/guides/apply-panel) for deferred-commit UI.

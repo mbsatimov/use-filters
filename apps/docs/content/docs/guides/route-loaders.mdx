@@ -1,0 +1,49 @@
+---
+title: Route loaders & SSR prefetch
+description: Compute the same params in a loader so a prefetch hits the same cache key as the hook.
+---
+
+If you prefetch data in a route loader (TanStack Router, React Router) or on the
+server, the loader has to compute the **exact same** `params` object the hook will
+compute on mount. Otherwise the prefetch lands under a different cache key and the
+page refetches anyway. `resolveFilterParams` is the framework-agnostic twin of the
+hook's `params` derivation.
+
+## Use it in a loader
+
+Give it the same config map and the request's search params:
+
+```ts
+// TanStack Router — search is already a parsed object
+loader: ({ context: { queryClient }, location: { search } }) =>
+  queryClient.ensureQueryData(productQueryOptions(resolveFilterParams(productConfigs, search)));
+```
+
+```ts
+// React Router — pass the URLSearchParams straight in
+export async function loader({ request }: LoaderFunctionArgs) {
+  const params = resolveFilterParams(productConfigs, new URL(request.url).searchParams);
+  return queryClient.ensureQueryData(productQueryOptions(params));
+}
+```
+
+It accepts the raw search in whatever shape your router gives you — a parsed object,
+a `URLSearchParams`, or the raw `location.search` string — and applies the same
+defaults, pagination mapping, and coercion as the hook (so `?status=5` becomes the
+number `5`, not `'5'`), then drops extras like async `_label` sidecars.
+
+## Keep the two in sync
+
+For the query keys to match, the loader and the hook must use the **same config**
+and the **same options** (`arraySeparator`, `pagination`). Sharing the config object
+is easy; the options are easy to forget on one side:
+
+```ts
+// ⚠️ drift risk — the separator is set on one call but not the other
+useFilters(productConfigs, { arraySeparator: '|' });
+resolveFilterParams(productConfigs, search); // forgot arraySeparator
+```
+
+[`defineFilters`](/docs/guides/shared-setup#definefilters) binds the config and
+those options once, so the hook and loader can't disagree. Reach for it whenever you
+have a route loader.

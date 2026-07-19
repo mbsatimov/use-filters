@@ -1,0 +1,65 @@
+---
+title: Building an Apply panel
+description: A deferred-commit filter panel with Apply and Cancel — common on mobile.
+---
+
+import { CommitModesDemo } from '@/components/demo/demos/commit-modes';
+
+Sometimes you don't want each change to fetch immediately — a mobile filter sheet,
+or a heavy report, where the user sets several filters and then commits them all at
+once. That's what [`commit: 'manual'`](/docs/concepts/values-and-commits) is for.
+
+The demo below mixes a debounced search with a manual status filter. The controls
+respond instantly, but `params` only updates when the debounce settles or you press
+**Apply**:
+
+<CommitModesDemo />
+
+## Make the whole panel manual
+
+Set `defaultCommit: 'manual'` so every filter defers, then wire the whole-set
+`apply` / `cancel` / `isDirty`:
+
+```tsx
+const { filters, isDirty, apply, cancel } = useFilters(configs, {
+  defaultCommit: 'manual'
+});
+
+return (
+  <>
+    <Toolbar filters={filters} />
+    <footer>
+      <button disabled={!isDirty} onClick={cancel}>
+        Cancel
+      </button>
+      <button disabled={!isDirty} onClick={apply}>
+        Apply
+      </button>
+    </footer>
+  </>
+);
+```
+
+- **`isDirty`** is `true` while any change is pending — use it to enable the buttons
+  and, if you like, show a count or a dot.
+- **`apply()`** commits everything at once (including anything mid-debounce).
+- **`cancel()`** discards the drafts; controls snap back to their committed values.
+
+Because `params` never reflects uncommitted drafts, your data doesn't refetch until
+the user applies — even though the controls updated the whole time.
+
+## Mixing modes
+
+Modes are per filter, so a debounced search and a batch of manual selects coexist:
+
+```tsx
+useFilters({
+  search: f.text({ label: 'Search', commit: { debounce: 400 } }),
+  status: f.select({ label: 'Status', options, commit: 'manual' }),
+  brand: f.select({ label: 'Brand', options, commit: 'manual' })
+});
+```
+
+For a per-row "apply this one" affordance, each resolved filter has its **own**
+`apply` / `cancel` / `isDirty` — see
+[Values & commits](/docs/concepts/values-and-commits#per-filter-actions).

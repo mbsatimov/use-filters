@@ -1,0 +1,82 @@
+---
+title: Pagination
+description: How page and per_page are mirrored into params, and how filter changes reset the page.
+---
+
+Pagination is built in. Unless you turn it off, `params` always includes the page
+and per-page values, mirrored straight from the URL:
+
+```ts
+const { params } = useFilters(configs);
+// params = { ...filters, page: 1, per_page: 10 }
+```
+
+The keys are yours to name (they default to `page` / `per_page`), and they're the
+**same** in the URL and in `params` — there's no separate mapping to maintain. You
+set them once with [`createFilters`](/docs/guides/shared-setup):
+
+```ts
+export const { useFilters } = createFilters({
+  pagination: { pageKey: 'page', perPageKey: 'page_size', defaultPerPage: 25 }
+});
+// URL: ?page=2&page_size=25   →   params: { page, page_size }
+```
+
+## Reading and setting the page
+
+The page and per-page values are plain keys on `params`. You drive them however
+your pagination UI works — nuqs directly, or your own state — and spread them into
+your query. `useFilters` doesn't render pagination controls; it just keeps the
+values in the URL and in `params`.
+
+## Resetting on filter change
+
+When a filter changes, the old page of results no longer applies — page 7 of an
+unfiltered list isn't page 7 of the filtered one. So by default, **changing any
+filter resets the page** to its first value:
+
+```ts
+// User is on page 5, then edits a filter → params.page becomes 1 again.
+```
+
+If your pagination is driven entirely outside the hook and it should never touch
+the page param, opt out — for the whole app or one screen:
+
+```ts
+createFilters({ pagination: { resetPageOnFilterChange: false } });
+// or per call:
+useFilters(configs, { pagination: { resetPageOnFilterChange: false } });
+```
+
+## First page and 0-indexed APIs
+
+`firstPage` is the number your first page counts from — the value when the URL has
+none, what a reset writes, and the base your backend expects. It defaults to `1`;
+set it to `0` for a 0-indexed API:
+
+```ts
+createFilters({ pagination: { firstPage: 0 } });
+// The first page is ?page=0, in both the URL and params.
+```
+
+## Offset-based APIs
+
+There's no `limit` / `offset` mode — derive them where you fetch, straight from
+`params`:
+
+```ts
+const { page, per_page, ...filters } = params;
+useQuery({
+  queryKey: ['products', params],
+  queryFn: () =>
+    productApi.getAll({ ...filters, limit: per_page, offset: (page - 1) * per_page })
+});
+```
+
+## Turning pagination off
+
+Pass `pagination: false` for a call that has no pages (a settings filter, a
+faceted sidebar with infinite scroll). `params` then contains only your filters,
+with no page keys, and filter changes don't reset anything.
+
+Full option details are in the [`createFilters` reference](/docs/api/create-filters#pagination).
