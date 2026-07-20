@@ -49,11 +49,11 @@ fetcher.
 A single filter exposes its value at three points, and knowing which to read is
 most of using this library well:
 
-| You read…               | To get…                                             |
-| ----------------------- | --------------------------------------------------- |
-| `filter.value`          | what the **control** should show now (the draft)    |
-| `filter.committedValue` | what's **actually applied** and in the URL          |
-| `params.<key>`          | the same committed value, for **fetching**          |
+| You read…               | To get…                                          |
+| ----------------------- | ------------------------------------------------ |
+| `filter.value`          | what the **control** should show now (the draft) |
+| `filter.committedValue` | what's **actually applied** and in the URL       |
+| `params.<key>`          | the same committed value, for **fetching**       |
 
 For a normal (instant) filter these are always equal — a change flows straight to
 the URL. They only diverge when you defer a commit (a debounced search box, or a

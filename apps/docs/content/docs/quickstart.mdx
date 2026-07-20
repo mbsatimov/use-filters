@@ -51,8 +51,8 @@ const { data } = useQuery({
 ```
 
 <Callout>
-  `params` changes exactly when the URL does, so it's a correct cache key for React
-  Query, SWR, or any fetcher — no extra dependency arrays to manage.
+  `params` changes exactly when the URL does, so it's a correct cache key for React Query, SWR, or
+  any fetcher — no extra dependency arrays to manage.
 </Callout>
 
 ## Render your filters
@@ -61,35 +61,37 @@ const { data } = useQuery({
 `value` and an `onChange`. Render them however you like:
 
 ```tsx
-{filters.map((filter) => {
-  if (filter.type === 'text') {
-    return (
-      <input
-        key={filter.key}
-        placeholder={filter.label}
-        value={filter.value ?? ''}
-        onChange={(e) => filter.onChange(e.target.value || null)}
-      />
-    );
-  }
-  if (filter.type === 'select') {
-    return (
-      <select
-        key={filter.key}
-        value={filter.value ?? ''}
-        onChange={(e) => filter.onChange(e.target.value || null)}
-      >
-        <option value="">{filter.label}</option>
-        {filter.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-  return null;
-})}
+{
+  filters.map((filter) => {
+    if (filter.type === 'text') {
+      return (
+        <input
+          key={filter.key}
+          placeholder={filter.label}
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        />
+      );
+    }
+    if (filter.type === 'select') {
+      return (
+        <select
+          key={filter.key}
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        >
+          <option value=''>{filter.label}</option>
+          {filter.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    return null;
+  });
+}
 ```
 
 That's the whole loop: **declare → fetch with `params` → render `filters`.**

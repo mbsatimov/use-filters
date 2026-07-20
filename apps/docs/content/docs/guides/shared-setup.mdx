@@ -25,11 +25,10 @@ export const { useFilters, resolveFilterParams, f, toDateValue, fromDateValue } 
 import { f, useFilters } from '@/lib/filters';
 ```
 
-<Callout title="Why a factory, not a React provider?">
-  The same constants must reach `resolveFilterParams`, which runs in
-  [route loaders](/docs/guides/route-loaders) **outside** React and can't read
-  context. Closing over them keeps the hook and the loader in lockstep, with full
-  type-safety and no runtime lookup.
+<Callout title='Why a factory, not a React provider?'>
+  The same constants must reach `resolveFilterParams`, which runs in [route
+  loaders](/docs/guides/route-loaders) **outside** React and can't read context. Closing over them
+  keeps the hook and the loader in lockstep, with full type-safety and no runtime lookup.
 </Callout>
 
 See the [`createFilters` reference](/docs/api/create-filters) for every option
@@ -43,8 +42,9 @@ per-call overridable, so a call and its loader can't drift. Instead, make one
 factory per convention and name the exports:
 
 ```ts
-export const { useFilters: useCrmFilters, resolveFilterParams: resolveCrmParams } =
-  createFilters({ pagination: { pageKey: 'page', perPageKey: 'per_page' } });
+export const { useFilters: useCrmFilters, resolveFilterParams: resolveCrmParams } = createFilters({
+  pagination: { pageKey: 'page', perPageKey: 'per_page' }
+});
 
 export const { useFilters: useBillingFilters, resolveFilterParams: resolveBillingParams } =
   createFilters({ pagination: { perPageKey: 'page_size', firstPage: 0 } });

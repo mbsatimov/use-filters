@@ -22,11 +22,11 @@ so `useFilters` and `resolveFilterParams` can't drift. Available on every
 
 ## Returns
 
-| Property              | Description                                                                                   |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `configs`             | The bound config map, for reference (e.g. building UI metadata from it).                       |
-| `useFilters`          | The hook with `configs` + shared options applied. Still takes hook-only options per call.      |
-| `resolveFilterParams` | The loader helper with `configs` + shared options applied. Takes only the raw search params.   |
+| Property              | Description                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| `configs`             | The bound config map, for reference (e.g. building UI metadata from it).                     |
+| `useFilters`          | The hook with `configs` + shared options applied. Still takes hook-only options per call.    |
+| `resolveFilterParams` | The loader helper with `configs` + shared options applied. Takes only the raw search params. |
 
 ```ts
 export const productFilters = defineFilters(

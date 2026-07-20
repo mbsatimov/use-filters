@@ -19,12 +19,12 @@ Call it once per project (or per API convention) and export the result. See
 
 ## Top-level config
 
-| Option           | Default     | Description                                                                          |
-| ---------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Option           | Default     | Description                                                                                         |
+| ---------------- | ----------- | --------------------------------------------------------------------------------------------------- |
 | `defaultCommit`  | `'instant'` | Fallback `commit` mode for every filter. See [Values & commits](/docs/concepts/values-and-commits). |
-| `arraySeparator` | `','`       | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) in the URL.        |
-| `pagination`     | —           | Pagination keys and defaults (below).                                                |
-| `date`           | —           | Date (de)serialization (below).                                                      |
+| `arraySeparator` | `','`       | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) in the URL.                       |
+| `pagination`     | —           | Pagination keys and defaults (below).                                                               |
+| `date`           | —           | Date (de)serialization (below).                                                                     |
 
 ```ts
 createFilters({ arraySeparator: '|' });
@@ -33,12 +33,12 @@ createFilters({ arraySeparator: '|' });
 
 ## `pagination`
 
-| Option                    | Default      | Description                                                                        |
-| ------------------------- | ------------ | --------------------------------------------------------------------------------- |
-| `pageKey`                 | `'page'`     | URL key for the page number, and its key in `params`.                             |
-| `perPageKey`              | `'per_page'` | URL key for the per-page count, and its key in `params`.                          |
-| `firstPage`               | `1`          | The number the first page counts from. `0` for a 0-indexed API.                   |
-| `defaultPerPage`          | `10`         | Per-page count assumed when the URL has none.                                     |
+| Option                    | Default      | Description                                                                             |
+| ------------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| `pageKey`                 | `'page'`     | URL key for the page number, and its key in `params`.                                   |
+| `perPageKey`              | `'per_page'` | URL key for the per-page count, and its key in `params`.                                |
+| `firstPage`               | `1`          | The number the first page counts from. `0` for a 0-indexed API.                         |
+| `defaultPerPage`          | `10`         | Per-page count assumed when the URL has none.                                           |
 | `resetPageOnFilterChange` | `true`       | Whether changing a filter resets the page. See [Pagination](/docs/concepts/pagination). |
 
 ## `date`

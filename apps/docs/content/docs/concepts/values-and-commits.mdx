@@ -14,7 +14,7 @@ mode controls this, and it's the one genuinely subtle concept in the library.
 
 Set `commit` per filter:
 
-| `commit`              | The control updates… | …and `params` / the URL update…          |
+| `commit`              | The control updates… | …and `params` / the URL update…           |
 | --------------------- | -------------------- | ----------------------------------------- |
 | `'instant'` (default) | immediately          | immediately                               |
 | `{ debounce: ms }`    | immediately          | `ms` after the last change (timer resets) |
@@ -90,7 +90,6 @@ useFilters(
 ```
 
 <Callout>
-  `commit` is unrelated to nuqs's `limitUrlUpdates: debounce(ms)`, which throttles
-  the browser history write **after** a value is committed. `commit` controls
-  whether it's committed at all.
+  `commit` is unrelated to nuqs's `limitUrlUpdates: debounce(ms)`, which throttles the browser
+  history write **after** a value is committed. `commit` controls whether it's committed at all.
 </Callout>

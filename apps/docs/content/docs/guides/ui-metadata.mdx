@@ -57,9 +57,8 @@ can be specific to one kind, a shared `FilterMeta` for hints that apply to all, 
 `FilterOptionMeta` for options, and a `FiltersMeta` for the whole set.
 
 <Callout>
-  The old `FilterOption.icon` / `leftSlot` / `rightSlot`, the per-filter
-  `className`, and `f.number` / `f.numberRange`'s `unit` are **deprecated** —
-  rendering concerns don't belong on a headless core. Declare what you need on
-  `FilterOptionMeta` / `FilterMeta` / `NumberFilterMeta` and pass it via `meta`
-  (same data, typed by you). They keep working until 1.0.
+  The old `FilterOption.icon` / `leftSlot` / `rightSlot`, the per-filter `className`, and `f.number`
+  / `f.numberRange`'s `unit` are **deprecated** — rendering concerns don't belong on a headless
+  core. Declare what you need on `FilterOptionMeta` / `FilterMeta` / `NumberFilterMeta` and pass it
+  via `meta` (same data, typed by you). They keep working until 1.0.
 </Callout>

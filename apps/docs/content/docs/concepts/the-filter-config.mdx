@@ -38,9 +38,9 @@ and so on, with no annotations. See [Filter types](/docs/filter-types/overview) 
 the full list.
 
 <Callout>
-  When a choice filter's options are **fetched at runtime**, that inference has
-  nothing to read. Declare `valueType: 'number' | 'string'` so the type is fixed —
-  see [Async filters](/docs/filter-types/async#value-types).
+  When a choice filter's options are **fetched at runtime**, that inference has nothing to read.
+  Declare `valueType: 'number' | 'string'` so the type is fixed — see [Async
+  filters](/docs/filter-types/async#value-types).
 </Callout>
 
 ## Defaults
@@ -74,12 +74,12 @@ More on placing filters in different parts of your UI in
 
 Every kind accepts these, regardless of type:
 
-| Option         | Purpose                                                          |
-| -------------- | ---------------------------------------------------------------- |
-| `label`        | Required. Human label for the control.                           |
-| `placeholder`  | Optional; defaults to `label`.                                   |
-| `defaultValue` | Value when the URL param is absent (above).                      |
-| `hidden`       | Keep in `params`, omit from `filters` (above).                   |
+| Option         | Purpose                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `label`        | Required. Human label for the control.                                                     |
+| `placeholder`  | Optional; defaults to `label`.                                                             |
+| `defaultValue` | Value when the URL param is absent (above).                                                |
+| `hidden`       | Keep in `params`, omit from `filters` (above).                                             |
 | `commit`       | When a change reaches the URL — see [Values & commits](/docs/concepts/values-and-commits). |
-| `meta`         | Your own typed UI hints — see [UI metadata](/docs/guides/ui-metadata). |
-| `nuqs`         | Per-filter [nuqs options](https://nuqs.dev), e.g. `{ history: 'push' }`. |
+| `meta`         | Your own typed UI hints — see [UI metadata](/docs/guides/ui-metadata).                     |
+| `nuqs`         | Per-filter [nuqs options](https://nuqs.dev), e.g. `{ history: 'push' }`.                   |

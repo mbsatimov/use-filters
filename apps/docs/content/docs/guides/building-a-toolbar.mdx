@@ -28,8 +28,11 @@ function Control({ filter }: { filter: ResolvedFilter }) {
       );
     case 'select':
       return (
-        <select value={filter.value ?? ''} onChange={(e) => filter.onChange(e.target.value || null)}>
-          <option value="">{filter.label}</option>
+        <select
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        >
+          <option value=''>{filter.label}</option>
           {filter.options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -52,7 +55,7 @@ and the correct `value` type are available.
 ```tsx
 function Toolbar({ filters }: { filters: ResolvedFilter[] }) {
   return (
-    <div className="toolbar">
+    <div className='toolbar'>
       {filters.map((filter) => (
         <Control key={filter.key} filter={filter} />
       ))}
@@ -69,7 +72,9 @@ clears them all — exactly what a "Clear filters" button needs:
 ```tsx
 const { filters, isFiltered, reset } = useFilters(configs);
 
-{isFiltered && <button onClick={reset}>Clear filters</button>}
+{
+  isFiltered && <button onClick={reset}>Clear filters</button>;
+}
 ```
 
 ## Per-filter state

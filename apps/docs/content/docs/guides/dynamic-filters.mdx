@@ -63,8 +63,8 @@ you give up is compile-time typing of `params`: you can't pass `useFilters<P>` f
 shape unknown until runtime, so `params` comes back as a loose record, which is
 exactly what you feed your query anyway.
 
-<Callout type="warn">
+<Callout type='warn'>
   If a choice filter's options are fetched separately (or arrive after mount), set
-  [`valueType`](/docs/filter-types/async#value-types) so the URL parses to the same
-  type everywhere — including a route loader that has no options.
+  [`valueType`](/docs/filter-types/async#value-types) so the URL parses to the same type everywhere
+  — including a route loader that has no options.
 </Callout>

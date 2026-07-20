@@ -15,32 +15,32 @@ useFilters<P>(configs, options?) => UseFiltersReturn // validate against an API 
 
 ## Return value
 
-| Property     | Type                   | Description                                                                 |
-| ------------ | ---------------------- | --------------------------------------------------------------------------- |
-| `params`     | object                 | Committed values + pagination (`{ page, per_page }` by default). Fetch input & cache key. |
-| `filters`    | `ResolvedFilter[]`     | Visible filters to render. Excludes `hidden` ones.                          |
-| `filterMap`  | `Record<key, ResolvedFilter>` | Same filters keyed by config key. **Includes** hidden ones.          |
-| `isFiltered` | `boolean`              | `true` when at least one visible filter differs from its default.           |
-| `isDirty`    | `boolean`              | `true` when a change hasn't reached `params` yet.                           |
-| `apply`      | `() => void`           | Commit all pending (debounced/manual) changes now.                          |
-| `cancel`     | `() => void`           | Discard all pending changes, reverting to committed values.                 |
-| `reset`      | `() => void`           | Clear every filter to its default (or empty).                               |
-| `setFilter`  | `(key, value) => void` | Imperatively set one filter (resets to first page, bypasses `commit`).      |
-| `meta`       | `FiltersMeta`          | The `meta` you passed (or `{}`).                                            |
+| Property     | Type                          | Description                                                                               |
+| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `params`     | object                        | Committed values + pagination (`{ page, per_page }` by default). Fetch input & cache key. |
+| `filters`    | `ResolvedFilter[]`            | Visible filters to render. Excludes `hidden` ones.                                        |
+| `filterMap`  | `Record<key, ResolvedFilter>` | Same filters keyed by config key. **Includes** hidden ones.                               |
+| `isFiltered` | `boolean`                     | `true` when at least one visible filter differs from its default.                         |
+| `isDirty`    | `boolean`                     | `true` when a change hasn't reached `params` yet.                                         |
+| `apply`      | `() => void`                  | Commit all pending (debounced/manual) changes now.                                        |
+| `cancel`     | `() => void`                  | Discard all pending changes, reverting to committed values.                               |
+| `reset`      | `() => void`                  | Clear every filter to its default (or empty).                                             |
+| `setFilter`  | `(key, value) => void`        | Imperatively set one filter (resets to first page, bypasses `commit`).                    |
+| `meta`       | `FiltersMeta`                 | The `meta` you passed (or `{}`).                                                          |
 
 ## Options (second argument)
 
 These override the [`createFilters`](/docs/api/create-filters) config for this call.
 Precedence: per-filter › this option › factory config › default.
 
-| Option           | Default       | Description                                                                                          |
-| ---------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| Option           | Default       | Description                                                                                                                            |
+| ---------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `pagination`     | `true`        | `false` disables pagination; an object overrides `defaultPerPage` / `resetPageOnFilterChange`. Keys and `firstPage` stay factory-only. |
-| `defaultCommit`  | factory value | Default `commit` mode for all filters this call. See [Values & commits](/docs/concepts/values-and-commits). |
-| `arraySeparator` | factory value | Delimiter for array-shaped params for this call.                                                    |
-| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                |
-| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                 |
-| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                            |
-| `meta`           | `{}`          | Whole-set UI hints. See [UI metadata](/docs/guides/ui-metadata).                                    |
+| `defaultCommit`  | factory value | Default `commit` mode for all filters this call. See [Values & commits](/docs/concepts/values-and-commits).                            |
+| `arraySeparator` | factory value | Delimiter for array-shaped params for this call.                                                                                       |
+| `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                   |
+| `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                    |
+| `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                              |
+| `meta`           | `{}`          | Whole-set UI hints. See [UI metadata](/docs/guides/ui-metadata).                                                                       |
 
 The shape of each resolved filter is documented under [Types](/docs/api/types#resolvedfilter).

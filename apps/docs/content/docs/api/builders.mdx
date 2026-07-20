@@ -40,10 +40,10 @@ See [Filter types](/docs/filter-types/overview) for examples of each.
 - **`precision`** — narrows parsing: `'int'` truncates numbers; `'datetime'` /
   `'second'` add time components to dates / times.
 
-<Callout type="warn">
-  `f.number` / `f.numberRange`'s `unit` option is **deprecated** — declare a
-  `unit` field on `NumberFilterMeta` / `NumberRangeFilterMeta` and pass it via
-  `meta` instead. See [UI metadata](/docs/guides/ui-metadata).
+<Callout type='warn'>
+  `f.number` / `f.numberRange`'s `unit` option is **deprecated** — declare a `unit` field on
+  `NumberFilterMeta` / `NumberRangeFilterMeta` and pass it via `meta` instead. See [UI
+  metadata](/docs/guides/ui-metadata).
 </Callout>
 
 `f` is re-exported from every [`createFilters`](/docs/api/create-filters) instance
