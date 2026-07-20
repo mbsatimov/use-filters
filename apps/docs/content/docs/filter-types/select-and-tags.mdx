@@ -9,12 +9,14 @@ import { SelectTagsDemo } from '@/components/demo/demos/select-tags';
 
 ## `f.select`
 
-One choice from a fixed, in-memory list. The value type is **inferred from your
-option values** — a string union stays a string union, numeric ids stay numbers:
+One choice from a fixed, in-memory list. `valueType` is required — it declares
+the value type (`options` are checked against it, so a string union stays a
+string union, numeric ids stay numbers):
 
 ```ts
 status: f.select({
   label: 'Status',
+  valueType: 'string',
   options: [
     { label: 'Open', value: 'open' },
     { label: 'Closed', value: 'closed' }
@@ -31,7 +33,7 @@ current value — so you can render its label without a lookup.
 Many choices from the same kind of fixed list. The value is an array:
 
 ```ts
-labels: f.multiSelect({ label: 'Labels', options: labelOptions });
+labels: f.multiSelect({ label: 'Labels', valueType: 'string', options: labelOptions });
 // params.labels → V[] | null
 ```
 

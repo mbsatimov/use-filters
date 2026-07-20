@@ -14,6 +14,7 @@ describe('arraySeparator — default stays comma', () => {
         useFilters({
           tags: f.multiSelect({
             label: 'Tags',
+            valueType: 'string',
             options: [
               { label: 'A', value: 'a' },
               { label: 'B', value: 'b' }
@@ -39,6 +40,7 @@ describe('arraySeparator — createFilters sets the factory default', () => {
         useFilters({
           tags: f.multiSelect({
             label: 'Tags',
+            valueType: 'string',
             options: [
               { label: 'A', value: 'a' },
               { label: 'B', value: 'b' }

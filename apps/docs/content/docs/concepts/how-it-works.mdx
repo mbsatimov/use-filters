@@ -14,7 +14,7 @@ back two outputs, used in different places:
 
 ```ts
 const { params, filters } = useFilters({
-  status: f.select({ label: 'Status', options: statusOptions }),
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
   search: f.text({ label: 'Search' })
 });
 ```

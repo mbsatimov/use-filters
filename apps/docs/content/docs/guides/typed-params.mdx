@@ -22,8 +22,8 @@ interface ProductListParams {
 
 const { params } = useFilters<ProductListParams>({
   search: f.text({ label: 'Search' }),
-  status: f.select({ label: 'Status', options: statusOptions }),
-  brand_id: f.asyncSelect({ label: 'Brand', loadOptions })
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+  brand_id: f.asyncSelect({ label: 'Brand', valueType: 'number', loadOptions })
 });
 // ❌ a key not in ProductListParams, or a filter whose value doesn't fit it, errors.
 ```

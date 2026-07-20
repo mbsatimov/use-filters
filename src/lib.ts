@@ -2,12 +2,7 @@ import type { SingleParserBuilder } from 'nuqs';
 
 import { parseAsArrayOf, parseAsBoolean, parseAsFloat, parseAsInteger, parseAsString } from 'nuqs';
 
-import type {
-  FilterConfig,
-  MultiSelectFilterConfig,
-  PaginationOverride,
-  SelectFilterConfig
-} from './types';
+import type { FilterConfig, PaginationOverride } from './types';
 
 /** Every non-null value one of our parsers can produce/serialize. */
 export type FilterParserValue = boolean | number | string | number[] | string[];
@@ -95,74 +90,6 @@ export const fromDateTimeValue = (value?: string | null): Date | undefined => {
     : undefined;
 };
 
-/**
- * Whether a `select` / `multiSelect`'s values are numeric, so the URL param
- * round-trips as `number | null` instead of `string | null`. Scans all options
- * (not just the first) and falls back to `defaultValue`, so an empty or
- * sparsely-populated `options` array still resolves correctly. Exported for
- * `useFilters`' parser fingerprint: dynamic (backend-driven) options often
- * start empty and arrive later, and the parser must rebuild when the value
- * family they resolve to changes.
- */
-export const isNumericChoice = (config: MultiSelectFilterConfig | SelectFilterConfig): boolean => {
-  const sample = config.options.find((option) => option.value != null);
-  if (sample) return typeof sample.value === 'number';
-  const fallback = Array.isArray(config.defaultValue)
-    ? config.defaultValue[0]
-    : config.defaultValue;
-  return typeof fallback === 'number';
-};
-
-/**
- * The resolved URL value type for a choice filter (`select` / `multiSelect`).
- * Prefers the explicit `valueType` — a *static* token that is identical at
- * every call site — and only falls back to sniffing `options`/`defaultValue`
- * ({@link isNumericChoice}) when it is absent. The sniff reads runtime data, so
- * it can disagree between the hook (options loaded) and `resolveFilterParams`
- * in a route loader (options empty); setting `valueType` removes that risk.
- */
-export const resolveChoiceValueType = (
-  config: MultiSelectFilterConfig | SelectFilterConfig
-): 'number' | 'string' => config.valueType ?? (isNumericChoice(config) ? 'number' : 'string');
-
-/**
- * A choice filter whose URL value type can't be determined from its config: no
- * explicit `valueType`, no option carries a value, and `defaultValue` reveals
- * nothing either. The sniff falls back to `'string'` in this case — a guess
- * that silently diverges from a call site which *does* have the options.
- * `resolveFilterParams` warns on this (dev only) so a loader's params can't
- * quietly mismatch the hook's.
- */
-export const choiceValueTypeIsIndeterminate = (config: FilterConfig): boolean => {
-  if (config.type !== 'select' && config.type !== 'multiSelect') return false;
-  if (config.valueType !== undefined) return false;
-  if (config.options.some((option) => option.value != null)) return false;
-  const fallback = Array.isArray(config.defaultValue)
-    ? config.defaultValue[0]
-    : config.defaultValue;
-  return fallback == null;
-};
-
-/**
- * Dev-only warning for {@link choiceValueTypeIsIndeterminate}: a `select` /
- * `multiSelect` used without loaded options and without an explicit `valueType`
- * can't have its URL value type determined, so it defaults to `'string'` and
- * may disagree with a call site that *does* have the options. `seen` dedupes so
- * a loader firing on every navigation warns at most once per key.
- */
-export const warnIndeterminateChoiceValueType = (
-  key: string,
-  config: FilterConfig,
-  seen: Set<string>
-): void => {
-  if (process.env.NODE_ENV === 'production') return;
-  if (!choiceValueTypeIsIndeterminate(config) || seen.has(key)) return;
-  seen.add(key);
-  console.warn(
-    `[useFilters] "${key}": this ${config.type} has no options and no \`valueType\`, so its URL value type can't be determined and defaults to 'string'. If its options are fetched at runtime (so this config is also used somewhere without them, e.g. this route loader), set \`valueType: 'number'\` or \`'string'\` on the filter so parsing stays identical across call sites.`
-  );
-};
-
 /** Apply `defaultValue` (when provided) so an absent URL param resolves to it. */
 const withOptionalDefault = <T>(
   parser: SingleParserBuilder<T>,
@@ -175,7 +102,7 @@ export const DEFAULT_ARRAY_SEPARATOR = ',';
 /**
  * Pick the right nuqs parser for a filter kind. The casts undo type erasure:
  * `FilterConfig` unions select/multiSelect over `string | number`, but
- * `isNumericChoice` has already re-established which family the values are —
+ * `config.valueType` has already established which family the values are —
  * the `f.*` builders guarantee `defaultValue` matches `options`.
  *
  * The return type is normalized to a single `SingleParserBuilder` over the
@@ -215,7 +142,7 @@ export const buildParser = (
       case 'dateRange':
         return withOptionalDefault(parseAsArrayOf(parseAsString, separator), config.defaultValue);
       case 'multiSelect':
-        return resolveChoiceValueType(config) === 'number'
+        return config.valueType === 'number'
           ? withOptionalDefault(
               parseAsArrayOf(parseAsInteger, separator),
               config.defaultValue as number[] | undefined
@@ -252,7 +179,7 @@ export const buildParser = (
         // `dateRange`, no `Date` conversion.
         return withOptionalDefault(parseAsArrayOf(parseAsString, separator), config.defaultValue);
       case 'select':
-        return resolveChoiceValueType(config) === 'number'
+        return config.valueType === 'number'
           ? withOptionalDefault(parseAsInteger, config.defaultValue as number | undefined)
           : withOptionalDefault(parseAsString, config.defaultValue as string | undefined);
       default:
@@ -276,33 +203,6 @@ export const fingerprintNuqsOptions = (options: object | undefined): string =>
     : JSON.stringify(options, (_key, value: unknown) =>
         typeof value === 'function' ? 'fn' : value
       );
-
-/**
- * Undo a stale parse after a `select` / `multiSelect`'s value family changes at
- * runtime — the second half of supporting backend-driven options that arrive
- * after mount. Rebuilding the parser map (see `useFilters`' parser signature)
- * makes nuqs use the right parser for *new* URL values, but nuqs caches parsed
- * state per query string, so an already-committed param (`?ids=1,2` parsed as
- * `['1','2']` while options were still `[]`) is never re-parsed. This detects a
- * committed value whose runtime type contradicts the options' family and runs
- * it back through the current parser, so reads match what a fresh mount — and
- * `resolveFilterParams` in a loader — would produce.
- */
-export const reparseChoiceValue = (
-  config: FilterConfig,
-  value: unknown,
-  separator: string
-): unknown => {
-  if (value == null) return value;
-  if (config.type !== 'select' && config.type !== 'multiSelect') return value;
-  const numeric = resolveChoiceValueType(config) === 'number';
-  const isStale = (item: unknown) =>
-    numeric ? typeof item === 'string' : typeof item === 'number';
-  const mismatched = Array.isArray(value) ? value.some(isStale) : isStale(value);
-  if (!mismatched) return value;
-  const raw = Array.isArray(value) ? value.join(separator) : String(value);
-  return buildParser(config, separator).parse(raw);
-};
 
 /**
  * Suffix appended to a filter key to form its async label-sidecar param. The

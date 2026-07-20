@@ -16,7 +16,7 @@ doesn't light up "N filters applied":
 ```tsx
 const { filterMap, filters } = useFilters({
   search: f.text({ label: 'Search', hidden: true }), // in params, not in `filters`
-  status: f.select({ label: 'Status', options: statusOptions })
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
 });
 
 // In the header:

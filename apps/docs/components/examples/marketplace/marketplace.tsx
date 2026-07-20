@@ -30,11 +30,16 @@ export function Marketplace() {
   const { params, filterMap, isFiltered, reset } = useFilters(
     {
       q: f.text({ label: 'Search', commit: { debounce: 300 } }),
-      category: f.select({ label: 'Category', options: categoryOptions }),
-      brands: f.multiSelect({ label: 'Brands', options: brandOptions }),
+      category: f.select({ label: 'Category', valueType: 'string', options: categoryOptions }),
+      brands: f.multiSelect({ label: 'Brands', valueType: 'string', options: brandOptions }),
       price: f.numberRange({ label: 'Price' }),
       in_stock: f.boolean({ label: 'In stock' }),
-      sort: f.select({ label: 'Sort', options: sortOptions, defaultValue: 'featured' })
+      sort: f.select({
+        label: 'Sort',
+        valueType: 'string',
+        options: sortOptions,
+        defaultValue: 'featured'
+      })
     },
     { pagination: false }
   );

@@ -71,7 +71,7 @@ export function DataTable() {
   const { params, filterMap, isFiltered, reset } = useFilters(
     {
       q: f.text({ label: 'Search', commit: { debounce: 300 } }),
-      status: f.select({ label: 'Status', options: statusOptions }),
+      status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
       period: f.dateRange({ label: 'Date' })
     },
     { pagination: { defaultPerPage: 8 } }

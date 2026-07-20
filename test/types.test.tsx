@@ -31,9 +31,10 @@ describe('type inference — per-config `params` (no type argument)', () => {
           search: f.text({ label: 'Search' }),
           amount: f.number({ label: 'Amount' }),
           active: f.boolean({ label: 'Active' }),
-          status: f.select({ label: 'Status', options: statusOptions }),
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
           ids: f.multiSelect({
             label: 'Ids',
+            valueType: 'number',
             options: [
               { label: 'One', value: 1 },
               { label: 'Two', value: 2 }
@@ -45,6 +46,7 @@ describe('type inference — per-config `params` (no type argument)', () => {
           tags: f.tags({ label: 'Tags' }),
           customer_id: f.asyncSelect({
             label: 'Customer',
+            valueType: 'number',
             loadOptions: async () => [{ label: 'Acme', value: 42 }]
           })
         }),
@@ -69,7 +71,10 @@ describe('type inference — per-config `params` (no type argument)', () => {
 
   it('narrows a resolved filter to its own config (filterMap)', () => {
     const { result } = renderHook(
-      () => useFilters({ status: f.select({ label: 'Status', options: statusOptions }) }),
+      () =>
+        useFilters({
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+        }),
       { wrapper }
     );
 
@@ -97,7 +102,7 @@ describe('type checking — explicit `<P>` (API params type)', () => {
       () =>
         useFilters<LoanListParams>({
           search: f.text({ label: 'Search' }),
-          status: f.select({ label: 'Status', options: statusOptions })
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
         }),
       { wrapper }
     );
@@ -153,12 +158,14 @@ describe('type inference — createFilters pagination keys', () => {
 });
 
 describe('type checking — choice valueType', () => {
-  it('is optional when options are static (value type inferred)', () => {
-    const { result } = renderHook(
-      () => useFilters({ status: f.select({ label: 'Status', options: statusOptions }) }),
-      { wrapper }
-    );
-    expectTypeOf(result.current.params.status).toEqualTypeOf<'closed' | 'open' | null>();
+  it('is required — a select/multiSelect without it is a compile error', () => {
+    // Never executed — compile-time only.
+    const useMissingValueType = () =>
+      useFilters({
+        // @ts-expect-error — `valueType` is required on `f.select`
+        status: f.select({ label: 'Status', options: statusOptions })
+      });
+    expectTypeOf(useMissingValueType).toBeFunction();
   });
 
   it('accepts a valueType that matches the option value family', () => {
@@ -209,7 +216,11 @@ describe('type inference — resolveFilterParams', () => {
     const params = resolveFilterParams(
       {
         search: f.text({ label: 'Search' }),
-        customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] })
+        customer_id: f.select({
+          label: 'Customer',
+          valueType: 'number',
+          options: [{ label: 'A', value: 1 }]
+        })
       },
       '?search=acme&customer_id=1&page=3'
     );
@@ -230,9 +241,13 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
   it('accepts an inferred-config return (typed onChange, async, multiSelect)', () => {
     const useConfigured = () =>
       useFilters({
-        status: f.select({ label: 'Status', options: statusOptions }),
-        ids: f.multiSelect({ label: 'Ids', options: [{ label: 'One', value: 1 }] }),
-        owner: f.asyncSelect({ label: 'Owner', loadOptions: async () => [] }),
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+        ids: f.multiSelect({
+          label: 'Ids',
+          valueType: 'number',
+          options: [{ label: 'One', value: 1 }]
+        }),
+        owner: f.asyncSelect({ label: 'Owner', valueType: 'number', loadOptions: async () => [] }),
         amount: f.number({ label: 'Amount' })
       });
     const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);
@@ -277,7 +292,9 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
     // handlers on `ResolvedFilter` — make sure that loosening didn't also
     // open the reverse door, which `value`'s covariance must keep shut.
     const useConfigured = () =>
-      useFilters({ status: f.select({ label: 'Status', options: statusOptions }) });
+      useFilters({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+      });
     const assignWideToNarrow = (
       wide: ResolvedFilter,
       narrow: ReturnType<typeof useConfigured>['filterMap']

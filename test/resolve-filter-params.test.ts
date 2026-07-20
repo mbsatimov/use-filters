@@ -7,8 +7,16 @@ describe('resolveFilterParams — filter values', () => {
 
   const configs = {
     search: f.text({ label: 'Search' }),
-    status: f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] }),
-    customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] }),
+    status: f.select({
+      label: 'Status',
+      valueType: 'string',
+      options: [{ label: 'Open', value: 'open' }]
+    }),
+    customer_id: f.select({
+      label: 'Customer',
+      valueType: 'number',
+      options: [{ label: 'A', value: 1 }]
+    }),
     price: f.numberRange({ label: 'Price' }),
     tags: f.tags({ label: 'Tags' })
   };
@@ -45,7 +53,11 @@ describe('resolveFilterParams — raw search shapes', () => {
 
   const configs = {
     search: f.text({ label: 'Search' }),
-    customer_id: f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] }),
+    customer_id: f.select({
+      label: 'Customer',
+      valueType: 'number',
+      options: [{ label: 'A', value: 1 }]
+    }),
     tags: f.tags({ label: 'Tags' })
   };
 

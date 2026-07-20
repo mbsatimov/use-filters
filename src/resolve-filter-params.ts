@@ -6,13 +6,7 @@ import type {
   SharedFilterCallOptions
 } from './types';
 
-import {
-  coerceInt,
-  coerceRawValue,
-  normalizeRawSearch,
-  resolvePaginationOverride,
-  warnIndeterminateChoiceValueType
-} from './lib';
+import { coerceInt, coerceRawValue, normalizeRawSearch, resolvePaginationOverride } from './lib';
 
 /**
  * Framework-agnostic mirror of `useFilters`'s `params` derivation, bound to the
@@ -36,9 +30,6 @@ import {
 export function makeResolveFilterParams<PP extends Record<string, number>>(
   cfg: ResolvedFiltersConfig
 ) {
-  // Dedupe the indeterminate-choice dev warning per factory — a route loader
-  // calls `resolveFilterParams` on every navigation, so warn once per key.
-  const warnedIndeterminate = new Set<string>();
   return function resolveFilterParams<T extends FilterConfigMap>(
     configs: T,
     raw: RawSearchParams,
@@ -53,10 +44,6 @@ export function makeResolveFilterParams<PP extends Record<string, number>>(
     const search = normalizeRawSearch(raw);
     const result: Record<string, unknown> = {};
     for (const [key, config] of Object.entries(configs)) {
-      // A choice filter with no loaded options and no `valueType` can't be
-      // parsed to a determinate type here — warn (dev) so it can't silently
-      // diverge from the hook, which may have the options (see the helper).
-      warnIndeterminateChoiceValueType(key, config, warnedIndeterminate);
       // Coerce through the same parsers the hook uses, so a loader's params
       // object matches the hook's exactly (and their query keys collide).
       result[key] = coerceRawValue(config, search[key], arraySeparator);

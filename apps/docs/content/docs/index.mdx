@@ -17,7 +17,7 @@ render controls. It ships **no UI** — you build the controls, it owns the stat
 
 ```ts
 const { params, filters } = useFilters({
-  status: f.select({ label: 'Status', options: statusOptions }),
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
   search: f.text({ label: 'Search' })
 });
 ```

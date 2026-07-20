@@ -26,6 +26,7 @@ function facetsToConfigs(facets: Facet[]): Record<string, FilterConfig> {
             facet.key,
             f.multiSelect({
               label: facet.label,
+              valueType: 'string',
               options: (facet.values ?? []).map((v) => ({
                 label: v.label,
                 value: v.value,
@@ -86,14 +87,15 @@ describe('dynamic / backend-driven filters', () => {
     expect(result.current.isFiltered).toBe(true);
   });
 
-  it('re-keys the parser when numeric options arrive after mount (regression)', () => {
+  it('parses consistently before options arrive, thanks to the required valueType (regression)', () => {
     // Backend-driven facets: the URL already holds `?brand_ids=1,2` on mount,
-    // but the options haven't loaded yet — an empty `options` array resolves to
-    // the *string* parser. When the numeric options arrive on a later render,
-    // the parser must rebuild so the committed values re-parse as numbers
-    // (matching what `resolveFilterParams` computes in a loader).
+    // but the options haven't loaded yet. `valueType` is a required, static
+    // declaration — independent of `options` — so the value family can't
+    // depend on whether options have loaded yet, unlike a value family
+    // sniffed from `options` (which would see an empty array pre-load and
+    // disagree with `resolveFilterParams` in a route loader).
     const makeConfigs = (values: { label: string; value: number }[]) => ({
-      brand_ids: f.multiSelect({ label: 'Brands', options: values })
+      brand_ids: f.multiSelect({ label: 'Brands', valueType: 'number', options: values })
     });
 
     const { result, rerender } = renderHook(
@@ -104,8 +106,8 @@ describe('dynamic / backend-driven filters', () => {
       }
     );
 
-    // Pre-options: no way to know the value family, so strings are expected.
-    expect(result.current.params).toMatchObject({ brand_ids: ['1', '2'] });
+    // Pre-options: valueType already says 'number', so no guessing needed.
+    expect(result.current.params).toMatchObject({ brand_ids: [1, 2] });
 
     rerender({
       configs: makeConfigs([
@@ -114,7 +116,7 @@ describe('dynamic / backend-driven filters', () => {
       ])
     });
 
-    // Post-options: the same URL now parses as numbers.
+    // Post-options: unchanged — the value family never depended on options.
     expect(result.current.params).toMatchObject({ brand_ids: [1, 2] });
   });
 

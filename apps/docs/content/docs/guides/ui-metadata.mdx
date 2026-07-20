@@ -35,6 +35,7 @@ Now pass `meta` where it's relevant, checked against the shape you declared:
 ```ts
 status: f.select({
   label: 'Status',
+  valueType: 'string',
   options: [{ label: 'Open', value: 'open', meta: { icon: OpenIcon } }],
   meta: { group: 'primary' }
 });
@@ -58,7 +59,7 @@ can be specific to one kind, a shared `FilterMeta` for hints that apply to all, 
 
 <Callout>
   The old `FilterOption.icon` / `leftSlot` / `rightSlot`, the per-filter `className`, and `f.number`
-  / `f.numberRange`'s `unit` are **deprecated** — rendering concerns don't belong on a headless
+  / `f.numberRange`'s `unit` were removed in 1.0 — rendering concerns don't belong on a headless
   core. Declare what you need on `FilterOptionMeta` / `FilterMeta` / `NumberFilterMeta` and pass it
-  via `meta` (same data, typed by you). They keep working until 1.0.
+  via `meta` instead (same data, typed by you).
 </Callout>

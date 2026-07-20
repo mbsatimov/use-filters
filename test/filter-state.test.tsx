@@ -140,6 +140,7 @@ describe('per-filter isFiltered', () => {
     const { result } = renderCommit({
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         defaultValue: 'open',
         options: [
@@ -195,6 +196,7 @@ describe('per-filter isFilteredDraft (reacts to the draft, not the commit)', () 
     const { result } = renderCommit({
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         options: [
           { label: 'Open', value: 'open' },
@@ -248,6 +250,7 @@ describe('per-filter isDirty and the hook-wide isDirty', () => {
       search: f.text({ label: 'Search', commit: 'manual' }),
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         options: [{ label: 'Open', value: 'open' }]
       })
@@ -273,6 +276,7 @@ describe('per-filter reset (and the deprecated onClear alias)', () => {
     const { result } = renderCommit({
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         defaultValue: 'open',
         options: [
@@ -311,6 +315,7 @@ describe('per-filter instantReset (bypasses commit mode)', () => {
     const { result } = renderCommit({
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         defaultValue: 'open',
         options: [
@@ -368,6 +373,7 @@ describe('per-filter instantReset (bypasses commit mode)', () => {
       search: f.text({ label: 'Search', commit: 'manual' }),
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         options: [{ label: 'Open', value: 'open' }]
       })
@@ -396,6 +402,7 @@ describe('per-filter apply/cancel', () => {
       search: f.text({ label: 'Search', commit: 'manual' }),
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         options: [{ label: 'Open', value: 'open' }]
       })
@@ -424,6 +431,7 @@ describe('per-filter apply/cancel', () => {
       search: f.text({ label: 'Search', commit: 'manual' }),
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         commit: 'manual',
         options: [{ label: 'Open', value: 'open' }]
       })

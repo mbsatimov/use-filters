@@ -26,7 +26,11 @@ describe('useFilters — params', () => {
   it('starts with null filter values and default pagination', () => {
     const { result } = renderFilters({
       search: f.text({ label: 'Search' }),
-      status: f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] })
+      status: f.select({
+        label: 'Status',
+        valueType: 'string',
+        options: [{ label: 'Open', value: 'open' }]
+      })
     });
     expect(result.current.params).toMatchObject({
       search: null,
@@ -54,7 +58,11 @@ describe('useFilters — pagination', () => {
     const { result } = renderHook(
       () =>
         useFilters({
-          status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
+          status: f.select({
+            label: 'S',
+            valueType: 'string',
+            options: [{ label: 'A', value: 'a' }]
+          })
         }),
       { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
     );
@@ -71,7 +79,11 @@ describe('useFilters — pagination', () => {
     const { result } = renderHook(
       () =>
         noReset.useFilters({
-          status: noReset.f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] })
+          status: noReset.f.select({
+            label: 'S',
+            valueType: 'string',
+            options: [{ label: 'A', value: 'a' }]
+          })
         }),
       { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
     );
@@ -94,7 +106,13 @@ describe('useFilters — pagination', () => {
     const { result } = renderHook(
       () =>
         useFilters(
-          { status: f.select({ label: 'S', options: [{ label: 'A', value: 'a' }] }) },
+          {
+            status: f.select({
+              label: 'S',
+              valueType: 'string',
+              options: [{ label: 'A', value: 'a' }]
+            })
+          },
           { pagination: { resetPageOnFilterChange: false } }
         ),
       { wrapper: withNuqsTestingAdapter({ hasMemory: true, searchParams: '?page=3' }) }
@@ -149,6 +167,7 @@ describe('useFilters — reset & defaults', () => {
     const { result } = renderFilters({
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         options: [
           { label: 'Open', value: 'open' },
           { label: 'Closed', value: 'closed' }
@@ -178,6 +197,7 @@ describe('useFilters — async label sidecar', () => {
     const { result } = renderFilters({
       customer_id: f.asyncSelect({
         label: 'Customer',
+        valueType: 'number',
         loadOptions: async () => []
       })
     });
@@ -253,7 +273,12 @@ describe('useFilters — async loadOptions debouncing', () => {
   it('honors a per-filter searchDebounceMs override', async () => {
     const loadOptions = vi.fn(async () => []);
     const { result } = renderFilters({
-      customer_id: f.asyncSelect({ label: 'Customer', loadOptions, searchDebounceMs: 50 })
+      customer_id: f.asyncSelect({
+        label: 'Customer',
+        valueType: 'number',
+        loadOptions,
+        searchDebounceMs: 50
+      })
     });
 
     void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);
@@ -267,7 +292,7 @@ describe('useFilters — static select resolves the full option', () => {
   it('exposes the selected option object', () => {
     const option = { label: 'Open', value: 'open' };
     const { result } = renderFilters({
-      status: f.select({ label: 'Status', options: [option] })
+      status: f.select({ label: 'Status', valueType: 'string', options: [option] })
     });
 
     act(() => {

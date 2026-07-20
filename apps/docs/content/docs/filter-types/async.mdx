@@ -19,6 +19,7 @@ The `signal` lets you abort stale requests:
 ```ts
 assignee: f.asyncSelect({
   label: 'Assignee',
+  valueType: 'number',
   loadOptions: (search, signal) =>
     userApi
       .search({ q: search, limit: 20 }, { signal })
@@ -55,20 +56,24 @@ and label together. The `_label` params are display-only and never appear in the
 
 ## Value types
 
-Async values round-trip through the URL as **numbers by default**. If your ids are
-strings (UUIDs, slugs), set `valueType: 'string'` or they'll parse back as `null`:
+`valueType` is **required** on every async filter — `'number'` for ids, `'string'`
+for UUIDs/slugs. If it doesn't match what `loadOptions` actually returns, values
+won't round-trip (e.g. string ids parsing back as `null`):
 
 ```ts
 assignee: f.asyncSelect({ label: 'Assignee', valueType: 'string', loadOptions });
 ```
 
-This applies to static `select` / `multiSelect` too when their options are
-**fetched at runtime**. The value type is normally inferred from `options`, but if
-the same config is also used where the options aren't loaded — a
-[route loader](/docs/guides/route-loaders) calling `resolveFilterParams` — that
-inference has nothing to read, and the hook and loader can parse the same URL to
-different types (`5` vs `'5'`), splitting your query key. Declaring `valueType`
-fixes the type in both places:
+A dev-mode warning fires if `loadOptions` resolves options whose value type
+doesn't match the declared `valueType`.
+
+This same requirement applies to static `select` / `multiSelect`. Since a
+choice filter's `options` are often **fetched at runtime**, the same config may
+also be used somewhere the options aren't loaded — a
+[route loader](/docs/guides/route-loaders) calling `resolveFilterParams`. Making
+`valueType` required (rather than inferring it from `options`) means the hook
+and the loader always agree on the URL's value type, whether or not `options`
+happen to be loaded at that call site:
 
 ```ts
 owner: f.select({
@@ -78,5 +83,5 @@ owner: f.select({
 });
 ```
 
-`valueType` is type-checked against your option values, and dev builds warn if a
-loader meets an options-less choice filter without it.
+`valueType` is type-checked against your option values — a mismatched option is
+a compile error on that option, not a silent runtime divergence.

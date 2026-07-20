@@ -62,7 +62,7 @@ that option **once**, returning a hook and loader helper that can't disagree:
 export const productFilters = defineFilters(
   {
     search: f.text({ label: 'Search' }),
-    brand: f.select({ label: 'Brand', options: brandOptions })
+    brand: f.select({ label: 'Brand', valueType: 'string', options: brandOptions })
   },
   { arraySeparator: '|' }
 );

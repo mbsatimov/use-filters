@@ -33,19 +33,22 @@ Each type has its own page with a live example:
 ## How the value type is decided
 
 For most builders the type is fixed by the builder itself (`f.text` is always
-`string | null`). For **choice** filters it comes from your `options`:
+`string | null`). For **choice** filters (`select`, `multiSelect`, and their
+async variants), you declare it with a required `valueType: 'number' | 'string'`,
+checked against `options`:
 
 ```ts
-f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] });
-// value type: 'open' | null  — a string literal union, inferred
+f.select({ label: 'Status', valueType: 'string', options: [{ label: 'Open', value: 'open' }] });
+// value type: 'open' | null
 
-f.select({ label: 'Owner', options: [{ label: 'Ada', value: 1 }] });
-// value type: 1 | null  — numeric, inferred
+f.select({ label: 'Owner', valueType: 'number', options: [{ label: 'Ada', value: 1 }] });
+// value type: 1 | null
 ```
 
-This inference needs the options to be present. When they're **fetched at runtime**,
-declare the type explicitly with `valueType` — see
-[Async filters](/docs/filter-types/async#value-types).
+`valueType` is required (rather than inferred from `options`) so a route loader
+calling `resolveFilterParams` — which never sees `options` — always parses the
+same type the hook does, even when `options` are fetched at runtime and start
+empty. See [Async filters](/docs/filter-types/async#value-types).
 
 ## Shared options
 

@@ -34,8 +34,8 @@ const params = resolveFilterParams(productConfigs, new URL(request.url).searchPa
 ```
 
 <Callout>
-  For choice filters whose options are fetched at runtime, set
-  [`valueType`](/docs/filter-types/async#value-types) — the loader has no options to infer from, and
-  without it the loader and hook can parse the URL to different types. Dev builds warn when this
-  happens.
+  Choice filters (`select` / `multiSelect`) require
+  [`valueType`](/docs/filter-types/async#value-types) for exactly this reason — the loader never
+  sees `options`, so a value type inferred from them would risk disagreeing with the hook.
+  `valueType` is a static declaration both sides read the same way.
 </Callout>
