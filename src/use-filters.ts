@@ -30,8 +30,6 @@ import {
   isLabelKey,
   LABEL_SUFFIX,
   labelKeyOf,
-  reparseChoiceValue,
-  resolveChoiceValueType,
   resolvePaginationOverride,
   valuesEqual
 } from './lib';
@@ -63,11 +61,11 @@ const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
     : hasFilterValue(value);
 
 /**
- * Dev-only guard for a silent async-filter footgun: `valueType` defaults to
- * `'number'`, so string ids (UUIDs, slugs) parse from the URL as `null` unless
- * `valueType: 'string'` is set — with no signal that anything is wrong. Wraps
- * `loadOptions` to compare the resolved options' actual value type against the
- * configured one and warn once per filter. Pass-through in production builds.
+ * Dev-only guard for a silent async-filter footgun: a `loadOptions` returning
+ * ids of one type while `valueType` declares the other means URL values won't
+ * round-trip. Wraps `loadOptions` to compare the resolved options' actual
+ * value type against the configured one and warn once per filter. Pass-through
+ * in production builds.
  */
 const withValueTypeCheck = (
   key: string,
@@ -77,15 +75,13 @@ const withValueTypeCheck = (
   if (process.env.NODE_ENV === 'production') return config.loadOptions;
   return async (search, signal) => {
     const options = await config.loadOptions(search, signal);
-    const expected = config.valueType ?? 'number';
+    const expected = config.valueType;
     const sample = options.find((option) => option.value != null);
     const actual = typeof sample?.value === 'number' ? 'number' : 'string';
     if (sample && actual !== expected && !warned.has(key)) {
       warned.add(key);
       console.warn(
-        `[useFilters] "${key}": loadOptions returned ${actual}-valued options, but its valueType is '${expected}'${
-          config.valueType === undefined ? ' (the default)' : ''
-        } — URL values won't round-trip${
+        `[useFilters] "${key}": loadOptions returned ${actual}-valued options, but its valueType is '${expected}' — URL values won't round-trip${
           expected === 'number' ? ' (string ids parse back as null)' : ''
         }. Set valueType: '${actual}' on this filter.`
       );
@@ -362,15 +358,10 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       () =>
         entries
           .map(([key, config]) => {
-            // select/multiSelect pick a numeric or string parser from their
-            // options' values. Backend-driven options often start `[]` and
-            // arrive on a later render, so the resolved value family must be
-            // part of the signature — otherwise the first (string) parser
-            // sticks and `?ids=1,2` stays `['1','2']` forever.
-            const valueFamily =
-              config.type === 'select' || config.type === 'multiSelect'
-                ? resolveChoiceValueType(config)
-                : ((config as { valueType?: string }).valueType ?? '');
+            // A choice/async filter's `valueType` picks a numeric or string
+            // parser — part of the signature like `precision`, so a config
+            // whose `valueType` differs gets its own parser.
+            const valueFamily = (config as { valueType?: string }).valueType ?? '';
             return `${key}:${config.type}:${valueFamily}:${
               (config as { precision?: string }).precision ?? ''
             }:${JSON.stringify(config.defaultValue ?? null)}:${fingerprintNuqsOptions(config.nuqs)}`;
@@ -419,24 +410,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       // eslint-disable-next-line react/exhaustive-deps
     }, [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]);
 
-    const [rawValues, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
-
-    // nuqs caches parsed state per query string, so when a select/multiSelect's
-    // value family changes at runtime (backend-driven options arriving after
-    // mount), an already-committed param keeps its stale parse even though the
-    // parser map above was rebuilt. Normalize such values through the current
-    // parser so every read below matches a fresh mount (see `reparseChoiceValue`).
-    const values = React.useMemo(() => {
-      let normalized: Record<string, unknown> | undefined;
-      for (const [key, config] of entries) {
-        const reparsed = reparseChoiceValue(config, rawValues[key], arraySeparator);
-        if (reparsed !== rawValues[key]) {
-          normalized ??= { ...rawValues };
-          normalized[key] = reparsed;
-        }
-      }
-      return (normalized ?? rawValues) as typeof rawValues;
-    }, [rawValues, entries, arraySeparator]);
+    const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
     // Draft layer: changes for non-`instant` filters land here first and only
     // reach `values`/the URL once their `commit` mode fires (a debounce timer,

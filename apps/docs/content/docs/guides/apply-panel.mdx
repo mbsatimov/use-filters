@@ -55,8 +55,8 @@ Modes are per filter, so a debounced search and a batch of manual selects coexis
 ```tsx
 useFilters({
   search: f.text({ label: 'Search', commit: { debounce: 400 } }),
-  status: f.select({ label: 'Status', options, commit: 'manual' }),
-  brand: f.select({ label: 'Brand', options, commit: 'manual' })
+  status: f.select({ label: 'Status', valueType: 'string', options, commit: 'manual' }),
+  brand: f.select({ label: 'Brand', valueType: 'string', options, commit: 'manual' })
 });
 ```
 

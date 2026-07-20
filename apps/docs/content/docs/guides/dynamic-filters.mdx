@@ -31,6 +31,7 @@ function ProductFilters() {
                 facet.key,
                 f.multiSelect({
                   label: facet.label,
+                  valueType: 'string',
                   options: facet.values.map((v) => ({
                     label: v.label,
                     value: v.value,
@@ -64,7 +65,7 @@ shape unknown until runtime, so `params` comes back as a loose record, which is
 exactly what you feed your query anyway.
 
 <Callout type='warn'>
-  If a choice filter's options are fetched separately (or arrive after mount), set
-  [`valueType`](/docs/filter-types/async#value-types) so the URL parses to the same type everywhere
-  — including a route loader that has no options.
+  `select` / `multiSelect` require [`valueType`](/docs/filter-types/async#value-types) up front —
+  exactly the kind of static declaration a backend-driven config needs, since the options themselves
+  (and their value type) may not be known until the facets have loaded.
 </Callout>

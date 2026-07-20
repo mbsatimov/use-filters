@@ -88,6 +88,7 @@ describe('commit: manual (apply / cancel)', () => {
       status: f.select({
         label: 'Status',
         commit: 'manual',
+        valueType: 'string',
         options: [
           { label: 'Open', value: 'open' },
           { label: 'Closed', value: 'closed' }
@@ -211,6 +212,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
       status: f.select({
         label: 'Status',
         commit: 'manual',
+        valueType: 'string',
         defaultValue: 'open',
         options: [
           { label: 'Open', value: 'open' },

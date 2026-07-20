@@ -1,5 +1,4 @@
 import type { Options as NuqsOptions } from 'nuqs';
-import type * as React from 'react';
 
 /** Primitive types a `select` / `multiSelect` option's value can hold. */
 export type FilterPrimitive = number | string;
@@ -144,25 +143,9 @@ export interface FilterOptionMeta {}
 export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
   /** Facet count shown next to the option — e.g. result counts from your backend. */
   count?: number;
-  /**
-   * @deprecated Rendering hints don't belong on the headless core — declare an
-   * `icon` field on {@link FilterOptionMeta} in your app and pass it via
-   * `meta` instead (same data, typed by you). Will be removed in 1.0.
-   */
-  icon?: React.FC<React.SVGProps<SVGSVGElement>>;
   label: string;
-  /**
-   * @deprecated Like `icon` — move custom row content into `meta` (see
-   * {@link FilterOptionMeta}). Will be removed in 1.0.
-   */
-  leftSlot?: React.ReactNode;
   /** Project-specific UI hints for this option. See {@link FilterOptionMeta}. */
   meta?: FilterOptionMeta;
-  /**
-   * @deprecated Like `icon` — move custom row content into `meta` (see
-   * {@link FilterOptionMeta}). Will be removed in 1.0.
-   */
-  rightSlot?: React.ReactNode;
   value: V;
 }
 
@@ -170,12 +153,6 @@ export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
 export type FilterType = FilterConfig['type'];
 
 interface FilterBase {
-  /**
-   * @deprecated Styling hints don't belong on the headless core — declare a
-   * `className` field on {@link FilterMeta} in your app and pass it via
-   * `meta` instead (same data, typed by you). Will be removed in 1.0.
-   */
-  className?: string;
   /**
    * When this filter's change reaches `params`/the URL — `'instant'` (default),
    * `{ debounce: ms }`, or `'manual'` (awaits `apply()`). See {@link FilterCommitMode}.
@@ -227,12 +204,6 @@ export interface NumberFilterConfig extends FilterBase {
    */
   precision?: 'float' | 'int';
   type: 'number';
-  /**
-   * @deprecated Rendering hints don't belong on the headless core — declare a
-   * `unit` field on {@link NumberFilterMeta} in your app and pass it via `meta`
-   * instead (same data, typed by you). Will be removed in 1.0.
-   */
-  unit?: string;
 }
 
 export interface NumberRangeFilterConfig extends FilterBase {
@@ -246,12 +217,6 @@ export interface NumberRangeFilterConfig extends FilterBase {
    */
   precision?: 'float' | 'int';
   type: 'numberRange';
-  /**
-   * @deprecated Rendering hints don't belong on the headless core — declare a
-   * `unit` field on {@link NumberRangeFilterMeta} in your app and pass it via
-   * `meta` instead (same data, typed by you). Will be removed in 1.0.
-   */
-  unit?: string;
 }
 
 export interface BooleanFilterConfig extends FilterBase {
@@ -332,17 +297,13 @@ export interface SelectFilterConfig<
   type: 'select';
   /**
    * How this filter's value round-trips through the URL — `'number'` or
-   * `'string'`. Inferred from `options` when they're static, so you rarely set
-   * it. **Set it when the options are fetched at runtime:** the same config is
-   * then also used somewhere the options aren't loaded (a route loader calling
-   * `resolveFilterParams`), where the inference has nothing to read and the two
-   * call sites can otherwise disagree on the value type. An explicit token makes
-   * parsing deterministic and identical everywhere. The token is the
-   * declaration: in the `f.select` builder it drives the value type, and
-   * `options` are checked against it — a mismatched option is a compile error
-   * on that option. See {@link ChoiceValueType}.
+   * `'string'`. The declaration: in the `f.select` builder it drives the value
+   * type, and `options` are checked against it — a mismatched option is a
+   * compile error on that option. Required so a route loader calling
+   * `resolveFilterParams` (which never sees `options`) always parses the same
+   * type the hook does. See {@link ChoiceValueType}.
    */
-  valueType?: ChoiceValueType<NoInfer<V>>;
+  valueType: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface AsyncSelectFilterConfig<
@@ -354,8 +315,8 @@ export interface AsyncSelectFilterConfig<
   /** Debounce for the search input, in ms. Defaults to `300`. */
   searchDebounceMs?: number;
   type: 'asyncSelect';
-  /** How values round-trip through the URL. Defaults to `'number'` (ids). */
-  valueType?: 'number' | 'string';
+  /** How values round-trip through the URL (`'number'` for ids, `'string'` otherwise). */
+  valueType: 'number' | 'string';
   /**
    * Fetch options matching the search text — search runs server-side. Calls
    * within `searchDebounceMs` of each other collapse into one request, and
@@ -375,8 +336,8 @@ export interface AsyncMultiSelectFilterConfig<
   /** Debounce for the search input, in ms. Defaults to `300`. */
   searchDebounceMs?: number;
   type: 'asyncMultiSelect';
-  /** How values round-trip through the URL. Defaults to `'number'` (ids). */
-  valueType?: 'number' | 'string';
+  /** How values round-trip through the URL (`'number'` for ids, `'string'` otherwise). */
+  valueType: 'number' | 'string';
   /**
    * Fetch options matching the search text — search runs server-side. Calls
    * within `searchDebounceMs` of each other collapse into one request, and
@@ -398,13 +359,12 @@ export interface MultiSelectFilterConfig<
   type: 'multiSelect';
   /**
    * How this filter's values round-trip through the URL — `'number'` or
-   * `'string'`. Inferred from `options` when they're static; **set it when the
-   * options are fetched at runtime** so `resolveFilterParams` (which sees no
-   * options in a loader) parses the same type the hook does. When set (in the
-   * `f.multiSelect` builder) it drives the value type and `options` are
-   * checked against it. See {@link ChoiceValueType}.
+   * `'string'`. The declaration: in the `f.multiSelect` builder it drives the
+   * value type, and `options` are checked against it. Required so a route
+   * loader calling `resolveFilterParams` (which never sees `options`) always
+   * parses the same type the hook does. See {@link ChoiceValueType}.
    */
-  valueType?: ChoiceValueType<NoInfer<V>>;
+  valueType: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface TagsFilterConfig extends FilterBase {
@@ -505,8 +465,8 @@ type AsyncResolvedExtras<C> =
 
 /**
  * Read-side convenience for static (non-async) choice filters: the full
- * selected option object(s) — value + label (+ count/icon) — resolved from the
- * config's `options`. No URL label sidecar is needed because static options are
+ * selected option object(s) — value + label (+ count, custom `meta`) — resolved
+ * from the config's `options`. No URL label sidecar is needed because static options are
  * always in memory; this just spares callers a value→option lookup.
  */
 type StaticSelectExtras<C> =

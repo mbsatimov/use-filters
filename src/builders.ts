@@ -16,18 +16,11 @@ import type {
 } from './types';
 
 /**
- * The base primitive a `valueType` token declares. When a choice filter sets
- * `valueType`, it is the declaration and `options` are checked against it —
- * so a mismatched option errors on the option, not on the token. With no
- * token, the value type is inferred from `options` as usual.
+ * The base primitive a `valueType` token declares — `valueType` is the
+ * declaration and `options` are checked against it, so a mismatched option
+ * errors on the option, not on the token.
  */
-type ChoiceBase<VT> = [VT] extends [never]
-  ? FilterPrimitive
-  : VT extends 'number'
-    ? number
-    : VT extends 'string'
-      ? string
-      : FilterPrimitive;
+type ChoiceBase<VT extends 'number' | 'string'> = VT extends 'number' ? number : string;
 
 /**
  * `f` — the filter builders. Use these to declare each filter you pass to
@@ -188,16 +181,17 @@ export const f = {
    *
    * `params.<key>` → `V | null` (where `V` is your option value type)
    *
-   * With static options the value type is inferred from them. If the options
-   * are **fetched at runtime**, set `valueType: 'number' | 'string'` so parsing
-   * stays identical where the options aren't loaded (e.g. `resolveFilterParams`
-   * in a route loader). The token is the declaration: when set, it drives the
-   * value type and `options` are checked against it — a mismatched option is a
-   * compile error on that option.
+   * `valueType` (`'number' | 'string'`) is required — it's the declaration:
+   * it drives the value type and `options` are checked against it, so a
+   * mismatched option is a compile error on that option. Required (rather than
+   * inferred from `options`) so `resolveFilterParams` — which sees no
+   * `options` in a route loader — always parses the same type the hook does,
+   * even when `options` are fetched at runtime and start empty.
    *
    * @example
    * status: f.select({
    *   label: 'Status',
+   *   valueType: 'string',
    *   options: [
    *     { label: 'Open', value: 'open' },
    *     { label: 'Closed', value: 'closed' }
@@ -206,15 +200,12 @@ export const f = {
    * // params.status -> 'open' | 'closed' | null
    *
    * @example
-   * // options fetched later — declare the value type up front
+   * // options fetched later — valueType still declares the value type
    * customer_id: f.select({ label: 'Customer', valueType: 'number', options: [] })
    * // params.customer_id -> number | null
    */
-  select: <
-    VT extends 'number' | 'string' = never,
-    const V extends FilterPrimitive & ChoiceBase<VT> = FilterPrimitive & ChoiceBase<VT>
-  >(
-    config: Omit<SelectFilterConfig<V>, 'type' | 'valueType'> & { valueType?: VT }
+  select: <VT extends 'number' | 'string', const V extends ChoiceBase<VT> = ChoiceBase<VT>>(
+    config: Omit<SelectFilterConfig<V>, 'type' | 'valueType'> & { valueType: VT }
   ): SelectFilterConfig<V> =>
     // The cast bridges `VT` to the interface's `ChoiceValueType<V>` — the
     // constraint above already guarantees they agree.
@@ -222,19 +213,15 @@ export const f = {
 
   /**
    * Multiple choices from a fixed, in-memory list of `options`. Like `select`,
-   * an explicit `valueType` drives the value type when the options are fetched
-   * at runtime (options are checked against it).
+   * `valueType` is required and `options` are checked against it.
    *
    * `params.<key>` → `V[] | null`
    *
    * @example
-   * tags: f.multiSelect({ label: 'Tags', options: tagOptions })
+   * tags: f.multiSelect({ label: 'Tags', valueType: 'string', options: tagOptions })
    */
-  multiSelect: <
-    VT extends 'number' | 'string' = never,
-    const V extends FilterPrimitive & ChoiceBase<VT> = FilterPrimitive & ChoiceBase<VT>
-  >(
-    config: Omit<MultiSelectFilterConfig<V>, 'type' | 'valueType'> & { valueType?: VT }
+  multiSelect: <VT extends 'number' | 'string', const V extends ChoiceBase<VT> = ChoiceBase<VT>>(
+    config: Omit<MultiSelectFilterConfig<V>, 'type' | 'valueType'> & { valueType: VT }
   ): MultiSelectFilterConfig<V> =>
     // Same `VT` -> `ChoiceValueType<V>` bridge as `select`.
     ({ ...config, type: 'multiSelect' }) as MultiSelectFilterConfig<V>,
@@ -263,14 +250,15 @@ export const f = {
    *
    * The chosen label is saved to the URL alongside the value (`<key>_label`),
    * so the selection still shows its name after a refresh or a shared link —
-   * no by-id lookup needed. Values round-trip as numbers by default; set
-   * `valueType: 'string'` for string ids.
+   * no by-id lookup needed. `valueType` is required — `'number'` for ids,
+   * `'string'` otherwise.
    *
    * `params.<key>` → `V | null` (the value only — the label is never sent to your API)
    *
    * @example
    * customer_id: f.asyncSelect({
    *   label: 'Customer',
+   *   valueType: 'number',
    *   loadOptions: (search, signal) =>
    *     customerApi
    *       .getAll({ params: { search, limit: 20 }, signal })
@@ -292,6 +280,7 @@ export const f = {
    * @example
    * owner_ids: f.asyncMultiSelect({
    *   label: 'Owners',
+   *   valueType: 'number',
    *   loadOptions: (search, signal) =>
    *     userApi.search(search, signal).then((u) => u.map((x) => ({ value: x.id, label: x.name })))
    * })

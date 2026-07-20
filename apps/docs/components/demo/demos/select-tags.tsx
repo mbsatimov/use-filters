@@ -26,8 +26,8 @@ const labelOptions = [
 
 function Inner() {
   const { params, filterMap } = useFilters({
-    status: f.select({ label: 'Status', options: statusOptions }),
-    labels: f.multiSelect({ label: 'Labels', options: labelOptions }),
+    status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+    labels: f.multiSelect({ label: 'Labels', valueType: 'string', options: labelOptions }),
     tags: f.tags({ label: 'Tags' })
   });
 

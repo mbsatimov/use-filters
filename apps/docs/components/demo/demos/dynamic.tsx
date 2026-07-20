@@ -36,8 +36,14 @@ function Inner() {
       Object.fromEntries(
         FACETS.map((facet) =>
           facet.type === 'select'
-            ? [facet.key, f.select({ label: facet.label, options: facet.values })]
-            : [facet.key, f.multiSelect({ label: facet.label, options: facet.values })]
+            ? [
+                facet.key,
+                f.select({ label: facet.label, valueType: 'string', options: facet.values })
+              ]
+            : [
+                facet.key,
+                f.multiSelect({ label: facet.label, valueType: 'string', options: facet.values })
+              ]
         )
       ),
     []

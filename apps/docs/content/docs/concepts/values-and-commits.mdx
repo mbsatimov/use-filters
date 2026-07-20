@@ -83,7 +83,7 @@ export const { useFilters, f } = createFilters({ defaultCommit: 'manual' });
 useFilters(
   {
     q: f.text({ label: 'Search', commit: { debounce: 400 } }), // this filter: debounced
-    status: f.select({ label: 'Status', options }) // inherits the call default…
+    status: f.select({ label: 'Status', valueType: 'string', options }) // inherits the call default…
   },
   { defaultCommit: 'instant' } // …instant here (overriding the factory)
 );

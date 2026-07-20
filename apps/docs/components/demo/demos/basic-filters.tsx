@@ -13,7 +13,7 @@ const statusOptions = [
 function Inner() {
   const { params, filterMap } = useFilters({
     search: f.text({ label: 'Search' }),
-    status: f.select({ label: 'Status', options: statusOptions })
+    status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
   });
 
   return (

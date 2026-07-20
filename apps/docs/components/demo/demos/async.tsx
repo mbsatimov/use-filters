@@ -25,7 +25,7 @@ const loadUsers = (search: string): Promise<FilterOption[]> =>
 
 function Inner() {
   const { params, filterMap } = useFilters({
-    assignee: f.asyncSelect({ label: 'Assignee', loadOptions: loadUsers })
+    assignee: f.asyncSelect({ label: 'Assignee', valueType: 'number', loadOptions: loadUsers })
   });
   const assignee = filterMap.assignee;
 

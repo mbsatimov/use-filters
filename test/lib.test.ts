@@ -26,25 +26,30 @@ describe('buildParser — number precision', () => {
   });
 });
 
-describe('buildParser — numeric choice detection', () => {
-  it('parses numeric select options as numbers', () => {
+describe('buildParser — select value type', () => {
+  it('parses as a number when valueType is "number"', () => {
     const parser = buildParser(
-      f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] })
+      f.select({ label: 'Customer', valueType: 'number', options: [{ label: 'A', value: 1 }] })
     );
     expect(parser.parse('5')).toBe(5);
     expect(typeof parser.parse('5')).toBe('number');
   });
 
-  it('parses string select options as strings', () => {
+  it('parses as a string when valueType is "string"', () => {
     const parser = buildParser(
-      f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] })
+      f.select({
+        label: 'Status',
+        valueType: 'string',
+        options: [{ label: 'Open', value: 'open' }]
+      })
     );
     expect(parser.parse('open')).toBe('open');
   });
 
-  it('falls back to defaultValue when options are empty', () => {
-    const parser = buildParser(f.select({ label: 'Late', options: [], defaultValue: 7 }));
-    // numeric default => integer parsing
+  it('respects valueType even when options are empty', () => {
+    const parser = buildParser(
+      f.select({ label: 'Late', valueType: 'number', options: [], defaultValue: 7 })
+    );
     expect(parser.parse('9')).toBe(9);
     expect(typeof parser.parse('9')).toBe('number');
   });
@@ -174,7 +179,11 @@ describe('resolvePaginationOverride', () => {
 });
 
 describe('coerceRawValue', () => {
-  const config = f.select({ label: 'Customer', options: [{ label: 'A', value: 1 }] });
+  const config = f.select({
+    label: 'Customer',
+    valueType: 'number',
+    options: [{ label: 'A', value: 1 }]
+  });
 
   it('parses a raw URL string to the parser type', () => {
     expect(coerceRawValue(config, '5')).toBe(5);
@@ -188,6 +197,7 @@ describe('coerceRawValue', () => {
     expect(coerceRawValue(config, undefined)).toBeNull();
     const withDefault = f.select({
       label: 'Customer',
+      valueType: 'number',
       options: [{ label: 'A', value: 1 }],
       defaultValue: 1
     });

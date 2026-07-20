@@ -13,7 +13,12 @@ const statusOptions = [
 function Inner() {
   const { params, filterMap, isDirty, apply, cancel } = useFilters({
     search: f.text({ label: 'Search', commit: { debounce: 600 } }),
-    status: f.select({ label: 'Status', options: statusOptions, commit: 'manual' })
+    status: f.select({
+      label: 'Status',
+      valueType: 'string',
+      options: statusOptions,
+      commit: 'manual'
+    })
   });
 
   const search = filterMap.search;

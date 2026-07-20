@@ -30,7 +30,10 @@ so `useFilters` and `resolveFilterParams` can't drift. Available on every
 
 ```ts
 export const productFilters = defineFilters(
-  { search: f.text({ label: 'Search' }), brand: f.select({ label: 'Brand', options }) },
+  {
+    search: f.text({ label: 'Search' }),
+    brand: f.select({ label: 'Brand', valueType: 'string', options })
+  },
   { arraySeparator: '|' }
 );
 

@@ -10,7 +10,7 @@ nothing runs until the hook resolves it.
 ```ts
 const configs = {
   search: f.text({ label: 'Search' }),
-  status: f.select({ label: 'Status', options: statusOptions }),
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
   min_price: f.number({ label: 'Min price' })
 };
 ```
@@ -28,19 +28,20 @@ The builder you pick determines the type of that filter's value in `params`:
 f.text(...)         // string | null
 f.number(...)       // number | null
 f.boolean(...)      // boolean | null
-f.select(...)       // V | null       (V inferred from options)
+f.select(...)       // V | null       (V driven by valueType, checked against options)
 f.multiSelect(...)  // V[] | null
 ```
 
-For a `select` or `multiSelect`, `V` is **inferred from your options** — numeric
-option values give `number | null`, a string union gives `'open' | 'closed' | null`,
-and so on, with no annotations. See [Filter types](/docs/filter-types/overview) for
-the full list.
+For a `select` or `multiSelect`, `V` is driven by the **required** `valueType`
+(`'number' | 'string'`) — numeric options give `number | null`, a string union
+gives `'open' | 'closed' | null`, and `options` are checked against it (a
+mismatched option is a compile error). See [Filter types](/docs/filter-types/overview)
+for the full list.
 
 <Callout>
-  When a choice filter's options are **fetched at runtime**, that inference has nothing to read.
-  Declare `valueType: 'number' | 'string'` so the type is fixed — see [Async
-  filters](/docs/filter-types/async#value-types).
+  `valueType` is required — rather than inferred from `options` — so a route loader calling
+  `resolveFilterParams` (which never sees `options`) always parses the same type the hook does. See
+  [Async filters](/docs/filter-types/async#value-types).
 </Callout>
 
 ## Defaults
@@ -50,7 +51,12 @@ filter sitting at its default counts as **inactive** — it's excluded from
 `isFiltered` and, with `clearOnDefault` (the default), kept out of the URL entirely:
 
 ```ts
-status: f.select({ label: 'Status', options: statusOptions, defaultValue: 'open' });
+status: f.select({
+  label: 'Status',
+  valueType: 'string',
+  options: statusOptions,
+  defaultValue: 'open'
+});
 // No `?status` in the URL → params.status is 'open', and isFiltered ignores it.
 ```
 
@@ -63,7 +69,7 @@ main toolbar — a search box in the header, or a fixed value you set imperative
 ```ts
 const { params, filters, filterMap } = useFilters({
   search: f.text({ label: 'Search', hidden: true }), // in params, not in `filters`
-  status: f.select({ label: 'Status', options: statusOptions })
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
 });
 ```
 

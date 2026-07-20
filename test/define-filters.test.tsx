@@ -68,7 +68,12 @@ describe('defineFilters — pagination parity', () => {
 describe('defineFilters — hook-only options stay per-call', () => {
   const { defineFilters, f } = createFilters();
   const filters = defineFilters({
-    status: f.select({ label: 'Status', options: [{ label: 'A', value: 'a' }], commit: 'manual' })
+    status: f.select({
+      label: 'Status',
+      valueType: 'string',
+      options: [{ label: 'A', value: 'a' }],
+      commit: 'manual'
+    })
   });
 
   it('useFilters still accepts defaultCommit without affecting resolveFilterParams', () => {
@@ -91,6 +96,7 @@ describe('defineFilters — type inference', () => {
       search: f.text({ label: 'Search' }),
       status: f.select({
         label: 'Status',
+        valueType: 'string',
         options: [
           { label: 'Open', value: 'open' },
           { label: 'Closed', value: 'closed' }
