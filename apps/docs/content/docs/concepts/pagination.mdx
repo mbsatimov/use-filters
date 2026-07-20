@@ -59,19 +59,21 @@ createFilters({ pagination: { firstPage: 0 } });
 // The first page is ?page=0, in both the URL and params.
 ```
 
-## Offset-based APIs
-
-There's no `limit` / `offset` mode — derive them where you fetch, straight from
-`params`:
+This is also how you drive an **offset/limit backend directly**, with no
+conversion at all — name the keys to match and let `firstPage: 0` be the starting
+offset:
 
 ```ts
-const { page, per_page, ...filters } = params;
-useQuery({
-  queryKey: ['products', params],
-  queryFn: () =>
-    productApi.getAll({ ...filters, limit: per_page, offset: (page - 1) * per_page })
-});
+createFilters({ pagination: { pageKey: 'offset', perPageKey: 'limit', firstPage: 0 } });
+// params: { offset, limit, ...filters } — increment `offset` by `limit` yourself
+// (e.g. setFilter('offset', offset + limit)) to page forward.
 ```
+
+`pageKey` / `perPageKey` don't have to mean "page number" — they're just the two
+pagination values `useFilters` mirrors into `params` and resets on filter change.
+Only reach for a page-number UI (1, 2, 3…) converting to offset/limit at the fetch
+call if your **UI** specifically wants page numbers; if it doesn't, drive the
+backend's own values directly instead.
 
 ## Turning pagination off
 

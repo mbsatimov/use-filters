@@ -18,6 +18,9 @@ declare module '@mbsatimov/use-filters' {
   interface SelectFilterMeta {
     group?: 'primary' | 'advanced'; // only on select filters
   }
+  interface NumberFilterMeta {
+    unit?: string; // only on number filters, e.g. '$'
+  }
   interface FilterOptionMeta {
     icon?: React.ComponentType; // on every option
   }
@@ -36,6 +39,8 @@ status: f.select({
   meta: { group: 'primary' }
 });
 
+min_price: f.number({ label: 'Min price', meta: { unit: '$' } });
+
 useFilters(configs, { meta: { layout: 'sidebar' } });
 ```
 
@@ -52,8 +57,9 @@ can be specific to one kind, a shared `FilterMeta` for hints that apply to all, 
 `FilterOptionMeta` for options, and a `FiltersMeta` for the whole set.
 
 <Callout>
-  The old `FilterOption.icon` / `leftSlot` / `rightSlot` and the per-filter
-  `className` are **deprecated** — rendering concerns don't belong on a headless
-  core. Declare what you need on `FilterOptionMeta` / `FilterMeta` and pass it via
-  `meta` (same data, typed by you). They keep working until 1.0.
+  The old `FilterOption.icon` / `leftSlot` / `rightSlot`, the per-filter
+  `className`, and `f.number` / `f.numberRange`'s `unit` are **deprecated** —
+  rendering concerns don't belong on a headless core. Declare what you need on
+  `FilterOptionMeta` / `FilterMeta` / `NumberFilterMeta` and pass it via `meta`
+  (same data, typed by you). They keep working until 1.0.
 </Callout>

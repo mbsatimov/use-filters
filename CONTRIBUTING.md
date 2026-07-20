@@ -27,15 +27,15 @@ npm install    # also installs the lefthook git hooks
 
 ## Scripts
 
-| Command                   | What it does                                                 |
-| ------------------------- | ------------------------------------------------------------ |
-| `npm run typecheck`       | `tsc` over `src` + `test` (includes the type-level tests)    |
-| `npm run test`            | Vitest suite                                                 |
-| `npm run build`           | `tsup` → `dist/` (ESM + CJS + `.d.ts`)                       |
-| `npm run check:exports`   | `attw` — validates published types under every module system |
-| `npm run size`            | `size-limit` budget check on `dist`                          |
-| `npm run lint` / `format` | ESLint / Prettier (also run automatically by the git hooks)  |
-| `npm run playground`      | Vite dev server for the live demo (`playground/`)            |
+| Command                   | What it does                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `npm run typecheck`       | `tsc` over `src` + `test` (includes the type-level tests)                                   |
+| `npm run test`            | Vitest suite                                                                                |
+| `npm run build`           | `tsup` → `dist/` (ESM + CJS + `.d.ts`)                                                      |
+| `npm run check:exports`   | `attw` — validates published types under every module system                                |
+| `npm run size`            | `size-limit` budget check on `dist`                                                         |
+| `npm run lint` / `format` | ESLint / Prettier (also run automatically by the git hooks)                                 |
+| `npm run docs`            | Next.js dev server for the docs site (`apps/docs/`), with live interactive demos throughout |
 
 ## Making a change
 
@@ -62,6 +62,4 @@ see the [Publishing](./README.md#publishing) section of the README.
 
 Use the bug-report issue template. The fastest path to a fix is a minimal
 reproduction: your filter config, the URL you start from, and what you expected
-`params` / the URL to be. Check whether it reproduces in the
-[live playground](https://use-filters.vercel.app) first — that rules out
-app-specific setup.
+`params` / the URL to be.

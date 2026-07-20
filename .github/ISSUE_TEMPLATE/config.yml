@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Live demo / playground
-    url: https://use-filters.vercel.app
-    about: Every filter kind and commit mode, with params, the URL, and isDirty shown live — check whether your issue reproduces here first.
+  - name: Documentation
+    url: https://use-filters.vercel.app/docs
+    about: Every filter kind and commit mode, with live interactive demos throughout — check whether your issue reproduces here first.

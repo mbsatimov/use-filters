@@ -39,7 +39,7 @@ function ProductFilters() {
                 })
               ];
             case 'range':
-              return [facet.key, f.numberRange({ label: facet.label, unit: facet.unit })];
+              return [facet.key, f.numberRange({ label: facet.label })];
             case 'toggle':
               return [facet.key, f.boolean({ label: facet.label })];
             default:

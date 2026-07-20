@@ -23,9 +23,9 @@ export function DemoFrame({
     <div className='not-prose my-6 overflow-hidden rounded-xl border border-fd-border bg-fd-card text-fd-card-foreground text-sm'>
       <div className='flex items-center gap-2 border-b border-fd-border bg-fd-muted/40 px-3 py-2'>
         <div className='flex gap-1.5'>
+          <span className='size-2.5 rounded-full bg-fd-error' />
           <span className='size-2.5 rounded-full bg-fd-border' />
-          <span className='size-2.5 rounded-full bg-fd-border' />
-          <span className='size-2.5 rounded-full bg-fd-border' />
+          <span className='size-2.5 rounded-full bg-fd-success' />
         </div>
         <code className='flex-1 truncate rounded-md bg-fd-background px-2.5 py-1 font-mono text-xs text-fd-muted-foreground'>
           {path}

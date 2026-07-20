@@ -13,8 +13,8 @@ See [Filter types](/docs/filter-types/overview) for examples of each.
 | Builder              | `params.<key>`             | Type-specific options                          |
 | -------------------- | -------------------------- | ---------------------------------------------- |
 | `f.text`             | `string \| null`           | —                                              |
-| `f.number`           | `number \| null`           | `precision: 'float' \| 'int'`, `unit`          |
-| `f.numberRange`      | `[number, number] \| null` | `precision: 'float' \| 'int'`, `unit`          |
+| `f.number`           | `number \| null`           | `precision: 'float' \| 'int'`                  |
+| `f.numberRange`      | `[number, number] \| null` | `precision: 'float' \| 'int'`                  |
 | `f.boolean`          | `boolean \| null`          | `trueLabel`, `falseLabel`                      |
 | `f.date`             | `string \| null`           | `precision: 'date' \| 'datetime'`              |
 | `f.dateRange`        | `[string, string] \| null` | `precision: 'date' \| 'datetime'`              |
@@ -39,7 +39,12 @@ See [Filter types](/docs/filter-types/overview) for examples of each.
   a filter's `commit: { debounce }`, which defers the URL write.
 - **`precision`** — narrows parsing: `'int'` truncates numbers; `'datetime'` /
   `'second'` add time components to dates / times.
-- **`unit`** — a display hint (e.g. `'$'`) carried through to the resolved filter.
+
+<Callout type="warn">
+  `f.number` / `f.numberRange`'s `unit` option is **deprecated** — declare a
+  `unit` field on `NumberFilterMeta` / `NumberRangeFilterMeta` and pass it via
+  `meta` instead. See [UI metadata](/docs/guides/ui-metadata).
+</Callout>
 
 `f` is re-exported from every [`createFilters`](/docs/api/create-filters) instance
 and from the package root.
