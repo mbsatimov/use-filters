@@ -1,0 +1,62 @@
+---
+title: Types
+description: ResolvedFilter, FilterOption, and the other exported types.
+---
+
+The package exports the types you need to write your own controls and helpers. The
+most important is `ResolvedFilter` — the shape of each item in `filters` /
+`filterMap`.
+
+## `ResolvedFilter`
+
+A resolved filter is your config plus live value, handlers, and state. It's a
+discriminated union on `type`, so a `switch (filter.type)` narrows to the exact
+variant (`filter.options` under `'select'`, `filter.loadOptions` under `'asyncSelect'`).
+
+**Value & handlers**
+
+| Field                  | Description                                                            |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `key`                  | The config key (and URL param name).                                   |
+| `type`                 | The filter kind (`'text'`, `'select'`, …).                             |
+| `label`, `placeholder` | Your label; placeholder defaults to it.                                |
+| `value`                | The draft value — what the control shows now.                          |
+| `onChange`             | `(value) => void` — set this filter's value.                           |
+| `reset`                | Back to default (respects `commit`). `instantReset` bypasses `commit`. |
+| `apply`, `cancel`      | Commit / discard this filter's pending change.                         |
+
+**State**
+
+| Field                                    | Description                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| `committedValue`                         | What's actually in `params`/the URL. Equals `value` unless dirty.      |
+| `isDirty`                                | This filter has an uncommitted change.                                 |
+| `isFiltered`                             | Committed value differs from default. `isFilteredDraft` for the draft. |
+| `commit`                                 | Effective mode: `'instant'`, `{ debounce }`, or `'manual'`.            |
+| `isInstant` / `isDebounced` / `isManual` | Booleans for the effective mode.                                       |
+| `debounceMs`                             | The delay when debounced, else `null`.                                 |
+
+**Type-specific extras** — `options` and `selectedOption(s)` on choice filters;
+`loadOptions`, `onSelectOption` / `onToggleOption` / `onSetOptions` on async filters.
+
+## `FilterOption`
+
+```ts
+interface FilterOption<V = FilterPrimitive> {
+  label: string;
+  value: V;
+  count?: number; // e.g. facet counts
+  meta?: FilterOptionMeta; // your augmented hints
+}
+```
+
+## Other exports
+
+| Type                                                                | Use                                                                                                                     |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `AnyUseFiltersReturn`                                               | Prop type for pass-through components. See [Placement](/docs/guides/search-sort-and-placement#pass-through-components). |
+| `UseFiltersReturn`, `UseFiltersOptions`                             | The hook's return and options.                                                                                          |
+| `FilterConfig`, `FiltersConfig`                                     | A single config / a config map.                                                                                         |
+| `FilterMeta`, `SelectFilterMeta`, `FilterOptionMeta`, `FiltersMeta` | Augment for [UI metadata](/docs/guides/ui-metadata).                                                                    |
+| `ResolvedFilterOf<'select'>`                                        | Narrow `ResolvedFilter` to one kind.                                                                                    |
+| `FilterValue`, `FilterParams`, `PaginationParams`                   | Value/param helper types.                                                                                               |

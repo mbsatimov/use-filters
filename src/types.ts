@@ -227,6 +227,11 @@ export interface NumberFilterConfig extends FilterBase {
    */
   precision?: 'float' | 'int';
   type: 'number';
+  /**
+   * @deprecated Rendering hints don't belong on the headless core — declare a
+   * `unit` field on {@link NumberFilterMeta} in your app and pass it via `meta`
+   * instead (same data, typed by you). Will be removed in 1.0.
+   */
   unit?: string;
 }
 
@@ -241,6 +246,11 @@ export interface NumberRangeFilterConfig extends FilterBase {
    */
   precision?: 'float' | 'int';
   type: 'numberRange';
+  /**
+   * @deprecated Rendering hints don't belong on the headless core — declare a
+   * `unit` field on {@link NumberRangeFilterMeta} in your app and pass it via
+   * `meta` instead (same data, typed by you). Will be removed in 1.0.
+   */
   unit?: string;
 }
 

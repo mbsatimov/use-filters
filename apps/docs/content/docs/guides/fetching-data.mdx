@@ -1,0 +1,63 @@
+---
+title: Fetching data
+description: Wire params into React Query, SWR, or any fetcher — and use it as the cache key.
+---
+
+`params` is designed to be passed straight to your data layer. It's a plain object
+of the committed filter values plus pagination, and it changes exactly when the URL
+does — which makes it a correct **cache key**.
+
+## React Query
+
+Spread `params` into the query key and the fetch:
+
+```tsx
+const { params } = useFilters(configs);
+
+const { data } = useQuery({
+  queryKey: ['products', params],
+  queryFn: () => productApi.getAll(params)
+});
+```
+
+When any filter changes, `params` becomes a new object, the query key changes, and
+React Query refetches and caches the new result — no `useEffect`, no manual
+invalidation.
+
+## SWR
+
+Same idea — `params` is the key:
+
+```tsx
+const { params } = useFilters(configs);
+const { data } = useSWR(['products', params], () => productApi.getAll(params));
+```
+
+## Plain fetch
+
+If you fetch by hand, drive it off `params` in an effect:
+
+```tsx
+const { params } = useFilters(configs);
+
+useEffect(() => {
+  const controller = new AbortController();
+  productApi.getAll(params, { signal: controller.signal }).then(setRows);
+  return () => controller.abort();
+}, [params]);
+```
+
+## A note on nulls
+
+Unset filters are `null` in `params`. Most JSON APIs and query-string serializers
+handle that fine, but if yours can't, strip them before the request:
+
+```ts
+const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v != null));
+```
+
+<Callout>
+  Deferred commits ([Values & commits](/docs/concepts/values-and-commits)) mean a half-typed search
+  never lands in `params` — so you never fetch on every keystroke, even though the input updates
+  instantly.
+</Callout>

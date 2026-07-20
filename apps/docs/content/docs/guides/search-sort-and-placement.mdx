@@ -1,0 +1,77 @@
+---
+title: Search, sort & placement
+description: Render filters outside the toolbar — hidden filters, filterMap, setFilter, and pass-through props.
+---
+
+Declaring a filter puts its value in the URL and `params` — it says nothing about
+_where_ you render it. The `filters` array is just "the default toolbar"; anything
+shown elsewhere uses `filterMap` and `setFilter`.
+
+## A search box in the header
+
+Keep search in your config so it flows into `params`, the query key, and the loader
+— but render it in the header and mark it `hidden` so it's not in the toolbar and
+doesn't light up "N filters applied":
+
+```tsx
+const { filterMap, filters } = useFilters({
+  search: f.text({ label: 'Search', hidden: true }), // in params, not in `filters`
+  status: f.select({ label: 'Status', options: statusOptions })
+});
+
+// In the header:
+const search = filterMap.search;
+<input value={search.value ?? ''} onChange={(e) => search.onChange(e.target.value || null)} />;
+
+// The toolbar only shows `status`:
+<Toolbar filters={filters} />;
+```
+
+## Setting a filter imperatively
+
+For a preset button or a tab bar that isn't a "control", set a filter directly with
+`setFilter`. It commits immediately, bypassing any `commit` deferral:
+
+```tsx
+const { setFilter } = useFilters(configs);
+
+<button onClick={() => setFilter('status', 'open')}>Only open</button>;
+```
+
+## Sort
+
+Sort is a different shape — usually a compound `sort_by` + `sort_order` driven from
+table headers — so it's intentionally **not** a filter. Drive it with
+[nuqs](https://nuqs.dev) directly and spread it into your query key next to `params`.
+
+## Pass-through components
+
+A shared component that receives a whole `useFilters` return as a prop — a
+design-system toolbar, a mobile sheet, a debug panel — doesn't know which config
+produced it. Type the prop `AnyUseFiltersReturn` and skip the generics:
+
+```tsx
+import type { AnyUseFiltersReturn } from '@mbsatimov/use-filters';
+
+function FilterSheet({ filters }: { filters: AnyUseFiltersReturn }) {
+  return (
+    <>
+      {filters.filters.map((f) => (
+        <Control key={f.key} filter={f} />
+      ))}
+      <button disabled={!filters.isDirty} onClick={filters.apply}>
+        Apply
+      </button>
+    </>
+  );
+}
+
+// Any call site passes its (fully typed) return:
+const filters = useFilters(configs);
+<FilterSheet filters={filters} />;
+```
+
+Reads stay typed — `filters.filters` is `ResolvedFilter[]`. What loosens is only
+what a key-agnostic component couldn't use anyway: `params` values are `unknown` and
+`setFilter` is uncallable (change values through each filter's own handlers). The
+call site keeps its full types; this only describes the prop.

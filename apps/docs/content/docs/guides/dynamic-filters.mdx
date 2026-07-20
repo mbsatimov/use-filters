@@ -1,0 +1,70 @@
+---
+title: Dynamic / backend-driven filters
+description: Build the config map at runtime for faceted search and backend-described filters.
+---
+
+import { DynamicDemo } from '@/components/demo/demos/dynamic';
+
+A config is [just data](/docs/concepts/the-filter-config) — it doesn't have to be a
+static literal. When the backend describes which filters exist (e-commerce faceted
+search, a report builder), build the map at runtime and pass it in. The demo below
+builds its two filters from a `FACETS` array:
+
+<DynamicDemo />
+
+## Map your data to a config
+
+Turn the backend's description into a `key → f.*()` map, and **memoize** it on the
+source data so `filters` stays referentially stable between renders:
+
+```tsx
+function ProductFilters() {
+  const { data: facets } = useQuery(facetsQueryOptions());
+
+  const configs = useMemo(
+    () =>
+      Object.fromEntries(
+        (facets ?? []).map((facet) => {
+          switch (facet.type) {
+            case 'checkbox':
+              return [
+                facet.key,
+                f.multiSelect({
+                  label: facet.label,
+                  options: facet.values.map((v) => ({
+                    label: v.label,
+                    value: v.value,
+                    count: v.count // facet counts are first-class on FilterOption
+                  }))
+                })
+              ];
+            case 'range':
+              return [facet.key, f.numberRange({ label: facet.label })];
+            case 'toggle':
+              return [facet.key, f.boolean({ label: facet.label })];
+            default:
+              return [facet.key, f.text({ label: facet.label })];
+          }
+        })
+      ),
+    [facets]
+  );
+
+  const { params, filters } = useFilters(configs);
+  // render `filters`, fetch with `params` — same as static filters
+}
+```
+
+## Why it works
+
+The hook subscribes to the URL **once** — a single internal call with a parser map,
+not one hook per filter — so a changing number of filters is fine. The only thing
+you give up is compile-time typing of `params`: you can't pass `useFilters<P>` for a
+shape unknown until runtime, so `params` comes back as a loose record, which is
+exactly what you feed your query anyway.
+
+<Callout type='warn'>
+  If a choice filter's options are fetched separately (or arrive after mount), set
+  [`valueType`](/docs/filter-types/async#value-types) so the URL parses to the same type everywhere
+  — including a route loader that has no options.
+</Callout>

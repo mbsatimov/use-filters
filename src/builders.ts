@@ -70,7 +70,7 @@ export const f = {
    * `params.<key>` → `number | null`
    *
    * @example
-   * min_amount: f.number({ label: 'Min amount', unit: '$' })
+   * min_amount: f.number({ label: 'Min amount' })
    * page_count: f.number({ label: 'Pages', precision: 'int' })
    */
   number: (config: Omit<NumberFilterConfig, 'type'>): NumberFilterConfig => ({
@@ -86,7 +86,7 @@ export const f = {
    * `params.<key>` → `[number, number] | null`
    *
    * @example
-   * price: f.numberRange({ label: 'Price', unit: '$' })
+   * price: f.numberRange({ label: 'Price' })
    * // in your UI: filter.onChange([min, max])
    */
   numberRange: (config: Omit<NumberRangeFilterConfig, 'type'>): NumberRangeFilterConfig => ({

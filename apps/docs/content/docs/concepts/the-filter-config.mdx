@@ -1,0 +1,85 @@
+---
+title: The filter config
+description: A config is plain data built with f.* — value types, defaults, and hidden filters.
+---
+
+The object you pass to `useFilters` is just **data**. Each entry is built with an
+`f.*` helper that records the filter's kind and options — nothing is rendered, and
+nothing runs until the hook resolves it.
+
+```ts
+const configs = {
+  search: f.text({ label: 'Search' }),
+  status: f.select({ label: 'Status', options: statusOptions }),
+  min_price: f.number({ label: 'Min price' })
+};
+```
+
+Because it's plain data, a config can be shared (exported from a module),
+[built at runtime](/docs/guides/dynamic-filters) from a backend response, or handed
+to a [route loader](/docs/guides/route-loaders) — the same object drives the hook
+and its loader twin.
+
+## Value types
+
+The builder you pick determines the type of that filter's value in `params`:
+
+```ts
+f.text(...)         // string | null
+f.number(...)       // number | null
+f.boolean(...)      // boolean | null
+f.select(...)       // V | null       (V inferred from options)
+f.multiSelect(...)  // V[] | null
+```
+
+For a `select` or `multiSelect`, `V` is **inferred from your options** — numeric
+option values give `number | null`, a string union gives `'open' | 'closed' | null`,
+and so on, with no annotations. See [Filter types](/docs/filter-types/overview) for
+the full list.
+
+<Callout>
+  When a choice filter's options are **fetched at runtime**, that inference has nothing to read.
+  Declare `valueType: 'number' | 'string'` so the type is fixed — see [Async
+  filters](/docs/filter-types/async#value-types).
+</Callout>
+
+## Defaults
+
+`defaultValue` sets the value used when the URL has no param for that filter. A
+filter sitting at its default counts as **inactive** — it's excluded from
+`isFiltered` and, with `clearOnDefault` (the default), kept out of the URL entirely:
+
+```ts
+status: f.select({ label: 'Status', options: statusOptions, defaultValue: 'open' });
+// No `?status` in the URL → params.status is 'open', and isFiltered ignores it.
+```
+
+## Hidden filters
+
+`hidden: true` keeps a filter's value in `params` (and `filterMap`) but leaves it
+out of the `filters` array. Use it for a value you manage somewhere other than the
+main toolbar — a search box in the header, or a fixed value you set imperatively:
+
+```ts
+const { params, filters, filterMap } = useFilters({
+  search: f.text({ label: 'Search', hidden: true }), // in params, not in `filters`
+  status: f.select({ label: 'Status', options: statusOptions })
+});
+```
+
+More on placing filters in different parts of your UI in
+[Search, sort & placement](/docs/guides/search-sort-and-placement).
+
+## Shared per-filter options
+
+Every kind accepts these, regardless of type:
+
+| Option         | Purpose                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `label`        | Required. Human label for the control.                                                     |
+| `placeholder`  | Optional; defaults to `label`.                                                             |
+| `defaultValue` | Value when the URL param is absent (above).                                                |
+| `hidden`       | Keep in `params`, omit from `filters` (above).                                             |
+| `commit`       | When a change reaches the URL — see [Values & commits](/docs/concepts/values-and-commits). |
+| `meta`         | Your own typed UI hints — see [UI metadata](/docs/guides/ui-metadata).                     |
+| `nuqs`         | Per-filter [nuqs options](https://nuqs.dev), e.g. `{ history: 'push' }`.                   |

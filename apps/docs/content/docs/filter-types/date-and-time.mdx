@@ -1,0 +1,62 @@
+---
+title: Date & time
+description: f.date, f.dateRange, f.time, and f.timeRange.
+---
+
+import { DateTimeDemo } from '@/components/demo/demos/date-time';
+
+<DateTimeDemo />
+
+## Dates
+
+`f.date` and `f.dateRange` store dates as strings in a fixed default format
+(`yyyy-MM-dd`). The value is a string (or `[from, to]` pair); convert to and from a
+`Date` with the `toDateValue` / `fromDateValue` helpers from
+[`createFilters`](/docs/guides/shared-setup):
+
+```ts
+created: f.date({ label: 'Created on' });
+period: f.dateRange({ label: 'Period' });
+// params.created → string | null   ("2026-03-01")
+// params.period  → [string, string] | null
+```
+
+```ts
+filter.onChange(toDateValue(pickedDate)); // Date   → stored string
+const date = fromDateValue(filter.value); // string → Date | undefined
+```
+
+**Date + time.** Add `precision: 'datetime'` to capture a time component too (the
+value stays a string). Use the datetime converters and read `filter.precision` in
+your UI to decide whether to show a time picker:
+
+```ts
+starts_at: f.date({ label: 'Starts at', precision: 'datetime' });
+// use toDateTimeValue / fromDateTimeValue
+```
+
+To store dates in a different shape or with a date library, override
+[`date.serialize` / `date.parse`](/docs/guides/custom-date-formats).
+
+## Times
+
+`f.time` and `f.timeRange` capture a **time of day** with no date and no timezone.
+The value is a 24-hour clock string — `HH:mm`, or `HH:mm:ss` with
+`precision: 'second'` — exactly what an `<input type="time">` reads and writes, so
+there are no converters:
+
+```ts
+opens_at: f.time({ label: 'Opens at' }); // "09:30" | null
+hours: f.timeRange({ label: 'Business hours' }); // ["09:00", "17:00"] | null
+```
+
+```tsx
+<input
+  type='time'
+  value={filter.value ?? ''}
+  onChange={(e) => filter.onChange(e.target.value || null)}
+/>
+```
+
+A `timeRange` may wrap midnight (`from > to`, e.g. `['22:00', '02:00']`). It's
+stored as-is; your API decides what an overnight range means.

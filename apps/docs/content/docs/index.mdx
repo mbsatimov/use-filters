@@ -1,0 +1,62 @@
+---
+title: Introduction
+description: Headless, URL-synced filter state for React — what it is and when to use it.
+---
+
+Most list and table screens need the same thing: a set of filters, kept in the
+URL so the view survives refreshes and can be shared, wired into the data
+fetching so results stay in sync. Building that by hand — a `useState` per filter,
+manual URL serialization, remembering to reset the page when a filter changes — is
+repetitive and easy to get subtly wrong.
+
+**use-filters** does that part for you. You describe your filters once; the hook
+keeps their state in the URL and hands back everything you need to fetch data and
+render controls. It ships **no UI** — you build the controls, it owns the state.
+
+## The idea in one example
+
+```ts
+const { params, filters } = useFilters({
+  status: f.select({ label: 'Status', options: statusOptions }),
+  search: f.text({ label: 'Search' })
+});
+```
+
+One `useFilters` call gives you **two** outputs, used in two different places:
+
+- **`params`** — a plain object of the current values plus pagination
+  (`{ status, search, page, per_page }`). Pass it to your API, and use it as your
+  cache key.
+- **`filters`** — the same filters resolved with a live `value` and change
+  handlers, ready to render as whatever controls you like.
+
+Both derive from the **URL query string**, which is the single source of truth.
+Change a filter and the URL changes; load a URL and the filters restore. The
+[How it works](/docs/concepts/how-it-works) page walks through this model in full —
+it's worth reading before the rest.
+
+## What it is (and isn't)
+
+**It is** a state manager for filters, built on [nuqs](https://nuqs.dev) for the
+URL layer. It handles serialization, typing, pagination, debounced and deferred
+commits, and a matching helper for route loaders.
+
+**It is not** a data-fetching library or a component kit. You bring your own
+fetcher (React Query, SWR, `fetch`) and your own controls (plain inputs, a design
+system, shadcn/ui). This keeps it tiny — zero runtime dependencies beyond the
+`react` and `nuqs` peers — and unopinionated about how your app looks.
+
+## When to reach for it
+
+A good fit when you have a filtered list or table and want:
+
+- filters that live in the URL (shareable, refresh-safe, back-button friendly),
+- one typed object to drive fetching and caching,
+- consistent handling of pagination, debounced search, and "Apply" panels,
+- the same values computed in a route loader for SSR prefetching.
+
+If you only have one or two throwaway filters and don't care about the URL, plain
+`useState` is fine. Everywhere else, this removes the boilerplate.
+
+Ready? [Install it](/docs/installation), then build your
+[first filtered list](/docs/quickstart).

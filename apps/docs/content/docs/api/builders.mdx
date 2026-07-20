@@ -1,0 +1,50 @@
+---
+title: f — the builders
+description: Every f.* builder and its type-specific options.
+---
+
+`f` is the set of filter builders. Each returns a config object; the builder fixes
+the value type and the type-specific options. Every builder also accepts the
+[shared options](/docs/concepts/the-filter-config#shared-per-filter-options)
+(`label`, `placeholder`, `defaultValue`, `hidden`, `commit`, `meta`, `nuqs`).
+
+See [Filter types](/docs/filter-types/overview) for examples of each.
+
+| Builder              | `params.<key>`             | Type-specific options                          |
+| -------------------- | -------------------------- | ---------------------------------------------- |
+| `f.text`             | `string \| null`           | —                                              |
+| `f.number`           | `number \| null`           | `precision: 'float' \| 'int'`                  |
+| `f.numberRange`      | `[number, number] \| null` | `precision: 'float' \| 'int'`                  |
+| `f.boolean`          | `boolean \| null`          | `trueLabel`, `falseLabel`                      |
+| `f.date`             | `string \| null`           | `precision: 'date' \| 'datetime'`              |
+| `f.dateRange`        | `[string, string] \| null` | `precision: 'date' \| 'datetime'`              |
+| `f.time`             | `string \| null`           | `precision: 'minute' \| 'second'`              |
+| `f.timeRange`        | `[string, string] \| null` | `precision: 'minute' \| 'second'`              |
+| `f.select`           | `V \| null`                | `options`, `valueType`                         |
+| `f.multiSelect`      | `V[] \| null`              | `options`, `valueType`                         |
+| `f.tags`             | `string[] \| null`         | —                                              |
+| `f.asyncSelect`      | `V \| null`                | `loadOptions`, `valueType`, `searchDebounceMs` |
+| `f.asyncMultiSelect` | `V[] \| null`              | `loadOptions`, `valueType`, `searchDebounceMs` |
+
+## Notes on specific options
+
+- **`options`** — `{ label, value, count?, meta? }[]`. For `select` / `multiSelect`,
+  the value type `V` is inferred from these.
+- **`valueType`** — `'number' | 'string'`. Fixes the URL value type when options are
+  fetched at runtime; type-checked against the option values. See
+  [Async › value types](/docs/filter-types/async#value-types).
+- **`loadOptions`** — `(search, signal) => Promise<FilterOption[]>`. The async
+  server search; `signal` aborts stale requests.
+- **`searchDebounceMs`** — debounce for `loadOptions` (default `300`). Distinct from
+  a filter's `commit: { debounce }`, which defers the URL write.
+- **`precision`** — narrows parsing: `'int'` truncates numbers; `'datetime'` /
+  `'second'` add time components to dates / times.
+
+<Callout type='warn'>
+  `f.number` / `f.numberRange`'s `unit` option is **deprecated** — declare a `unit` field on
+  `NumberFilterMeta` / `NumberRangeFilterMeta` and pass it via `meta` instead. See [UI
+  metadata](/docs/guides/ui-metadata).
+</Callout>
+
+`f` is re-exported from every [`createFilters`](/docs/api/create-filters) instance
+and from the package root.

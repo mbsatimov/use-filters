@@ -1,0 +1,85 @@
+---
+title: Installation
+description: Install the package and mount the nuqs adapter — the one required step.
+---
+
+## Install
+
+Install the package alongside its two peer dependencies, `react` (18 or 19) and
+[`nuqs`](https://nuqs.dev) (2+):
+
+```bash
+npm install @mbsatimov/use-filters nuqs
+# or: pnpm add / yarn add / bun add
+```
+
+## Mount the nuqs adapter
+
+State is stored in the URL through nuqs, which needs its **adapter mounted once**
+at your app's root. This is the only required setup — without it, `useFilters`
+throws. Pick the adapter that matches your router:
+
+<Tabs items={['Next.js (App)', 'Next.js (Pages)', 'React Router', 'Remix', 'Plain React']}>
+
+```tsx tab="Next.js (App)"
+// app/layout.tsx
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <NuqsAdapter>{children}</NuqsAdapter>
+      </body>
+    </html>
+  );
+}
+```
+
+```tsx tab="Next.js (Pages)"
+// pages/_app.tsx
+import { NuqsAdapter } from 'nuqs/adapters/next/pages';
+
+export default function App({ Component, pageProps }) {
+  return (
+    <NuqsAdapter>
+      <Component {...pageProps} />
+    </NuqsAdapter>
+  );
+}
+```
+
+```tsx tab="React Router"
+import { NuqsAdapter } from 'nuqs/adapters/react-router/v7';
+
+<NuqsAdapter>
+  <RouterProvider router={router} />
+</NuqsAdapter>;
+```
+
+```tsx tab="Remix"
+import { NuqsAdapter } from 'nuqs/adapters/remix';
+
+<NuqsAdapter>
+  <Outlet />
+</NuqsAdapter>;
+```
+
+```tsx tab="Plain React"
+import { NuqsAdapter } from 'nuqs/adapters/react';
+
+<NuqsAdapter>
+  <App />
+</NuqsAdapter>;
+```
+
+</Tabs>
+
+TanStack Router and others are supported too — see the full list in the
+[nuqs adapter docs](https://nuqs.dev/docs/adapters).
+
+## Next
+
+You're set up. Either follow the [Quickstart](/docs/quickstart) to build a working
+filtered list, or read [How it works](/docs/concepts/how-it-works) to understand
+the model first.

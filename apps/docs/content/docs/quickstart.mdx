@@ -1,0 +1,105 @@
+---
+title: Quickstart
+description: Build a working, URL-synced filtered list in a few lines.
+---
+
+import { BasicFiltersDemo } from '@/components/demo/demos/basic-filters';
+
+This page builds a small filtered list end to end. Make sure you've
+[mounted the nuqs adapter](/docs/installation#mount-the-nuqs-adapter) first.
+
+## Try it
+
+The demo below is the real hook. Type in the box and pick a status — the **URL bar**
+and the **`params`** object update together, because both are derived from the URL:
+
+<BasicFiltersDemo />
+
+## Declare your filters
+
+Call `useFilters` with a map of `key → f.*()`. Each key becomes a URL query param
+and a key in `params`; the `f.*` builder decides how the value is parsed.
+
+```tsx
+import { f, useFilters } from '@mbsatimov/use-filters';
+
+const statusOptions = [
+  { label: 'Open', value: 'open' },
+  { label: 'Closed', value: 'closed' }
+];
+
+function ProductsPage() {
+  const { params, filters } = useFilters({
+    search: f.text({ label: 'Search' }),
+    status: f.select({ label: 'Status', options: statusOptions })
+  });
+
+  // ...
+}
+```
+
+## Fetch with `params`
+
+`params` is `{ search, status, page, per_page }`. Hand it to your fetcher, and use
+it as the query key so results refetch and cache correctly when a filter changes:
+
+```tsx
+const { data } = useQuery({
+  queryKey: ['products', params],
+  queryFn: () => productApi.getAll(params)
+});
+```
+
+<Callout>
+  `params` changes exactly when the URL does, so it's a correct cache key for React Query, SWR, or
+  any fetcher — no extra dependency arrays to manage.
+</Callout>
+
+## Render your filters
+
+`filters` is an array of **resolved filters** — each one your config plus a live
+`value` and an `onChange`. Render them however you like:
+
+```tsx
+{
+  filters.map((filter) => {
+    if (filter.type === 'text') {
+      return (
+        <input
+          key={filter.key}
+          placeholder={filter.label}
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        />
+      );
+    }
+    if (filter.type === 'select') {
+      return (
+        <select
+          key={filter.key}
+          value={filter.value ?? ''}
+          onChange={(e) => filter.onChange(e.target.value || null)}
+        >
+          <option value=''>{filter.label}</option>
+          {filter.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+    return null;
+  });
+}
+```
+
+That's the whole loop: **declare → fetch with `params` → render `filters`.**
+
+## Where to next
+
+- **[How it works](/docs/concepts/how-it-works)** — the mental model behind these
+  two outputs. Read this next.
+- **[Filter types](/docs/filter-types/overview)** — every `f.*` builder, with a live
+  example each.
+- **[Building a toolbar](/docs/guides/building-a-toolbar)** — a complete render layer.

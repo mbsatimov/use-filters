@@ -1,0 +1,62 @@
+---
+title: createFilters
+description: Bind project constants and get a configured useFilters, resolveFilterParams, and helpers.
+---
+
+```ts
+createFilters(config?) => {
+  useFilters,
+  resolveFilterParams,
+  defineFilters,
+  f,
+  toDateValue, fromDateValue,
+  toDateTimeValue, fromDateTimeValue
+}
+```
+
+Call it once per project (or per API convention) and export the result. See
+[Sharing setup](/docs/guides/shared-setup).
+
+## Top-level config
+
+| Option           | Default     | Description                                                                                         |
+| ---------------- | ----------- | --------------------------------------------------------------------------------------------------- |
+| `defaultCommit`  | `'instant'` | Fallback `commit` mode for every filter. See [Values & commits](/docs/concepts/values-and-commits). |
+| `arraySeparator` | `','`       | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) in the URL.                       |
+| `pagination`     | —           | Pagination keys and defaults (below).                                                               |
+| `date`           | —           | Date (de)serialization (below).                                                                     |
+
+```ts
+createFilters({ arraySeparator: '|' });
+// tags: ['a', 'b', 'c']  ↔  ?tags=a|b|c
+```
+
+## `pagination`
+
+| Option                    | Default      | Description                                                                             |
+| ------------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| `pageKey`                 | `'page'`     | URL key for the page number, and its key in `params`.                                   |
+| `perPageKey`              | `'per_page'` | URL key for the per-page count, and its key in `params`.                                |
+| `firstPage`               | `1`          | The number the first page counts from. `0` for a 0-indexed API.                         |
+| `defaultPerPage`          | `10`         | Per-page count assumed when the URL has none.                                           |
+| `resetPageOnFilterChange` | `true`       | Whether changing a filter resets the page. See [Pagination](/docs/concepts/pagination). |
+
+## `date`
+
+Override in inverse pairs to change how dates are stored. See
+[Custom date formats](/docs/guides/custom-date-formats).
+
+| Option              | Default                     | Description                          |
+| ------------------- | --------------------------- | ------------------------------------ |
+| `serialize`         | fixed `yyyy-MM-dd`          | `Date` → stored string.              |
+| `parse`             | fixed `yyyy-MM-dd`          | Stored string → `Date`.              |
+| `serializeDateTime` | fixed `yyyy-MM-ddTHH:mm:ss` | Datetime counterpart of `serialize`. |
+| `parseDateTime`     | fixed `yyyy-MM-ddTHH:mm:ss` | Datetime counterpart of `parse`.     |
+
+## Returned helpers
+
+- **`useFilters`**, **`resolveFilterParams`**, **`defineFilters`** — bound to this
+  config. See their own pages.
+- **`f`** — the [builders](/docs/api/builders), re-exported for convenience.
+- **`toDateValue` / `fromDateValue`** and the `*DateTime` pair — `Date` ↔ stored
+  string using this config's `date` (de)serialization.

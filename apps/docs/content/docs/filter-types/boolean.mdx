@@ -1,0 +1,30 @@
+---
+title: Boolean
+description: f.boolean — on/off toggles with three states.
+---
+
+import { BooleanDemo } from '@/components/demo/demos/boolean';
+
+<BooleanDemo />
+
+## `f.boolean`
+
+An on/off filter. The value is `true`, `false`, or `null` — the third state, `null`,
+means "not filtered" (show both). `trueLabel` / `falseLabel` are display hints for
+your control.
+
+```ts
+in_stock: f.boolean({ label: 'In stock', trueLabel: 'In stock', falseLabel: 'Sold out' });
+// params.in_stock → boolean | null
+```
+
+The three states matter: a boolean filter that's `null` is inactive and excluded
+from `isFiltered`, whereas `false` is an active filter (show only sold-out items).
+A common pattern is a two-button toggle where clicking the active button again
+clears back to `null`:
+
+```tsx
+<button onClick={() => filter.onChange(filter.value === true ? null : true)}>
+  {filter.trueLabel}
+</button>
+```

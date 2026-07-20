@@ -1,0 +1,41 @@
+---
+title: resolveFilterParams
+description: Compute the hook's params object outside React, for route loaders.
+---
+
+```ts
+resolveFilterParams(configs, rawSearch, options?) => params
+```
+
+The framework-agnostic twin of the hook's `params` derivation. Runs anywhere
+(route loaders, server code) and produces the **identical** object `useFilters`
+computes on mount, so a prefetch hits the same cache key. See
+[Route loaders](/docs/guides/route-loaders).
+
+- **`configs`** — the same config map you pass to the hook.
+- **`rawSearch`** — the request's search params, in any of these shapes:
+  - a parsed object (`{ status: 'open' }`),
+  - a `URLSearchParams` (`new URL(request.url).searchParams`),
+  - the raw query string (`'?status=open'` or `location.search`).
+- **`options`** — `{ arraySeparator, pagination }`. These **must match** the hook's
+  for the query keys to align; [`defineFilters`](/docs/api/define-filters) binds them
+  once to remove that risk.
+
+## Behavior
+
+- Applies each filter's `defaultValue` (or `null`) exactly like the hook.
+- Coerces values to the same types (`?status=5` → the number `5`, not `'5'`).
+- Mirrors the pagination keys into the result under the configured names.
+- Drops extras such as async `_label` sidecars.
+
+```ts
+const params = resolveFilterParams(productConfigs, new URL(request.url).searchParams);
+// => { search, status, page, per_page } — same shape as useFilters' params
+```
+
+<Callout>
+  For choice filters whose options are fetched at runtime, set
+  [`valueType`](/docs/filter-types/async#value-types) — the loader has no options to infer from, and
+  without it the loader and hook can parse the URL to different types. Dev builds warn when this
+  happens.
+</Callout>

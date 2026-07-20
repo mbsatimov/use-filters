@@ -1,0 +1,4 @@
+{
+  "title": "Filter types",
+  "pages": ["overview", "text-and-number", "boolean", "date-and-time", "select-and-tags", "async"]
+}

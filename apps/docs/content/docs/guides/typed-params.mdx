@@ -1,0 +1,36 @@
+---
+title: Typed params from your API
+description: Validate your filter config against your list endpoint's params type.
+---
+
+By default, `params` is **inferred** from your config — each filter's value type
+flows through automatically. That's the right choice most of the time.
+
+When you have a typed API client, you can instead **validate** your config against
+the endpoint's params type by passing it as a type argument. You get key
+autocomplete, a compile error if a filter produces the wrong type, and a `params`
+shaped exactly like your API expects:
+
+```ts
+interface ProductListParams {
+  search?: string;
+  status?: 'open' | 'closed';
+  brand_id?: number;
+  page: number; // pagination keys are owned by the hook —
+  per_page: number; // exclude them from what you validate against
+}
+
+const { params } = useFilters<ProductListParams>({
+  search: f.text({ label: 'Search' }),
+  status: f.select({ label: 'Status', options: statusOptions }),
+  brand_id: f.asyncSelect({ label: 'Brand', loadOptions })
+});
+// ❌ a key not in ProductListParams, or a filter whose value doesn't fit it, errors.
+```
+
+<Callout>
+  Inference and explicit `<P>` are mutually exclusive — passing `useFilters<P>` turns
+  off per-config inference (TypeScript can't do both at once). Use whichever fits a
+  given screen: inference for quick local configs, `<P>` where you want the API
+  contract enforced.
+</Callout>

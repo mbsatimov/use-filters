@@ -1,0 +1,54 @@
+---
+title: Overview
+description: Every f.* builder and the value type it produces.
+---
+
+Every filter is built with an `f.*` helper. The builder you choose fixes how the
+value is parsed and what type it has in `params`:
+
+| Builder              | Use for                        | `params.<key>`             |
+| -------------------- | ------------------------------ | -------------------------- |
+| `f.text`             | Search boxes, free text        | `string \| null`           |
+| `f.number`           | Amounts, counts, rates         | `number \| null`           |
+| `f.numberRange`      | Numeric "between"              | `[number, number] \| null` |
+| `f.boolean`          | Toggles, on/off                | `boolean \| null`          |
+| `f.date`             | A date (or date + time)        | `string \| null`           |
+| `f.dateRange`        | A date range                   | `[string, string] \| null` |
+| `f.time`             | A time of day (no date)        | `string \| null`           |
+| `f.timeRange`        | A time-of-day range            | `[string, string] \| null` |
+| `f.select`           | One choice from a fixed list   | `V \| null`                |
+| `f.multiSelect`      | Many choices from a fixed list | `V[] \| null`              |
+| `f.tags`             | Freeform string list           | `string[] \| null`         |
+| `f.asyncSelect`      | One choice, server-searched    | `V \| null`                |
+| `f.asyncMultiSelect` | Many choices, server-searched  | `V[] \| null`              |
+
+Each type has its own page with a live example:
+
+- [Text & number](/docs/filter-types/text-and-number) — `text`, `number`, `numberRange`
+- [Boolean](/docs/filter-types/boolean) — `boolean`
+- [Date & time](/docs/filter-types/date-and-time) — `date`, `dateRange`, `time`, `timeRange`
+- [Select & tags](/docs/filter-types/select-and-tags) — `select`, `multiSelect`, `tags`
+- [Async](/docs/filter-types/async) — `asyncSelect`, `asyncMultiSelect`
+
+## How the value type is decided
+
+For most builders the type is fixed by the builder itself (`f.text` is always
+`string | null`). For **choice** filters it comes from your `options`:
+
+```ts
+f.select({ label: 'Status', options: [{ label: 'Open', value: 'open' }] });
+// value type: 'open' | null  — a string literal union, inferred
+
+f.select({ label: 'Owner', options: [{ label: 'Ada', value: 1 }] });
+// value type: 1 | null  — numeric, inferred
+```
+
+This inference needs the options to be present. When they're **fetched at runtime**,
+declare the type explicitly with `valueType` — see
+[Async filters](/docs/filter-types/async#value-types).
+
+## Shared options
+
+Beyond the type-specific options in the table, every builder accepts the shared set
+— `label`, `placeholder`, `defaultValue`, `hidden`, `commit`, `meta`, `nuqs` —
+covered in [The filter config](/docs/concepts/the-filter-config#shared-per-filter-options).
