@@ -1,5 +1,14 @@
 {
   "title": "Documentation",
   "root": true,
-  "pages": ["index", "installation", "quickstart", "concepts", "filter-types", "guides", "api"]
+  "pages": [
+    "index",
+    "installation",
+    "quickstart",
+    "concepts",
+    "filter-types",
+    "guides",
+    "api",
+    "changelog"
+  ]
 }

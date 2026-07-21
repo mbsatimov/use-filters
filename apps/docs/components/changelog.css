@@ -1,0 +1,19 @@
+/* The changelog renders plain markdown (react-markdown), so its code blocks
+   don't get Fumadocs' native CodeBlock card. Give `<pre>` the same look using
+   the site's `--fd-*` tokens; headings/text/inline-code inherit from DocsBody. */
+
+.changelog-body pre {
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.5rem;
+  background: var(--color-fd-secondary, var(--color-fd-muted));
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.changelog-body pre code {
+  padding: 0;
+  background: transparent;
+}
