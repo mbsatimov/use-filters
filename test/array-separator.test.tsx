@@ -3,8 +3,7 @@ import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
 import { describe, expect, it } from 'vitest';
 
 import { createFilters } from '../src/create-filters';
-
-const wrapper = withNuqsTestingAdapter({ hasMemory: true });
+import { wrapper } from './helpers';
 
 describe('arraySeparator — default stays comma', () => {
   it('multiSelect joins/splits on "," when unset', () => {

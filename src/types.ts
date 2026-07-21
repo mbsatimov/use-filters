@@ -3,20 +3,13 @@ import type { Options as NuqsOptions } from 'nuqs';
 /** Primitive types a `select` / `multiSelect` option's value can hold. */
 export type FilterPrimitive = number | string;
 
+/** Every non-null value one of our nuqs parsers can produce/serialize. */
+export type FilterParserValue = boolean | number | string | number[] | string[];
+
 /**
- * The URL value-type token for a choice filter (`select` / `multiSelect`),
- * constrained to match the option value type `V`:
- *
- * - numeric options (`V` is a number) → must be `'number'`
- * - string options (`V` is a string) → must be `'string'`
- * - dynamic / untyped options (`V` is the open `FilterPrimitive`) → either
- *
- * Because it is checked against `V`, a token that contradicts the options is a
- * compile error. In the `f.select` / `f.multiSelect` builders the token is the
- * declaration — when present it drives `V`, and `options` are checked against
- * it, so the error lands on the mismatched option. The tuple wrappers stop the
- * conditional from distributing over a union of literals (so `1 | 2` resolves
- * to `'number'`, not `'number'`-per-member).
+ * The URL value-type token for a choice filter, constrained to match the option
+ * type `V` (number → `'number'`, string → `'string'`). The tuple wrappers stop
+ * the conditional distributing over a union (so `1 | 2` resolves to `'number'`).
  */
 export type ChoiceValueType<V extends FilterPrimitive> = [V] extends [number]
   ? 'number'
@@ -40,32 +33,13 @@ export type ChoiceValueType<V extends FilterPrimitive> = [V] extends [number]
 export interface FilterMeta {}
 
 /**
- * Per-kind extension points — one per filter type, each empty by default and
- * independently augmentable, the same way TanStack augments `ColumnMeta`.
- * This is what lets `meta` take a different shape per filter kind while the
- * call-site syntax stays identical: `f.select({ ..., meta: {...} })` and
- * `f.number({ ..., meta: {...} })` both work, but each is checked against its
- * own interface.
- *
- * Augment only the kinds that need the extra field — no need to touch the
- * others:
+ * Per-kind `meta` extension points — augment only the kinds you need (like
+ * TanStack's `ColumnMeta`), each checked against its own interface.
  *
  * @example
- * // in your app, e.g. src/app/types/filters.ts
  * declare module '@mbsatimov/use-filters' {
- *   // Available on every select filter's meta.
- *   interface SelectFilterMeta {
- *     group?: 'primary' | 'advanced';
- *   }
- *   // Available only on `number` filters' meta.
- *   interface NumberFilterMeta {
- *     step?: number;
- *   }
+ *   interface SelectFilterMeta { group?: 'primary' | 'advanced' }
  * }
- *
- * // usage — each checked against its own augmented shape:
- * status: f.select({ label: 'Holat', options, meta: { group: 'primary' } })
- * amount: f.number({ label: 'Summa', meta: { step: 0.5 } })
  */
 export interface TextFilterMeta extends FilterMeta {}
 export interface NumberFilterMeta extends FilterMeta {}
@@ -82,17 +56,8 @@ export interface MultiSelectFilterMeta extends FilterMeta {}
 export interface TagsFilterMeta extends FilterMeta {}
 
 /**
- * Extension point for `useFilters`' hook-level `meta` option — config that
- * applies to the whole filter set rather than a single filter (e.g. a
- * toolbar layout variant for a custom filter UI). Augment the same way as
- * `FilterMeta`.
- *
- * @example
- * declare module '@mbsatimov/use-filters' {
- *   interface FiltersMeta {
- *     variant?: 'toolbar' | 'sidebar';
- *   }
- * }
+ * Extension point for `useFilters`' hook-level `meta` — whole-set UI hints.
+ * Augment like {@link FilterMeta}.
  */
 export interface FiltersMeta {}
 
@@ -104,33 +69,16 @@ export interface FiltersMeta {}
 export type FilterNuqsOptions = NuqsOptions;
 
 /**
- * When a filter's change reaches `params`/the URL, relative to the `onChange`
- * that triggered it. `useFilters` keeps a local draft of every non-`instant`
- * filter, so the control stays responsive while the committed value waits:
- *
- * - `'instant'` (default) — commit on every change; identical to URL-only state.
- * - `{ debounce: ms }` — show the change immediately, commit `ms` after the
- *   last one (the timer resets on each change). Good for a search box.
- * - `'manual'` — show the change immediately, commit only when `apply()` runs.
- *   Good for a mobile "Apply filters" sheet.
+ * When a filter's change reaches `params`/the URL:
+ * - `'instant'` (default) — commit on every change.
+ * - `{ debounce: ms }` — show immediately, commit `ms` after the last change.
+ * - `'manual'` — show immediately, commit only on `apply()`.
  */
 export type FilterCommitMode = 'instant' | 'manual' | { debounce: number };
 
 /**
- * Extension point for per-option UI hints (`FilterOption.meta`) — the option
- * counterpart to {@link FilterMeta}. Augment it once in your app for hints
- * your option rows need (an icon, a color swatch, a shortcut label):
- *
- * @example
- * declare module '@mbsatimov/use-filters' {
- *   interface FilterOptionMeta {
- *     icon?: React.ComponentType;
- *     swatch?: string;
- *   }
- * }
- *
- * // usage:
- * options: [{ label: 'Open', value: 'open', meta: { swatch: '#22c55e' } }]
+ * Extension point for per-option UI hints (`FilterOption.meta`) — augment for
+ * an icon, color swatch, etc. The option counterpart to {@link FilterMeta}.
  */
 export interface FilterOptionMeta {}
 
@@ -188,20 +136,16 @@ interface FilterBase {
 
 export interface TextFilterConfig extends FilterBase {
   defaultValue?: string;
-  /** Project-specific UI hints for text filters. See `TextFilterMeta`. */
+  /** UI hints — see {@link TextFilterMeta}. */
   meta?: TextFilterMeta;
   type: 'text';
 }
 
 export interface NumberFilterConfig extends FilterBase {
   defaultValue?: number;
-  /** Project-specific UI hints for number filters. See `NumberFilterMeta`. */
+  /** UI hints — see {@link NumberFilterMeta}. */
   meta?: NumberFilterMeta;
-  /**
-   * Numeric precision for URL round-tripping. `'float'` (the default) keeps
-   * decimals — e.g. amounts, prices, rates — while `'int'` parses whole numbers
-   * only. Defaults to `'float'`.
-   */
+  /** `'float'` (default) keeps decimals; `'int'` parses whole numbers only. */
   precision?: 'float' | 'int';
   type: 'number';
 }
@@ -209,12 +153,9 @@ export interface NumberFilterConfig extends FilterBase {
 export interface NumberRangeFilterConfig extends FilterBase {
   /** `[min, max]` */
   defaultValue?: [number, number];
-  /** Project-specific UI hints for number-range filters. See `NumberRangeFilterMeta`. */
+  /** UI hints — see {@link NumberRangeFilterMeta}. */
   meta?: NumberRangeFilterMeta;
-  /**
-   * Numeric precision for both ends of the range. `'float'` (the default) keeps
-   * decimals; `'int'` parses whole numbers only. Defaults to `'float'`.
-   */
+  /** `'float'` (default) keeps decimals; `'int'` parses whole numbers only. */
   precision?: 'float' | 'int';
   type: 'numberRange';
 }
@@ -222,7 +163,7 @@ export interface NumberRangeFilterConfig extends FilterBase {
 export interface BooleanFilterConfig extends FilterBase {
   defaultValue?: boolean;
   falseLabel?: string;
-  /** Project-specific UI hints for boolean filters. See `BooleanFilterMeta`. */
+  /** UI hints — see {@link BooleanFilterMeta}. */
   meta?: BooleanFilterMeta;
   trueLabel?: string;
   type: 'boolean';
@@ -231,13 +172,9 @@ export interface BooleanFilterConfig extends FilterBase {
 export interface DateFilterConfig extends FilterBase {
   /** Formatted date string — `yyyy-MM-dd`, or the datetime format when `precision: 'datetime'`. */
   defaultValue?: string;
-  /** Project-specific UI hints for date filters. See `DateFilterMeta`. */
+  /** UI hints — see {@link DateFilterMeta}. */
   meta?: DateFilterMeta;
-  /**
-   * Whether the filter captures a date or a date **and time**. `'datetime'`
-   * switches the bound `toDateTimeValue` / `fromDateTimeValue` converters and
-   * signals your UI to render a time picker too. Defaults to `'date'`.
-   */
+  /** `'datetime'` captures date + time (use the `*DateTime` converters). Defaults to `'date'`. */
   precision?: 'date' | 'datetime';
   type: 'date';
 }
@@ -245,13 +182,9 @@ export interface DateFilterConfig extends FilterBase {
 export interface DateRangeFilterConfig extends FilterBase {
   /** `[from, to]` as formatted date strings (`yyyy-MM-dd`, or the datetime format when `precision: 'datetime'`). */
   defaultValue?: [string, string];
-  /** Project-specific UI hints for date-range filters. See `DateRangeFilterMeta`. */
+  /** UI hints — see {@link DateRangeFilterMeta}. */
   meta?: DateRangeFilterMeta;
-  /**
-   * Whether each end captures a date or a date **and time**. `'datetime'`
-   * switches the bound `toDateTimeValue` / `fromDateTimeValue` converters and
-   * signals your UI to render time pickers too. Defaults to `'date'`.
-   */
+  /** `'datetime'` captures date + time (use the `*DateTime` converters). Defaults to `'date'`. */
   precision?: 'date' | 'datetime';
   type: 'dateRange';
 }
@@ -259,14 +192,9 @@ export interface DateRangeFilterConfig extends FilterBase {
 export interface TimeFilterConfig extends FilterBase {
   /** Time-of-day string — `HH:mm` (24-hour), or `HH:mm:ss` when `precision: 'second'`. */
   defaultValue?: string;
-  /** Project-specific UI hints for time filters. See `TimeFilterMeta`. */
+  /** UI hints — see {@link TimeFilterMeta}. */
   meta?: TimeFilterMeta;
-  /**
-   * Granularity of the time value. `'minute'` (the default) stores `HH:mm`;
-   * `'second'` stores `HH:mm:ss`. Times are wall-clock, 24-hour and
-   * timezone-free — stored as-is (exactly what an `<input type="time">`
-   * produces), so no `Date` conversion is involved. Defaults to `'minute'`.
-   */
+  /** `'minute'` (default) stores `HH:mm`; `'second'` stores `HH:mm:ss`. Wall-clock, no `Date` conversion. */
   precision?: 'minute' | 'second';
   type: 'time';
 }
@@ -274,7 +202,7 @@ export interface TimeFilterConfig extends FilterBase {
 export interface TimeRangeFilterConfig extends FilterBase {
   /** `[from, to]` as time-of-day strings (`HH:mm`, or `HH:mm:ss` when `precision: 'second'`). */
   defaultValue?: [string, string];
-  /** Project-specific UI hints for time-range filters. See `TimeRangeFilterMeta`. */
+  /** UI hints — see {@link TimeRangeFilterMeta}. */
   meta?: TimeRangeFilterMeta;
   /**
    * Granularity of both ends. `'minute'` (the default) stores `HH:mm`;
@@ -291,17 +219,14 @@ export interface SelectFilterConfig<
 > extends FilterBase {
   /** Checked against `options` — a value outside them is a compile error. */
   defaultValue?: NoInfer<V>;
-  /** Project-specific UI hints for select filters. See `SelectFilterMeta`. */
+  /** UI hints — see {@link SelectFilterMeta}. */
   meta?: SelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'select';
   /**
-   * How this filter's value round-trips through the URL — `'number'` or
-   * `'string'`. The declaration: in the `f.select` builder it drives the value
-   * type, and `options` are checked against it — a mismatched option is a
-   * compile error on that option. Required so a route loader calling
-   * `resolveFilterParams` (which never sees `options`) always parses the same
-   * type the hook does. See {@link ChoiceValueType}.
+   * How the value round-trips through the URL. Drives `V` (in `f.select`);
+   * `options` are checked against it. Required so `resolveFilterParams` (no
+   * `options` in a loader) parses the same type. See {@link ChoiceValueType}.
    */
   valueType: ChoiceValueType<NoInfer<V>>;
 }
@@ -310,7 +235,7 @@ export interface AsyncSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
   defaultValue?: NoInfer<V>;
-  /** Project-specific UI hints for async-select filters. See `AsyncSelectFilterMeta`. */
+  /** UI hints — see {@link AsyncSelectFilterMeta}. */
   meta?: AsyncSelectFilterMeta;
   /** Debounce for the search input, in ms. Defaults to `300`. */
   searchDebounceMs?: number;
@@ -318,11 +243,8 @@ export interface AsyncSelectFilterConfig<
   /** How values round-trip through the URL (`'number'` for ids, `'string'` otherwise). */
   valueType: 'number' | 'string';
   /**
-   * Fetch options matching the search text — search runs server-side. Calls
-   * within `searchDebounceMs` of each other collapse into one request, and
-   * `signal` aborts stale ones. Return a reasonably small page (e.g.
-   * `limit: 20`). Results are **not** cached — pair with your data layer
-   * (React Query etc.) if you want caching.
+   * Server-side search; debounced calls collapse into one, `signal` aborts
+   * stale ones. Return a small page. Not cached — pair with your data layer.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -331,7 +253,7 @@ export interface AsyncMultiSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
   defaultValue?: readonly NoInfer<V>[];
-  /** Project-specific UI hints for async-multi-select filters. See `AsyncMultiSelectFilterMeta`. */
+  /** UI hints — see {@link AsyncMultiSelectFilterMeta}. */
   meta?: AsyncMultiSelectFilterMeta;
   /** Debounce for the search input, in ms. Defaults to `300`. */
   searchDebounceMs?: number;
@@ -339,11 +261,8 @@ export interface AsyncMultiSelectFilterConfig<
   /** How values round-trip through the URL (`'number'` for ids, `'string'` otherwise). */
   valueType: 'number' | 'string';
   /**
-   * Fetch options matching the search text — search runs server-side. Calls
-   * within `searchDebounceMs` of each other collapse into one request, and
-   * `signal` aborts stale ones. Return a reasonably small page (e.g.
-   * `limit: 20`). Results are **not** cached — pair with your data layer
-   * (React Query etc.) if you want caching.
+   * Server-side search; debounced calls collapse into one, `signal` aborts
+   * stale ones. Return a small page. Not cached — pair with your data layer.
    */
   loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
@@ -353,23 +272,21 @@ export interface MultiSelectFilterConfig<
 > extends FilterBase {
   /** Checked against `options` — values outside them are a compile error. */
   defaultValue?: readonly NoInfer<V>[];
-  /** Project-specific UI hints for multi-select filters. See `MultiSelectFilterMeta`. */
+  /** UI hints — see {@link MultiSelectFilterMeta}. */
   meta?: MultiSelectFilterMeta;
   options: readonly FilterOption<V>[];
   type: 'multiSelect';
   /**
-   * How this filter's values round-trip through the URL — `'number'` or
-   * `'string'`. The declaration: in the `f.multiSelect` builder it drives the
-   * value type, and `options` are checked against it. Required so a route
-   * loader calling `resolveFilterParams` (which never sees `options`) always
-   * parses the same type the hook does. See {@link ChoiceValueType}.
+   * How values round-trip through the URL. Drives `V` (in `f.multiSelect`);
+   * `options` are checked against it. Required for loader parity — see
+   * {@link ChoiceValueType}.
    */
   valueType: ChoiceValueType<NoInfer<V>>;
 }
 
 export interface TagsFilterConfig extends FilterBase {
   defaultValue?: readonly string[];
-  /** Project-specific UI hints for tags filters. See `TagsFilterMeta`. */
+  /** UI hints — see {@link TagsFilterMeta}. */
   meta?: TagsFilterMeta;
   type: 'tags';
 }
@@ -428,18 +345,11 @@ export interface SelectedOption<V extends FilterPrimitive = FilterPrimitive> {
 }
 
 /**
- * Extra handlers/state async filters get — they write value + label atomically.
- *
- * The handlers use method syntax (`onSelectOption(...)`, not
- * `onSelectOption: (...) =>`) deliberately: TypeScript checks method
- * parameters bivariantly, which is what lets a narrowly-typed resolved filter
- * (`V = 'open' | 'closed'`) be assignable to the wide `ResolvedFilter` union —
- * the relation `filterMap` values, `AnyUseFiltersReturn`, and any
- * `ResolvedFilter`-typed prop all rely on. The unsafe direction (assigning a
- * wide filter where a narrow one is expected) stays rejected via the
- * covariant `value`/`selectedOption` properties. The lint rule banning method
- * syntax exists to prevent accidental bivariance — here it's the point, hence
- * the targeted disables.
+ * Extra handlers/state async filters get. The handlers use **method syntax**
+ * on purpose: method params are checked bivariantly, which is what keeps a
+ * narrow resolved filter assignable to the wide `ResolvedFilter` union (the
+ * unsafe direction stays rejected via covariant `value`/`selectedOption`).
+ * Hence the targeted `method-signature-style` disables.
  */
 type AsyncResolvedExtras<C> =
   C extends AsyncSelectFilterConfig<infer V>
@@ -483,122 +393,49 @@ type StaticSelectExtras<C> =
       : unknown;
 
 /**
- * A single filter as your UI receives it: everything from the original config
- * (`label`, `placeholder`, `options`, `meta`, …) plus its live `key`, current
- * `value`, and ready-made handlers. This is an element of the hook's `filters`
- * array and a value in its `filterMap`.
- *
- * Every resolved filter has `value`, `onChange(value)` and `onClear()`. Choice
- * filters additionally expose the resolved option object(s) — `selectedOption`
- * / `selectedOptions` — so you can show the chosen label without a lookup, and
- * async ones add option-aware setters (`onSelectOption`, `onToggleOption`, …).
- *
- * @example
- * function StatusControl(filter: ResolvedFilterOf<'select'>) {
- *   return (
- *     <select
- *       value={filter.value ?? ''}
- *       onChange={(e) => filter.onChange(e.target.value || null)}
- *     >
- *       <option value="">{filter.placeholder ?? filter.label}</option>
- *       {filter.options.map((o) => (
- *         <option key={o.value} value={o.value}>{o.label}</option>
- *       ))}
- *     </select>
- *   );
- * }
+ * A single filter as your UI receives it: everything from the config plus its
+ * live `key`, current `value`, and ready-made handlers. An element of the hook's
+ * `filters` array and a value in `filterMap`. Choice filters also expose the
+ * resolved `selectedOption(s)`; async ones add option-aware setters.
  */
 export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends unknown
   ? Omit<C, 'commit'> &
       AsyncResolvedExtras<C> &
       StaticSelectExtras<C> & {
-        /**
-         * Commit this filter's pending change right now, whatever its `commit`
-         * mode — flushes a running debounce timer, or applies a `manual` change.
-         * A no-op when `isDirty` is `false`. Scoped version of the hook's
-         * whole-set `apply()`.
-         */
+        /** Commit this filter's pending change now, bypassing `commit`. No-op when not `isDirty`. */
         apply: () => void;
-        /**
-         * Discard this filter's pending change — it reverts to `committedValue`
-         * on the next render. A no-op when `isDirty` is `false`. Scoped version
-         * of the hook's whole-set `cancel()`.
-         */
+        /** Discard this filter's pending change, reverting to `committedValue`. No-op when not `isDirty`. */
         cancel: () => void;
-        /**
-         * This filter's *effective* `commit` mode — the per-filter config if it
-         * set one, otherwise the resolved default (`useFilters`' `defaultCommit`
-         * option, then `createFilters`'). Always present (unlike the optional
-         * `commit` on the config), since a resolved filter always has one.
-         */
+        /** This filter's *effective* `commit` mode (per-filter config, else the resolved default). */
         commit: FilterCommitMode;
-        /**
-         * This filter's value as currently committed in `params`/the URL —
-         * independent of any pending draft. Equal to `value` unless `isDirty`.
-         * Read this (not `value`) if you want "what will actually be fetched",
-         * e.g. to show a draft-vs-committed diff.
-         */
+        /** The committed (URL) value, independent of any pending draft. Equals `value` unless `isDirty`. */
         committedValue: FilterValue<C>;
-        /** The debounce delay in ms when `commit` resolves to `{ debounce }`; `null` otherwise. */
+        /** Debounce delay (ms) when `commit` is `{ debounce }`, else `null`. */
         debounceMs: number | null;
-        /** `true` when `commit` resolves to `{ debounce }` for this filter. */
+        /** `true` when `commit` resolves to `{ debounce }`. */
         isDebounced: boolean;
-        /**
-         * `true` while this filter has a change that hasn't reached `params`/the
-         * URL yet — a running debounce timer, or a manual change awaiting
-         * `apply()`. Always `false` for `commit: 'instant'` (the default).
-         */
+        /** `true` while a change hasn't reached the URL yet (debounce pending, or manual awaiting `apply()`). */
         isDirty: boolean;
         /**
-         * `true` when this filter is active: its **committed** value differs
-         * from `defaultValue` (or, with no default, simply holds a non-empty
-         * value). Unlike the hook's whole-set `isFiltered`, this doesn't
-         * exclude `hidden` filters — it's just this one filter's own state.
-         * Right for anything reflecting what's actually applied (a "N filters
-         * applied" badge). For UI that should react to the draft immediately —
-         * e.g. hiding a "Clear" button the instant the control empties, even
-         * before a `commit: 'manual'` change is applied — use `isFilteredDraft`.
+         * `true` when this filter's **committed** value is active (differs from
+         * default, or non-empty). Per-filter — doesn't exclude `hidden`. Use
+         * `isFilteredDraft` for UI reacting to the draft before commit.
          */
         isFiltered: boolean;
-        /**
-         * Same check as `isFiltered`, but against the **draft** `value` instead
-         * of `committedValue`. Equal to `isFiltered` unless `isDirty`.
-         */
+        /** Like `isFiltered`, but against the **draft** value. Equals `isFiltered` unless `isDirty`. */
         isFilteredDraft: boolean;
-        /** `true` when `commit` resolves to `'instant'` for this filter (the default). */
+        /** `true` when `commit` resolves to `'instant'` (the default). */
         isInstant: boolean;
-        /** `true` when `commit` resolves to `'manual'` for this filter. */
+        /** `true` when `commit` resolves to `'manual'`. */
         isManual: boolean;
-        /**
-         * Set this filter back to its `defaultValue` (or empty, with none)
-         * **immediately**, bypassing `commit` — cancels any pending draft for
-         * this filter and commits straight to `params`/the URL, even on a
-         * `manual`/`{ debounce }` filter. Scoped, mode-bypassing counterpart to
-         * `reset` — the same relationship `setFilter` has to `onChange` at the
-         * hook level. Use this for a "Clear" button that should always act
-         * instantly, whatever the filter's commit mode.
-         */
+        /** Reset to default **immediately**, bypassing `commit` (the mode-bypassing counterpart to `reset`). */
         instantReset: () => void;
         key: string;
         // Method syntax on purpose — bivariant params keep a narrow resolved
-        // filter assignable to the wide `ResolvedFilter` union (see
-        // `AsyncResolvedExtras`' doc comment).
+        // filter assignable to the wide `ResolvedFilter` union (see `AsyncResolvedExtras`).
         // eslint-disable-next-line ts/method-signature-style -- intentional bivariance
         onChange(value: FilterValue<C>): void;
-        /**
-         * @deprecated Use `reset` instead — same behavior, kept as an alias
-         * (identical function reference). Will be removed in a future major
-         * version.
-         */
-        onClear: () => void;
-        /**
-         * Set this filter back to its `defaultValue` (or empty, with none).
-         * Like any change, this respects the filter's `commit` mode — on a
-         * `manual`/`{ debounce }` filter it lands in the draft and waits for
-         * `apply()`, same as `onChange` would. (For an immediate, mode-bypassing
-         * reset of *every* filter at once, see the hook's whole-set `reset()`,
-         * which is a different, harder operation.)
-         */
+        /** Reset to default, **respecting** `commit` (stays a draft on manual/debounced filters). */
         reset: () => void;
         value: FilterValue<C>;
       }
@@ -652,25 +489,10 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
   : { [K in Exclude<keyof P, keyof PP>]?: ConfigFor<NonNullable<P[K]>> };
 
 /**
- * How the URL's `page` / `perPage` map to the URL query keys, where page
- * numbering starts, and the page defaults. Grouped under
- * {@link FiltersConfig.pagination}.
- *
- * The API params **mirror the URL keys**: with the default `pageKey: 'page'` /
- * `perPageKey: 'per_page'`, `params` comes out `{ page, per_page }`; rename the
- * keys and `params` follows — name them `page` / `page_size` and you get
- * `{ page, page_size }`. `PageKey` / `PerPageKey` are inferred from the literal
- * key names so `params` is typed to match. There is no separate API-shape mapping
- * to keep in sync; for an API that wants a different shape (e.g. offset-based),
- * derive it at your fetch call from `params.page` / `params[perPageKey]`.
- *
- * @example
- * // params: { page, page_size }
- * pagination: { pageKey: 'page', perPageKey: 'page_size', defaultPerPage: 25 }
- *
- * @example
- * // 0-indexed API: the first page is 0 (URL and params both start at 0)
- * pagination: { firstPage: 0 }
+ * Pagination URL keys, page defaults, and where numbering starts. `params`
+ * mirrors the URL keys (`PageKey`/`PerPageKey` are inferred from the literals),
+ * so renaming them renames `params`. For a different API shape (e.g.
+ * offset-based), derive it at your fetch call from `params`.
  */
 export interface PaginationConfig<
   PageKey extends string = string,
@@ -678,57 +500,29 @@ export interface PaginationConfig<
 > {
   /** Per-page count assumed when the URL has none. Defaults to `10`. */
   defaultPerPage?: number;
-  /**
-   * The number your first page is counted from — the value used when the URL has
-   * no page, what "reset to the first page" writes, and the base your backend
-   * pages from. Defaults to `1` (1-based); set it to `0` for a 0-indexed API, so
-   * the first page is `page=0` in both the URL and `params`.
-   */
+  /** Where numbering starts (URL, `params`, and reset). Defaults to `1`; use `0` for a 0-indexed API. */
   firstPage?: number;
   /** URL key holding the page number, and its key in `params`. Defaults to `'page'`. */
   pageKey?: PageKey;
   /** URL key holding the per-page count, and its key in `params`. Defaults to `'per_page'`. */
   perPageKey?: PerPageKey;
-  /**
-   * Whether changing a filter resets the page to `firstPage`. Defaults to
-   * `true` — a changed filter invalidates the old result window, so staying on
-   * page 7 of results that no longer exist is almost never right. Set `false`
-   * when pagination is driven entirely outside this hook and it should never
-   * write the page param; this also applies to the whole-set `reset()`.
-   * Overridable per call (see {@link PaginationOverride}).
-   */
+  /** Whether a filter change resets the page to `firstPage`. Defaults to `true`. */
   resetPageOnFilterChange?: boolean;
 }
 
 /**
- * Per-call pagination override — the `pagination` field of `useFilters` /
- * `resolveFilterParams` options.
- *
- * - `false` disables pagination entirely for this call (no `page` / `per_page`
- *   in `params`, no reset-to-first-page on change).
- * - `true` (or omitted) keeps the factory's pagination as-is.
- * - An object overrides only the *safe* per-call fields — `defaultPerPage` and
- *   `resetPageOnFilterChange` — for this call, merged over the factory. Safe
- *   because neither changes the `params` shape or the URL keys. The
- *   page/per-page **keys** and `firstPage` are deliberately not overridable
- *   here: they come from `createFilters` so the hook's `params` stays
- *   byte-identical to what `resolveFilterParams` produces (see
- *   {@link FiltersConfig}).
+ * Per-call pagination override: `false` disables it, `true`/omitted keeps the
+ * factory's, an object overrides the per-call-safe fields (`defaultPerPage`,
+ * `resetPageOnFilterChange`). Keys and `firstPage` stay factory-only so
+ * `params` matches `resolveFilterParams`.
  */
 export type PaginationOverride =
   boolean | Pick<PaginationConfig, 'defaultPerPage' | 'resetPageOnFilterChange'>;
 
 /**
- * The options `useFilters` and `resolveFilterParams` share — the two fields
- * that must be *identical* between them for their `params` to match (a
- * different `arraySeparator` parses an array-shaped value differently; a
- * different `pagination` override changes whether/how page keys appear).
- * `UseFiltersOptions` extends this rather than the reverse: everything it adds
- * on top (`defaultCommit`, `meta`, `history`, `shallow`, `clearOnDefault`) is
- * hook-only UI behavior that `resolveFilterParams` doesn't take and can't
- * disagree on. `resolveFilterParams`'s own `options` parameter is typed
- * against this directly (not a hand-copied duplicate), so the two can't drift
- * out of sync — see `defineFilters`, which binds both to one instance of it.
+ * The options `useFilters` and `resolveFilterParams` share — must be identical
+ * between them for their `params` to match. `UseFiltersOptions` extends this
+ * with hook-only fields the loader doesn't take.
  */
 export interface SharedFilterCallOptions {
   /**
@@ -738,87 +532,40 @@ export interface SharedFilterCallOptions {
    * {@link FiltersConfig.arraySeparator}.
    */
   arraySeparator?: string;
-  /**
-   * Pagination for this call, overriding the `createFilters` config: `false`
-   * turns it off, `true` (default) keeps the factory's, and an object
-   * overrides the per-call-safe fields (`defaultPerPage`,
-   * `resetPageOnFilterChange`). The page/per-page keys and `firstPage` stay
-   * factory-only. See {@link PaginationOverride}.
-   */
+  /** Per-call pagination override. See {@link PaginationOverride}. */
   pagination?: PaginationOverride;
 }
 
 /**
  * How `date` filters (de)serialize between a stored URL string and a `Date`.
- * Grouped under {@link FiltersConfig.date}. Override in pairs (`parse` +
- * `serialize`, `parseDateTime` + `serializeDateTime`) so each is an exact
- * inverse. Defaults are the fixed `yyyy-MM-dd` / `yyyy-MM-dd'T'HH:mm:ss` shapes.
+ * Override in pairs (`parse`+`serialize`, `parseDateTime`+`serializeDateTime`)
+ * so each is an exact inverse. Defaults to the fixed `yyyy-MM-dd` shapes.
  */
 export interface DateConfig {
-  /**
-   * Parse a stored date string back into a `Date` — the inverse of `serialize`.
-   * Defaults to parsing the fixed `yyyy-MM-dd` format. This is the customization
-   * hook: override it (together with `serialize`) to store dates any way you
-   * like — a `dd.MM.yyyy` UI, month names, or a timezone-aware / non-Gregorian
-   * date library (Day.js, Luxon, Temporal, …).
-   */
+  /** Stored string -> `Date` (inverse of `serialize`). Override to use any format/library. */
   parse?: (value: string) => Date | undefined;
   /** Datetime counterpart of `parse` (for `precision: 'datetime'` filters). */
   parseDateTime?: (value: string) => Date | undefined;
-  /**
-   * Serialize a `Date` into the string stored in the URL. Defaults to the fixed
-   * `yyyy-MM-dd` format; override (together with `parse`) to store dates in
-   * whatever shape or library your app uses.
-   */
+  /** `Date` -> stored string. Override (with `parse`) to change the stored shape. */
   serialize?: (date: Date) => string;
   /** Datetime counterpart of `serialize` (for `precision: 'datetime'` filters). */
   serializeDateTime?: (date: Date) => string;
 }
 
 /**
- * Per-project constants for a filter setup, injected once through
- * `createFilters` so the hook and the framework-agnostic `resolveFilterParams`
- * share the exact same values. A plain React provider can't do this: it can't
- * reach `resolveFilterParams`, which runs in route loaders outside React and
- * whose whole contract is producing the identical `params` shape. Every option
- * is optional and falls back to a sensible default.
- *
- * Constants are grouped by concern: {@link PaginationConfig | `pagination`}
- * (URL keys, page defaults, and where numbering starts) and
- * {@link DateConfig | `date`} (date (de)serialization). `params` mirrors the
- * pagination URL keys, so the pagination shape is inferred from the key names.
- *
- * @example
- * export const { useFilters, resolveFilterParams, f } = createFilters({
- *   pagination: {
- *     pageKey: 'page',
- *     perPageKey: 'per_page',
- *     defaultPerPage: 25
- *   }
- * });
- * // params: { page, per_page, ...filters }
+ * Per-project constants injected once through `createFilters`, so the hook and
+ * `resolveFilterParams` share the exact same values (a provider can't reach the
+ * loader, which runs outside React). Every option falls back to a default.
  */
 export interface FiltersConfig<
   PageKey extends string = string,
   PerPageKey extends string = string
 > {
-  /**
-   * Delimiter joining/splitting an array-shaped param's items in the URL —
-   * `multiSelect`, `asyncMultiSelect`, `tags`, and the range kinds
-   * (`numberRange`/`dateRange`/`timeRange`). Defaults to `','`. Change it if a
-   * comma can appear inside an item's own value (or your backend just expects
-   * something else), or if it collides with a comma used elsewhere in your URL
-   * scheme. Overridable per `useFilters`/`resolveFilterParams` call (their
-   * `arraySeparator` option).
-   */
+  /** Delimiter for array-shaped params in the URL. Defaults to `','`. */
   arraySeparator?: string;
   /** Date (de)serialization for `date` filters. See {@link DateConfig}. */
   date?: DateConfig;
-  /**
-   * Default `commit` mode for every filter this factory's hook renders, unless
-   * overridden per `useFilters` call (its `defaultCommit` option) or per filter
-   * (its `commit` config). Defaults to `'instant'`. See {@link FilterCommitMode}.
-   */
+  /** Default `commit` mode for this factory's filters. Defaults to `'instant'`. */
   defaultCommit?: FilterCommitMode;
   /** URL keys, page defaults, and where numbering starts. See {@link PaginationConfig}. */
   pagination?: PaginationConfig<PageKey, PerPageKey>;
@@ -845,14 +592,9 @@ export interface ResolvedFiltersConfig {
 }
 
 /**
- * Default API pagination included in `params` (unless pagination is disabled),
- * for the default `page` / `per_page` URL keys. `params` mirrors the keys, so
- * the values pass straight through under those names; rename the keys and this
- * shape changes to match.
- *
- * A `type` (not an `interface`) so it satisfies the `Record<string, number>`
- * bound used for custom pagination shapes (interfaces lack an implicit index
- * signature and would not be assignable).
+ * Default pagination params (`page`/`per_page`). A `type`, not an `interface`,
+ * so it satisfies the `Record<string, number>` bound (interfaces lack an
+ * implicit index signature).
  */
 // eslint-disable-next-line ts/consistent-type-definitions -- must stay a type alias (see above)
 export type PaginationParams = {
@@ -868,3 +610,146 @@ export type PaginationParams = {
 export type FilterParams<T extends FilterConfigMap, PP = PaginationParams> = {
   [K in keyof T]: FilterValue<T[K]>;
 } & PP;
+
+/** Any value nuqs can serialize for our parsers, or `null` for "unset". */
+export type ParamValue = FilterParserValue | null;
+
+/**
+ * The kind-independent fields every resolved filter carries — the contract the
+ * `resolveFilter` site (use-filters.ts) is compile-checked against. Kind-specific
+ * extras are assembled separately. {@link ResolvedFilter} is the public per-kind
+ * view; a type test ties them so they can't drift. Internal (not re-exported).
+ */
+export interface ResolvedFilterBase {
+  commit: FilterCommitMode;
+  committedValue: ParamValue;
+  debounceMs: number | null;
+  isDebounced: boolean;
+  isDirty: boolean;
+  isFiltered: boolean;
+  isFilteredDraft: boolean;
+  isInstant: boolean;
+  isManual: boolean;
+  key: string;
+  value: ParamValue;
+  apply: () => void;
+  cancel: () => void;
+  instantReset: () => void;
+  // Method syntax on purpose — bivariant params keep each variant's narrowly
+  // typed `onChange` assignable to this base (see {@link AsyncResolvedExtras}).
+  // eslint-disable-next-line ts/method-signature-style -- intentional bivariance, see comment
+  onChange(value: ParamValue): void;
+  reset: () => void;
+}
+
+/**
+ * `useFilters`' per-call options. Extends {@link SharedFilterCallOptions}
+ * (`arraySeparator`, `pagination`) — the two fields `resolveFilterParams`
+ * also takes, and must agree with for their `params` to match — with
+ * hook-only UI behavior that has no loader counterpart.
+ */
+export interface UseFiltersOptions extends SharedFilterCallOptions {
+  /** Remove a param from the URL when it is cleared. Defaults to `true`. */
+  clearOnDefault?: boolean;
+  /** Default `commit` mode for this call's filters (per-filter `commit` wins). Defaults to `'instant'`. */
+  defaultCommit?: FilterCommitMode;
+  /** How URL updates affect history. Defaults to `'replace'`. */
+  history?: 'push' | 'replace';
+  /** Whole-set UI hints, echoed back on the return. Augment {@link FiltersMeta} to type it. */
+  meta?: FiltersMeta;
+  /** Keep navigation client-side. Defaults to `true`. */
+  shallow?: boolean;
+}
+
+/**
+ * The `params` shape: derived from the API params type `P` when one is given
+ * (plus pagination `PP`), otherwise computed per config from the inferred map.
+ */
+export type ParamsOf<P, T extends Record<string, FilterConfig | undefined>, PP> = [P] extends [
+  never
+]
+  ? FilterParams<{ [K in keyof T]-?: NonNullable<T[K]> }, PP>
+  : Partial<Omit<P, keyof PP>> & PP;
+
+/**
+ * Filter keys/values only (pagination stripped) — the domain of `setFilter`.
+ * Bound to `Record<string, FilterConfig | undefined>` for the same reason as
+ * `FilterMapOf` below — see its doc comment.
+ */
+export type FilterValues<P, T extends Record<string, FilterConfig | undefined>, PP> = Omit<
+  ParamsOf<P, T, PP>,
+  keyof PP
+>;
+
+/**
+ * The `filterMap` shape: each key maps to *its own* config's `ResolvedFilter`
+ * variant (a plain `Record<keyof T, ResolvedFilter>` would collapse `onChange`'s
+ * param to `null` — union functions are contravariant on params).
+ *
+ * Bound to plain `Record<string, FilterConfig | undefined>`, NOT `FiltersFor<P>`:
+ * a conditional type as a generic bound referencing a sibling generic (`P`)
+ * sends the checker into a multi-GB blowup, even fully concrete. `T` is always
+ * structurally compatible with this looser bound.
+ */
+export type FilterMapOf<T extends Record<string, FilterConfig | undefined>> = {
+  [K in keyof T]-?: ResolvedFilter<NonNullable<T[K]>>;
+};
+
+export interface UseFiltersReturn<
+  P = never,
+  PP extends Record<string, number> = PaginationParams,
+  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+> {
+  /** Same filters as `filters`, keyed by config key (includes hidden ones). */
+  filterMap: FilterMapOf<T>;
+  /** Resolved filters (config + value + handlers) — pass to your filter UI. Excludes hidden. */
+  filters: ResolvedFilter[];
+  /** `true` when at least one filter has an uncommitted change (debounce pending or manual). */
+  isDirty: boolean;
+  /** `true` when at least one visible filter is active. */
+  isFiltered: boolean;
+  /** The `meta` passed to `useFilters` (or `{}`). */
+  meta: FiltersMeta;
+  /** Current committed values + pagination. Pass straight to your fetcher / use as a query key. */
+  params: ParamsOf<P, T, PP>;
+  /** Commit every pending change at once (the "Apply" action). No-op when nothing is pending. */
+  apply: () => void;
+  /** Discard every pending change, reverting to committed values. */
+  cancel: () => void;
+  /**
+   * Reset every filter to its default, **bypassing** commit modes — one batched
+   * URL write. The whole-set twin of a filter's `instantReset()`; use for "Clear all".
+   */
+  instantReset: () => void;
+  /**
+   * Reset every filter to its default, **respecting** each one's commit mode
+   * (manual/debounced stage a draft until `apply()`). For immediate, use `instantReset`.
+   */
+  reset: () => void;
+  /** Imperatively set one filter's value (resets to the first page, bypasses `commit`). */
+  setFilter: <K extends keyof FilterValues<P, T, PP>>(
+    key: K,
+    value: FilterValues<P, T, PP>[K] | null
+  ) => void;
+}
+
+/**
+ * The return of *any* `useFilters` call, for pass-through components (a shared
+ * toolbar, debug panel, mobile sheet) that take a `useFilters` return as a prop
+ * without generics. Every concrete return is assignable to this.
+ *
+ * Config-independent fields are inherited from {@link UseFiltersReturn} (one
+ * source of truth — a new field there shows up here for free); only the three
+ * key/value-typed fields are erased below.
+ */
+export interface AnyUseFiltersReturn extends Omit<
+  UseFiltersReturn,
+  'filterMap' | 'params' | 'setFilter'
+> {
+  /** Same as the concrete return's `filterMap`, keyed by `string`. Includes hidden filters. */
+  filterMap: Record<string, ResolvedFilter>;
+  /** Current values (plus pagination) — `unknown` since the keys aren't known here. */
+  params: Record<string, unknown>;
+  /** Uncallable (`never` keys): a pass-through component doesn't know the config's keys. */
+  setFilter: (key: never, value: never) => void;
+}

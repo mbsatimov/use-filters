@@ -16,7 +16,7 @@ filter type, guides, and the API reference, with live interactive examples.
 ```ts
 const { params, filters, isFiltered, reset } = useFilters({
   search: f.text({ label: 'Search' }),
-  status: f.select({ label: 'Status', options: statusOptions })
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
 });
 //  ?search=acme&status=open   <->   params = { search: 'acme', status: 'open', page: 1, per_page: 10 }
 ```

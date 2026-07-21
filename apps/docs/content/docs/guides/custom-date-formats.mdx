@@ -38,3 +38,19 @@ For datetime filters, override the counterparts `date.serializeDateTime` /
 `date.parseDateTime` and use `toDateTimeValue` / `fromDateTimeValue`. Returning
 `undefined` from a parser marks the input invalid, so malformed URLs resolve to
 "no value" rather than crashing.
+
+## The default format constants
+
+The two default formats are exported as constants, so you can reference them
+without hardcoding the literal strings (e.g. to label an input, or to build a
+parser with your own date library that still matches the default storage shape):
+
+```ts
+import { DATE_FORMAT, DATE_TIME_FORMAT } from '@mbsatimov/use-filters';
+
+DATE_FORMAT; // 'yyyy-MM-dd'          — what `date` filters store by default
+DATE_TIME_FORMAT; // "yyyy-MM-dd'T'HH:mm:ss" — datetime (`precision: 'datetime'`)
+```
+
+They describe the built-in defaults only — overriding `date.serialize` /
+`date.parse` (above) changes the stored shape without touching these constants.

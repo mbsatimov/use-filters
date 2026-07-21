@@ -2,25 +2,9 @@ import { act, renderHook } from '@testing-library/react';
 import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FiltersFor } from '../src/types';
-import type { UseFiltersOptions } from '../src/use-filters';
-
 import { createFilters } from '../src/create-filters';
-import { toDateTimeValue } from '../src/lib';
-
-const { useFilters, f } = createFilters();
-
-/** In-memory nuqs adapter that persists updates across renders. */
-const wrapper = withNuqsTestingAdapter({ hasMemory: true });
-
-/**
- * Render `useFilters` while preserving per-config inference — `const T` keeps
- * the exact config shape so `filterMap` / `params` stay strongly typed
- * (a `Parameters<typeof useFilters>` helper collapses `T` to `{}`).
- */
-function renderFilters<const T extends FiltersFor<never>>(configs: T, options?: UseFiltersOptions) {
-  return renderHook(() => useFilters<never, T>(configs, options), { wrapper });
-}
+import { toDateTimeValue } from '../src/dates';
+import { f, renderFilters, useFilters } from './helpers';
 
 describe('useFilters — params', () => {
   it('starts with null filter values and default pagination', () => {

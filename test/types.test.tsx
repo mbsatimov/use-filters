@@ -1,11 +1,15 @@
 import { renderHook } from '@testing-library/react';
-import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import type { FilterOption, ResolvedFilter } from '../src/types';
-import type { AnyUseFiltersReturn } from '../src/use-filters';
+import type {
+  AnyUseFiltersReturn,
+  FilterOption,
+  ResolvedFilter,
+  ResolvedFilterBase
+} from '../src/types';
 
 import { createFilters } from '../src/create-filters';
+import { f, resolveFilterParams, statusOptions, useFilters, wrapper } from './helpers';
 
 /*
  * Type-level tests. `expectTypeOf` assertions are checked by `tsc` (via
@@ -14,14 +18,6 @@ import { createFilters } from '../src/create-filters';
  * config maps produce correctly-typed `params` with no annotations, and an
  * explicit `<P>` argument validates configs against an API's params type.
  */
-
-const { useFilters, f, resolveFilterParams } = createFilters();
-const wrapper = withNuqsTestingAdapter({ hasMemory: true });
-
-const statusOptions = [
-  { label: 'Open', value: 'open' },
-  { label: 'Closed', value: 'closed' }
-] as const;
 
 describe('type inference — per-config `params` (no type argument)', () => {
   it('maps every filter kind to its value type', () => {
@@ -208,6 +204,17 @@ describe('type checking — choice valueType', () => {
       options: [{ label: 'A', value: 'a' }]
     });
     expect(true).toBe(true);
+  });
+});
+
+describe('ResolvedFilter ↔ ResolvedFilterBase tie', () => {
+  it('every resolved variant carries the kind-independent base fields', () => {
+    // Locks `ResolvedFilter` to the internal `ResolvedFilterBase` contract so a
+    // dropped handler/flag can't slip through. Scoped to the kind-independent
+    // fields; `value`/`committedValue`/`onChange` narrow per variant (pinned above).
+    type UniformFields = Omit<ResolvedFilterBase, 'committedValue' | 'onChange' | 'value'>;
+    type EveryVariantCarriesUniform = ResolvedFilter extends UniformFields ? true : false;
+    expectTypeOf<EveryVariantCarriesUniform>().toEqualTypeOf<true>();
   });
 });
 

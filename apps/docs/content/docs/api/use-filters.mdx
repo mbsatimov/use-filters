@@ -15,18 +15,19 @@ useFilters<P>(configs, options?) => UseFiltersReturn // validate against an API 
 
 ## Return value
 
-| Property     | Type                          | Description                                                                               |
-| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------- |
-| `params`     | object                        | Committed values + pagination (`{ page, per_page }` by default). Fetch input & cache key. |
-| `filters`    | `ResolvedFilter[]`            | Visible filters to render. Excludes `hidden` ones.                                        |
-| `filterMap`  | `Record<key, ResolvedFilter>` | Same filters keyed by config key. **Includes** hidden ones.                               |
-| `isFiltered` | `boolean`                     | `true` when at least one visible filter differs from its default.                         |
-| `isDirty`    | `boolean`                     | `true` when a change hasn't reached `params` yet.                                         |
-| `apply`      | `() => void`                  | Commit all pending (debounced/manual) changes now.                                        |
-| `cancel`     | `() => void`                  | Discard all pending changes, reverting to committed values.                               |
-| `reset`      | `() => void`                  | Clear every filter to its default (or empty).                                             |
-| `setFilter`  | `(key, value) => void`        | Imperatively set one filter (resets to first page, bypasses `commit`).                    |
-| `meta`       | `FiltersMeta`                 | The `meta` you passed (or `{}`).                                                          |
+| Property       | Type                          | Description                                                                                                                          |
+| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `params`       | object                        | Committed values + pagination (`{ page, per_page }` by default). Fetch input & cache key.                                            |
+| `filters`      | `ResolvedFilter[]`            | Visible filters to render. Excludes `hidden` ones.                                                                                   |
+| `filterMap`    | `Record<key, ResolvedFilter>` | Same filters keyed by config key. **Includes** hidden ones.                                                                          |
+| `isFiltered`   | `boolean`                     | `true` when at least one visible filter differs from its default.                                                                    |
+| `isDirty`      | `boolean`                     | `true` when a change hasn't reached `params` yet.                                                                                    |
+| `apply`        | `() => void`                  | Commit all pending (debounced/manual) changes now.                                                                                   |
+| `cancel`       | `() => void`                  | Discard all pending changes, reverting to committed values.                                                                          |
+| `reset`        | `() => void`                  | Clear every filter to its default, **respecting** each filter's `commit` mode (manual/debounced ones stage a draft until `apply()`). |
+| `instantReset` | `() => void`                  | Clear every filter to its default, **bypassing** `commit` — one immediate batched URL write. Use for a "Clear all" button.           |
+| `setFilter`    | `(key, value) => void`        | Imperatively set one filter (resets to first page, bypasses `commit`).                                                               |
+| `meta`         | `FiltersMeta`                 | The `meta` you passed (or `{}`).                                                                                                     |
 
 ## Options (second argument)
 

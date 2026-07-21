@@ -4,10 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { FilterConfig } from '../src/types';
 
-import { createFilters } from '../src/create-filters';
-
-const { useFilters, f } = createFilters();
-const wrapper = withNuqsTestingAdapter({ hasMemory: true });
+import { f, useFilters, wrapper } from './helpers';
 
 /** Simulates a backend describing which filters exist (e.g. e-commerce facets). */
 interface Facet {
