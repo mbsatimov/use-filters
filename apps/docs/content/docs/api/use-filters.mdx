@@ -18,6 +18,7 @@ useFilters<P>(configs, options?) => UseFiltersReturn // validate against an API 
 | Property       | Type                          | Description                                                                                                                          |
 | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `params`       | object                        | Committed values + pagination (`{ page, per_page }` by default). Fetch input & cache key.                                            |
+| `paramsStr`    | `string`                      | `params` as a deterministic, sorted string — a stable cache key / memo dependency.                                                   |
 | `filters`      | `ResolvedFilter[]`            | Visible filters to render. Excludes `hidden` ones.                                                                                   |
 | `filterMap`    | `Record<key, ResolvedFilter>` | Same filters keyed by config key. **Includes** hidden ones.                                                                          |
 | `isFiltered`   | `boolean`                     | `true` when at least one visible filter differs from its default.                                                                    |

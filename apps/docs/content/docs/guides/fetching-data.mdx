@@ -47,6 +47,22 @@ useEffect(() => {
 }, [params]);
 ```
 
+## A string cache key: `paramsStr`
+
+When you'd rather key on a string than an object, `paramsStr` is `params`
+serialized to a deterministic, sorted string — same state always produces the
+same string, so it's a stable key or memo dependency:
+
+```tsx
+const { params, paramsStr } = useFilters(configs);
+
+const { data } = useQuery({ queryKey: [paramsStr], queryFn: () => productApi.getAll(params) });
+// paramsStr → "page=1&per_page=10&search=acme&status=open"
+```
+
+Keys are sorted, unset filters are dropped, and values are URL-encoded, so
+equivalent states collide and distinct ones don't.
+
 ## A note on nulls
 
 Unset filters are `null` in `params`. Most JSON APIs and query-string serializers
