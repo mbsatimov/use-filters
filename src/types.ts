@@ -643,18 +643,66 @@ export interface ResolvedFilterBase {
 }
 
 /**
+ * What triggered a committed `params` change, passed to `onParamsChange`:
+ *
+ * - `'change'` — a filter value changed (`onChange`, `setFilter`, `apply`, or a
+ *   debounced commit).
+ * - `'reset'` — filters were cleared to defaults (`reset` or `instantReset`).
+ * - `'external'` — the change came from outside the hook: a back/forward
+ *   navigation, another URL consumer, or a pagination write you own.
+ */
+export type ParamsChangeCause = 'change' | 'external' | 'reset';
+
+/** Context passed to {@link UseFiltersListeners.onParamsChange}. */
+export interface ParamsChangeContext<
+  P = never,
+  PP extends Record<string, number> = PaginationParams,
+  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+> {
+  /** The whole `useFilters` return — read state and call methods from here. */
+  api: UseFiltersReturn<P, PP, T>;
+  /** What triggered this change. See {@link ParamsChangeCause}. */
+  cause: ParamsChangeCause;
+  /** The new committed params. */
+  params: ParamsOf<P, T, PP>;
+  /** The committed params before this change (for diffing). */
+  prev: ParamsOf<P, T, PP>;
+}
+
+/**
+ * Side-effect listeners for `useFilters`, à la TanStack Form. Each fires in an
+ * effect (never during render), so calling side-effects — or even the hook's
+ * own methods via `ctx.api` — is safe. Note: calling a *mutating* method inside
+ * `onParamsChange` triggers another change; guard against loops with `cause`.
+ */
+export interface UseFiltersListeners<
+  P = never,
+  PP extends Record<string, number> = PaginationParams,
+  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+> {
+  /** Fires whenever committed `params` change (respects debounce/manual commit). */
+  onParamsChange?: (ctx: ParamsChangeContext<P, PP, T>) => void;
+}
+
+/**
  * `useFilters`' per-call options. Extends {@link SharedFilterCallOptions}
  * (`arraySeparator`, `pagination`) — the two fields `resolveFilterParams`
  * also takes, and must agree with for their `params` to match — with
  * hook-only UI behavior that has no loader counterpart.
  */
-export interface UseFiltersOptions extends SharedFilterCallOptions {
+export interface UseFiltersOptions<
+  P = never,
+  PP extends Record<string, number> = PaginationParams,
+  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+> extends SharedFilterCallOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
   /** Default `commit` mode for this call's filters (per-filter `commit` wins). Defaults to `'instant'`. */
   defaultCommit?: FilterCommitMode;
   /** How URL updates affect history. Defaults to `'replace'`. */
   history?: 'push' | 'replace';
+  /** Side-effect listeners — e.g. `onParamsChange`. See {@link UseFiltersListeners}. */
+  listeners?: UseFiltersListeners<P, PP, T>;
   /** Whole-set UI hints, echoed back on the return. Augment {@link FiltersMeta} to type it. */
   meta?: FiltersMeta;
   /** Keep navigation client-side. Defaults to `true`. */

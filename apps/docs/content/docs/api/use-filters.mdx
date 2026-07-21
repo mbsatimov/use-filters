@@ -43,6 +43,7 @@ Precedence: per-filter › this option › factory config › default.
 | `history`        | `'replace'`   | `'push'` makes filter changes back-button navigable.                                                                                   |
 | `shallow`        | `true`        | Keep navigation client-side (no server round-trip).                                                                                    |
 | `clearOnDefault` | `true`        | Drop a param from the URL when it returns to its default.                                                                              |
+| `listeners`      | `{}`          | Side-effect hooks — `onParamsChange`. See [Listeners](/docs/guides/listeners).                                                         |
 | `meta`           | `{}`          | Whole-set UI hints. See [UI metadata](/docs/guides/ui-metadata).                                                                       |
 
 The shape of each resolved filter is documented under [Types](/docs/api/types#resolvedfilter).

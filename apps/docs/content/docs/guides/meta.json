@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "fetching-data",
+    "listeners",
     "building-a-toolbar",
     "apply-panel",
     "search-sort-and-placement",

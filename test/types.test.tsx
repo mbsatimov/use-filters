@@ -317,3 +317,31 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
     expectTypeOf(assignWideToNarrow).toBeFunction();
   });
 });
+
+describe('type checking — listeners (onParamsChange context)', () => {
+  it('types params, prev, cause, and api from the config', () => {
+    const useConfigured = () =>
+      useFilters(
+        {
+          search: f.text({ label: 'Search' }),
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+        },
+        {
+          listeners: {
+            onParamsChange: (ctx) => {
+              // params/prev typed per config (+ pagination).
+              expectTypeOf(ctx.params.search).toEqualTypeOf<string | null>();
+              expectTypeOf(ctx.params.status).toEqualTypeOf<'closed' | 'open' | null>();
+              expectTypeOf(ctx.prev.page).toEqualTypeOf<number>();
+              // cause is the closed union.
+              expectTypeOf(ctx.cause).toEqualTypeOf<'change' | 'external' | 'reset'>();
+              // api is the live, fully-typed return — setFilter is callable here.
+              expectTypeOf(ctx.api.paramsStr).toEqualTypeOf<string>();
+              ctx.api.setFilter('status', 'open');
+            }
+          }
+        }
+      );
+    expectTypeOf(useConfigured).toBeFunction();
+  });
+});

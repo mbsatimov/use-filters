@@ -1,0 +1,73 @@
+---
+title: Listeners
+description: React to committed filter changes with side-effect hooks.
+---
+
+Sometimes you need to _do something_ when filters change — track an analytics
+event, fire a one-off request, sync to another store. Pass a `listeners` object
+(the pattern will feel familiar from TanStack Form):
+
+```tsx
+useFilters(configs, {
+  listeners: {
+    onParamsChange: ({ params, prev, cause, api }) => {
+      analytics.track('filters_changed', params);
+    }
+  }
+});
+```
+
+`onParamsChange` fires **in an effect** (never during render), so side effects —
+and even calling the hook's own methods via `api` — are safe.
+
+## The context
+
+| Field    | What it is                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------- |
+| `params` | The new committed params.                                                                         |
+| `prev`   | The committed params _before_ this change — diff against `params`.                                |
+| `cause`  | What triggered it (below).                                                                        |
+| `api`    | The whole `useFilters` return — read state (`api.isFiltered`) and call methods (`api.setFilter`). |
+
+`params`, `prev`, and `api` are fully typed from your config.
+
+## `cause` — what triggered the change
+
+```ts
+'change' | 'reset' | 'external';
+```
+
+- **`'change'`** — a filter value changed (`onChange`, `setFilter`, `apply`, or a
+  debounced commit).
+- **`'reset'`** — filters were cleared to defaults (`reset` or `instantReset`).
+- **`'external'`** — the change came from outside the hook: a browser
+  back/forward, another URL consumer, or a pagination write you own.
+
+Branch on `cause` to react to a specific kind of change:
+
+```tsx
+onParamsChange: ({ params, cause, api }) => {
+  if (cause === 'reset') void api.post('/reset-event', params);
+};
+```
+
+## When it fires
+
+`onParamsChange` fires on every **committed** `params` change — the same moment
+`params` updates. Since `params` includes pagination, a `page` / `per_page`
+change fires too (as `'external'`, since you drive pagination through your own
+URL state — the hook doesn't own a page setter). To react to filters only, diff
+`params` against `prev` on the non-pagination keys.
+
+It does **not** fire:
+
+- on mount,
+- on a draft edit before it commits (a `manual` change awaiting `apply()`, or a
+  pending `debounce`),
+- when a change resolves to the same committed value.
+
+<Callout type='warn'>
+  Calling a **mutating** method (`setFilter`, `reset`, …) inside `onParamsChange` triggers another
+  change — and another `onParamsChange`. Guard against loops with `cause` or a value check. Reading
+  state and firing external side-effects is always safe.
+</Callout>

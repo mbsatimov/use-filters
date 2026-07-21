@@ -49,6 +49,8 @@ export type {
   PaginationConfig,
   PaginationOverride,
   PaginationParams,
+  ParamsChangeCause,
+  ParamsChangeContext,
   ResolvedFilter,
   ResolvedFilterOf,
   ResolvedFiltersConfig,
@@ -63,7 +65,8 @@ export type {
   TimeFilterConfig,
   TimeFilterMeta,
   TimeRangeFilterConfig,
-  TimeRangeFilterMeta
+  TimeRangeFilterMeta,
+  UseFiltersListeners
 } from './types';
 export type { AnyUseFiltersReturn, UseFiltersOptions, UseFiltersReturn } from './types';
 
