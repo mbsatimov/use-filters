@@ -34,6 +34,7 @@ import {
 } from './filter-utils';
 import { resolvePaginationOverride } from './pagination';
 import { buildParser, fingerprintNuqsOptions } from './parsers';
+import { serializeParamsKey } from './search';
 
 /** Read a filter's committed URL value + label sidecar, normalized to `null`. */
 const readCommitted = (
@@ -498,6 +499,12 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       return result as ParamsOf<P, T, PP>;
     }, [entries, values, paginationEnabled, defaultPerPage]);
 
+    // Deterministic, sorted serialization of `params` — a stable cache key.
+    const paramsStr = React.useMemo(
+      () => serializeParamsKey(params as Record<string, unknown>, arraySeparator),
+      [params, arraySeparator]
+    );
+
     // Reuse each filter's own `isFiltered` (already excludes hidden, computed in resolveFilter).
     const isFiltered = React.useMemo(() => filters.some((filter) => filter.isFiltered), [filters]);
 
@@ -554,6 +561,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
     return {
       params,
+      paramsStr,
       filters,
       filterMap,
       isDirty,

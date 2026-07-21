@@ -31,3 +31,27 @@ export const coerceRawValue = (
   const parsed = buildParser(config, separator).parse(raw);
   return parsed ?? config.defaultValue ?? null;
 };
+
+/**
+ * Serialize a `params` object into a deterministic cache key: keys sorted (so
+ * key order never matters), active values only (null/empty dropped, so
+ * equivalent states collide), array items URL-encoded and joined with
+ * `separator`. Stable and collision-safe — use as a React Query key or memo dep.
+ */
+export const serializeParamsKey = (
+  params: Record<string, unknown>,
+  separator: string = DEFAULT_ARRAY_SEPARATOR
+): string => {
+  const parts: string[] = [];
+  for (const key of Object.keys(params).sort()) {
+    const value = params[key];
+    if (value == null || value === '') continue;
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      parts.push(`${key}=${value.map((item) => encodeURIComponent(String(item))).join(separator)}`);
+    } else {
+      parts.push(`${key}=${encodeURIComponent(String(value))}`);
+    }
+  }
+  return parts.join('&');
+};

@@ -63,6 +63,8 @@ describe('type inference — per-config `params` (no type argument)', () => {
     // Pagination keys are mirrored into params, always present.
     expectTypeOf(params.page).toEqualTypeOf<number>();
     expectTypeOf(params.per_page).toEqualTypeOf<number>();
+    // paramsStr is the deterministic string form of params.
+    expectTypeOf(result.current.paramsStr).toEqualTypeOf<string>();
   });
 
   it('narrows a resolved filter to its own config (filterMap)', () => {
@@ -287,6 +289,8 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
       expectTypeOf(r.filters).toEqualTypeOf<ResolvedFilter[]>();
       expectTypeOf(r.filterMap).toEqualTypeOf<Record<string, ResolvedFilter>>();
       expectTypeOf(r.params).toEqualTypeOf<Record<string, unknown>>();
+      // paramsStr flows through from UseFiltersReturn (config-independent).
+      expectTypeOf(r.paramsStr).toEqualTypeOf<string>();
       // Uncallable by design: a pass-through component doesn't know the keys.
       // @ts-expect-error — setFilter takes `never`, so no key is accepted
       r.setFilter('status', 'open');

@@ -371,3 +371,36 @@ describe('useFilters — time & timeRange filters', () => {
     expect(result.current.isFiltered).toBe(true);
   });
 });
+
+describe('useFilters — paramsStr', () => {
+  it('serializes committed params (incl. pagination), sorted, and updates on change', () => {
+    const { result } = renderFilters({
+      search: f.text({ label: 'Search' }),
+      status: f.select({
+        label: 'Status',
+        valueType: 'string',
+        options: [{ label: 'Open', value: 'open' }]
+      })
+    });
+
+    // Unset filters are omitted; pagination is always present, keys sorted.
+    expect(result.current.paramsStr).toBe('page=1&per_page=10');
+
+    act(() => {
+      result.current.filterMap.search.onChange('acme');
+    });
+    act(() => {
+      result.current.filterMap.status.onChange('open');
+    });
+
+    expect(result.current.paramsStr).toBe('page=1&per_page=10&search=acme&status=open');
+  });
+
+  it('stays stable as a cache key: equal state → equal string', () => {
+    const { result: a } = renderFilters({ search: f.text({ label: 'Search' }) });
+    const { result: b } = renderFilters({ search: f.text({ label: 'Search' }) });
+    act(() => a.current.filterMap.search.onChange('x'));
+    act(() => b.current.filterMap.search.onChange('x'));
+    expect(a.current.paramsStr).toBe(b.current.paramsStr);
+  });
+});

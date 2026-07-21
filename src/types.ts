@@ -712,6 +712,12 @@ export interface UseFiltersReturn<
   meta: FiltersMeta;
   /** Current committed values + pagination. Pass straight to your fetcher / use as a query key. */
   params: ParamsOf<P, T, PP>;
+  /**
+   * `params` serialized to a deterministic, sorted string — a stable cache key
+   * (same state always produces the same string). Handy as a React Query key or
+   * memo dependency when you'd rather compare a string than an object.
+   */
+  paramsStr: string;
   /** Commit every pending change at once (the "Apply" action). No-op when nothing is pending. */
   apply: () => void;
   /** Discard every pending change, reverting to committed values. */
