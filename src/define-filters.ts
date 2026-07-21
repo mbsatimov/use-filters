@@ -36,7 +36,7 @@ export function makeDefineFilters<PP extends Record<string, number>>(
         resolveFilterParamsBound(configs, raw, options),
       /** `useFilters` with `configs` + shared options applied. Still takes hook-only options per call. */
       useFilters: (
-        extra: Omit<UseFiltersOptions, keyof SharedFilterCallOptions> = {}
+        extra: Omit<UseFiltersOptions<never, PP, T>, keyof SharedFilterCallOptions> = {}
       ): UseFiltersReturn<never, PP, T> =>
         useFiltersBound<never, T>(configs, { ...extra, ...options })
     };

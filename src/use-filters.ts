@@ -13,6 +13,7 @@ import type {
   FilterPrimitive,
   FiltersFor,
   FiltersMeta,
+  ParamsChangeCause,
   ParamsOf,
   ParamValue,
   ResolvedFilter,
@@ -99,7 +100,8 @@ const resolveAsyncFields = (
     key: string,
     value: ParamValue,
     labels: string | string[] | null,
-    mode: FilterCommitMode
+    mode: FilterCommitMode,
+    cause: ParamsChangeCause
   ) => void
 ): Record<string, unknown> => {
   if (asyncKind === 'single') {
@@ -108,7 +110,7 @@ const resolveAsyncFields = (
     return {
       selectedOption: value === null ? null : ({ value, label } as SelectedOption),
       onSelectOption: (option: FilterOption | null) => {
-        schedule(key, option?.value ?? null, option?.label ?? null, mode);
+        schedule(key, option?.value ?? null, option?.label ?? null, mode, 'change');
       }
     };
   }
@@ -124,7 +126,8 @@ const resolveAsyncFields = (
         key,
         options.length ? (options.map((option) => option.value) as ParamValue) : null,
         options.length ? options.map((option) => option.label) : null,
-        mode
+        mode,
+        'change'
       );
     },
     onToggleOption: (option: FilterOption) => {
@@ -142,7 +145,8 @@ const resolveAsyncFields = (
         key,
         nextValues.length ? (nextValues as ParamValue) : null,
         nextValues.length ? nextLabels : null,
-        mode
+        mode,
+        'change'
       );
     }
   };
@@ -188,13 +192,14 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
 
   return function useFilters<P = never, const T extends FiltersFor<P, PP> = FiltersFor<P, PP>>(
     configs: T,
-    options: UseFiltersOptions = {}
+    options: UseFiltersOptions<P, PP, T> = {}
   ): UseFiltersReturn<P, PP, T> {
     const {
       history = 'replace',
       shallow = true,
       clearOnDefault = true,
       pagination = true,
+      listeners,
       // Per-call defaults fall back to the factory's (per-filter `commit` still wins over `defaultCommit`).
       defaultCommit = cfg.defaultCommit,
       arraySeparator = cfg.arraySeparator,
@@ -283,6 +288,12 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     // Keys already warned about a loadOptions/valueType mismatch (once per filter).
     const warnedValueTypesRef = React.useRef<Set<string>>(new Set());
 
+    // What triggered the next committed change, for `onParamsChange`. Set right
+    // before a committing action; the params-change effect reads and resets it.
+    // Anything it doesn't set is an outside change — a back/forward, another URL
+    // consumer — so it defaults back to 'external'.
+    const causeRef = React.useRef<ParamsChangeCause>('external');
+
     const clearTimer = React.useCallback((key: string) => {
       const timer = timersRef.current[key];
       if (timer !== undefined) {
@@ -306,6 +317,8 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         const change = pending[key];
         if (!change) return;
         clearTimer(key);
+        // A staged change committing is still a value change.
+        causeRef.current = 'change';
         change.commit();
         dropPending(key);
       },
@@ -351,11 +364,13 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         key: string,
         value: ParamValue,
         labels: string | string[] | null,
-        mode: FilterCommitMode
+        mode: FilterCommitMode,
+        cause: ParamsChangeCause
       ) => {
         clearTimer(key);
         const commit = () => setFilterValue(key, value, labels);
         if (mode === 'instant') {
+          causeRef.current = cause;
           dropPending(key);
           commit();
           return;
@@ -370,6 +385,9 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         setPending((current) => ({ ...current, [key]: { commit, labels, value } }));
         if (mode === 'manual') return;
         timersRef.current[key] = setTimeout(() => {
+          // Set the cause at commit time (not when scheduled) so a debounced
+          // write reports its own cause even if other actions ran while it waited.
+          causeRef.current = cause;
           delete timersRef.current[key];
           dropPending(key);
           commit();
@@ -391,10 +409,11 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         const draftValue = change ? change.value : committedValue;
         const draftLabels = change ? change.labels : committedLabels;
         const doReset = () =>
-          schedule(key, (config.defaultValue ?? null) as ParamValue, null, mode);
+          schedule(key, (config.defaultValue ?? null) as ParamValue, null, mode, 'reset');
         const doInstantReset = () => {
           clearTimer(key);
           dropPending(key);
+          causeRef.current = 'reset';
           setFilterValue(key, (config.defaultValue ?? null) as ParamValue);
         };
 
@@ -416,7 +435,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           // Per-filter active state; `isFiltered` tracks the committed value, `isFilteredDraft` the draft.
           isFiltered: differsFromDefault(config, committedValue),
           isFilteredDraft: differsFromDefault(config, draftValue),
-          onChange: (value: ParamValue) => schedule(key, value ?? null, null, mode),
+          onChange: (value: ParamValue) => schedule(key, value ?? null, null, mode, 'change'),
           reset: doReset,
           instantReset: doInstantReset,
           apply: () => applyKey(key),
@@ -525,6 +544,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       (key: string, value: ParamValue) => {
         clearTimer(key);
         dropPending(key);
+        causeRef.current = 'change';
         setFilterValue(key, value);
       },
       [clearTimer, dropPending, setFilterValue]
@@ -539,7 +559,8 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
           key,
           (config.defaultValue ?? null) as ParamValue,
           null,
-          config.commit ?? defaultCommit
+          config.commit ?? defaultCommit,
+          'reset'
         );
       }
     }, [entries, schedule, defaultCommit]);
@@ -556,10 +577,11 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
         if (asyncKindOf(config)) cleared[labelKeyOf(key)] = null;
       }
       if (paginationEnabled && resetPageOnFilterChange) cleared[pageKey] = null;
+      causeRef.current = 'reset';
       void setValues(cleared);
     }, [paginationEnabled, resetPageOnFilterChange, setValues, entries]);
 
-    return {
+    const result: UseFiltersReturn<P, PP, T> = {
       params,
       paramsStr,
       filters,
@@ -573,5 +595,31 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       instantReset,
       setFilter: setFilter as UseFiltersReturn<P, PP, T>['setFilter']
     };
+
+    // Keep the latest return + committed params for the `onParamsChange` effect,
+    // which fires *after* render (so `apiRef` is already this render's value).
+    const apiRef = React.useRef(result);
+    apiRef.current = result;
+    const prevParamsRef = React.useRef(params);
+    const prevParamsStrRef = React.useRef(paramsStr);
+
+    // Fire `onParamsChange` whenever committed params change. Keyed on
+    // `paramsStr` (the canonical serialization) so it fires on real changes
+    // only — not on mount, and not when an action produces the same params.
+    React.useEffect(() => {
+      if (paramsStr === prevParamsStrRef.current) return;
+      const prev = prevParamsRef.current;
+      const cause = causeRef.current;
+      prevParamsRef.current = params;
+      prevParamsStrRef.current = paramsStr;
+      causeRef.current = 'external';
+      listeners?.onParamsChange?.({ api: apiRef.current, cause, params, prev });
+      // `params`/`listeners` are read fresh each time `paramsStr` changes; the
+      // rest are refs. Depending on `params` too would re-fire on same-content
+      // re-renders (a new `values` reference from nuqs).
+      // eslint-disable-next-line react/exhaustive-deps
+    }, [paramsStr]);
+
+    return result;
   };
 }
