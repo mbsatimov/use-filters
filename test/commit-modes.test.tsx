@@ -1,23 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
-import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { FiltersFor } from '../src/types';
-
 import { createFilters } from '../src/create-filters';
-
-const { useFilters, f } = createFilters();
-
-const wrapper = withNuqsTestingAdapter({ hasMemory: true });
-
-/** See `renderFilters` in `use-filters.test.tsx` for why `const T` is preserved. */
-function renderCommit<const T extends FiltersFor<never>>(configs: T) {
-  return renderHook(() => useFilters<never, T>(configs), { wrapper });
-}
+import { f, renderFilters, wrapper } from './helpers';
 
 describe('commit: instant (default)', () => {
   it('writes to params immediately and never goes dirty', () => {
-    const { result } = renderCommit({ search: f.text({ label: 'Search' }) });
+    const { result } = renderFilters({ search: f.text({ label: 'Search' }) });
 
     act(() => {
       result.current.filterMap.search.onChange('acme');
@@ -33,7 +22,7 @@ describe('commit: debounce', () => {
   afterEach(() => vi.useRealTimers());
 
   it('shows the value instantly but delays params until the debounce elapses', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: { debounce: 300 } })
     });
 
@@ -55,7 +44,7 @@ describe('commit: debounce', () => {
   });
 
   it('resets the timer on every keystroke', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: { debounce: 300 } })
     });
 
@@ -83,7 +72,7 @@ describe('commit: debounce', () => {
 
 describe('commit: manual (apply / cancel)', () => {
   it('holds every change until apply()', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: 'manual' }),
       status: f.select({
         label: 'Status',
@@ -121,7 +110,7 @@ describe('commit: manual (apply / cancel)', () => {
   });
 
   it('cancel() discards pending changes and reverts the displayed value', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: 'manual' })
     });
 
@@ -141,7 +130,7 @@ describe('commit: manual (apply / cancel)', () => {
 
   it('apply() flushes a pending debounce and stops its timer firing twice', () => {
     vi.useFakeTimers();
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: { debounce: 5000 } })
     });
 
@@ -166,7 +155,7 @@ describe('commit: manual (apply / cancel)', () => {
 
 describe('commit: manual + async multiSelect', () => {
   it('accumulates toggles against the draft, committing on apply()', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       tags: f.asyncMultiSelect({
         label: 'Tags',
         commit: 'manual',
@@ -194,13 +183,13 @@ describe('commit: manual + async multiSelect', () => {
 
 describe('commit: no-op changes never mark the filter dirty', () => {
   it('clearing an already-empty manual filter stays clean', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: 'manual' })
     });
 
     expect(result.current.filterMap.search.value).toBeNull();
     act(() => {
-      result.current.filterMap.search.onClear();
+      result.current.filterMap.search.reset();
     });
 
     expect(result.current.filterMap.search.value).toBeNull();
@@ -208,7 +197,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
   });
 
   it('clearing a manual filter already at its committed defaultValue stays clean', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       status: f.select({
         label: 'Status',
         commit: 'manual',
@@ -223,7 +212,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
 
     expect(result.current.params.status).toBe('open');
     act(() => {
-      result.current.filterMap.status.onClear();
+      result.current.filterMap.status.reset();
     });
 
     expect(result.current.filterMap.status.value).toBe('open');
@@ -231,7 +220,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
   });
 
   it('changing a manual filter back to its committed value un-dirties it', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: 'manual' })
     });
 
@@ -249,7 +238,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
 
   it('debounce: typing back to the committed value cancels the pending timer', () => {
     vi.useFakeTimers();
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: { debounce: 300 } })
     });
 
@@ -272,7 +261,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
   });
 
   it('toggling an option on then off (manual, async multiSelect) stays clean', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       tags: f.asyncMultiSelect({
         label: 'Tags',
         commit: 'manual',
@@ -296,7 +285,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
 
 describe('setFilter bypasses the draft layer', () => {
   it('commits immediately even for a manual-commit filter', () => {
-    const { result } = renderCommit({
+    const { result } = renderFilters({
       search: f.text({ label: 'Search', commit: 'manual' })
     });
 

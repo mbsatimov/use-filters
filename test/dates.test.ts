@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fromDateTimeValue, fromDateValue, toDateTimeValue, toDateValue } from '../src/lib';
+import { fromDateTimeValue, fromDateValue, toDateTimeValue, toDateValue } from '../src/dates';
 
 describe('toDateValue / fromDateValue (fixed yyyy-MM-dd)', () => {
   const date = new Date(2026, 6, 9); // 2026-07-09

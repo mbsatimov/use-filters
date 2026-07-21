@@ -1,18 +1,20 @@
 import type { FiltersConfig, PaginationParams, ResolvedFiltersConfig } from './types';
 
 import { f } from './builders';
-import { makeDefineFilters } from './define-filters';
 import {
-  DEFAULT_ARRAY_SEPARATOR,
-  DEFAULT_FIRST_PAGE,
-  DEFAULT_PAGE_KEY,
-  DEFAULT_PER_PAGE,
-  DEFAULT_PER_PAGE_KEY,
   fromDateTimeValue as fromDateTimeValueBase,
   fromDateValue as fromDateValueBase,
   toDateTimeValue as toDateTimeValueBase,
   toDateValue as toDateValueBase
-} from './lib';
+} from './dates';
+import { makeDefineFilters } from './define-filters';
+import {
+  DEFAULT_FIRST_PAGE,
+  DEFAULT_PAGE_KEY,
+  DEFAULT_PER_PAGE,
+  DEFAULT_PER_PAGE_KEY
+} from './pagination';
+import { DEFAULT_ARRAY_SEPARATOR } from './parsers';
 import { makeResolveFilterParams } from './resolve-filter-params';
 import { makeUseFilters } from './use-filters';
 
@@ -31,8 +33,6 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
     firstPage: pagination.firstPage ?? DEFAULT_FIRST_PAGE,
     pageKey: pagination.pageKey ?? DEFAULT_PAGE_KEY,
     perPageKey: pagination.perPageKey ?? DEFAULT_PER_PAGE_KEY,
-    // Date (de)serialization: fixed `yyyy-MM-dd` defaults, fully overridable to
-    // store dates in whatever shape or library the app uses.
     parseDate: date.parse ?? fromDateValueBase,
     parseDateTime: date.parseDateTime ?? fromDateTimeValueBase,
     resetPageOnFilterChange: pagination.resetPageOnFilterChange ?? true,
@@ -67,36 +67,16 @@ export interface Filters<PP extends Record<string, number> = PaginationParams> {
 
 /**
  * Create a `useFilters` hook and its companions bound to one set of per-project
- * constants (pagination keys, page defaults, where numbering starts, date
- * (de)serialization).
+ * constants (pagination keys, page defaults, date (de)serialization). Call once
+ * per project and export the result.
  *
- * A factory rather than a React provider on purpose: the constants have to be
- * shared with `resolveFilterParams`, which runs in route loaders *outside*
- * React and so can't read context. Closing over them here keeps the hook and
- * the loader helper perfectly in sync, with no runtime context lookup and full
- * type-safety.
- *
- * `params`' pagination keys **mirror the URL keys** — name them `page` /
- * `per_page` and `params` has `{ page, per_page }` (typed from the literal key
- * names). `firstPage` sets where numbering starts (default `1`; use `0` for a
- * 0-indexed API). For an API whose pagination shape differs from the URL keys
- * (e.g. offset-based), derive it at your fetch call from `params`.
- *
- * Call it once per project (or per API client) and export the result:
+ * A factory rather than a React provider on purpose: the constants must be
+ * shared with `resolveFilterParams`, which runs in route loaders *outside* React
+ * and so can't read context.
  *
  * @example
- * // src/lib/filters.ts — params: { ...filters, page, per_page }
  * export const { useFilters, resolveFilterParams, f } = createFilters({
- *   pagination: {
- *     pageKey: 'page',
- *     perPageKey: 'per_page',
- *     defaultPerPage: 25
- *   }
- * });
- *
- * // 0-indexed API — the first page is `page=0`
- * export const { useFilters } = createFilters({
- *   pagination: { firstPage: 0 }
+ *   pagination: { defaultPerPage: 25 }
  * });
  */
 export function createFilters<
@@ -110,8 +90,7 @@ export function createFilters<
   return {
     defineFilters: makeDefineFilters<PP>(useFiltersBound, resolveFilterParamsBound),
     f,
-    // Bound to this config's parse/serialize pair so each is an exact inverse.
-    // The parser only ever sees a real string; the null/empty guard lives here.
+    // null/empty guard lives here so the bound parse fns only ever see a real string.
     fromDateTimeValue: (value?: string | null) =>
       value == null || value === '' ? undefined : cfg.parseDateTime(value),
     fromDateValue: (value?: string | null) =>

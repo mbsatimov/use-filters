@@ -6,13 +6,13 @@ export type { Filters } from './create-filters';
 export {
   DATE_FORMAT,
   DATE_TIME_FORMAT,
-  DEFAULT_ARRAY_SEPARATOR,
   fromDateTimeValue,
   fromDateValue,
   toDateTimeValue,
   toDateValue
-} from './lib';
-export type { RawSearchParams } from './lib';
+} from './dates';
+export { DEFAULT_ARRAY_SEPARATOR } from './parsers';
+export type { RawSearchParams } from './search';
 export type {
   AsyncMultiSelectFilterConfig,
   AsyncMultiSelectFilterMeta,
@@ -65,13 +65,12 @@ export type {
   TimeRangeFilterConfig,
   TimeRangeFilterMeta
 } from './types';
-export type { AnyUseFiltersReturn, UseFiltersOptions, UseFiltersReturn } from './use-filters';
+export type { AnyUseFiltersReturn, UseFiltersOptions, UseFiltersReturn } from './types';
 
 /**
- * Zero-config default instance — a `useFilters` / `resolveFilterParams` pair
- * using the built-in defaults (`page` / `per_page` URL keys mirrored straight
- * into `params`, `yyyy-MM-dd` dates). Import these directly to skip `createFilters`, or
- * call `createFilters(...)` to bind your own constants.
+ * Zero-config default instance using the built-in defaults (`page`/`per_page`
+ * keys, `yyyy-MM-dd` dates). Import these to skip `createFilters`, or call
+ * `createFilters(...)` to bind your own constants.
  */
 const defaultFilters = createFilters();
 

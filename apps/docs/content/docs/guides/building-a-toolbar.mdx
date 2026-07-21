@@ -66,16 +66,22 @@ function Toolbar({ filters }: { filters: ResolvedFilter[] }) {
 
 ## A reset button
 
-The hook's `isFiltered` is `true` when any visible filter is active, and `reset()`
-clears them all — exactly what a "Clear filters" button needs:
+The hook's `isFiltered` is `true` when any visible filter is active. For a
+"Clear filters" button that should take effect immediately, use `instantReset()`
+— it clears every filter to its default in one write, bypassing commit modes:
 
 ```tsx
-const { filters, isFiltered, reset } = useFilters(configs);
+const { filters, isFiltered, instantReset } = useFilters(configs);
 
 {
-  isFiltered && <button onClick={reset}>Clear filters</button>;
+  isFiltered && <button onClick={instantReset}>Clear filters</button>;
 }
 ```
+
+There's also `reset()`, which clears every filter but **respects** each one's
+`commit` mode — in a manual "Apply" sheet, wire the sheet's own "Reset" to
+`reset()` so clearing goes through the same Apply step as other changes. See
+[Apply panel](/docs/guides/apply-panel).
 
 ## Per-filter state
 
