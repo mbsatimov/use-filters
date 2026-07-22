@@ -236,6 +236,28 @@ describe('type checking — the `<P>` contract (required keys, required defaults
     expectTypeOf(useOptionalNonNullNoDefault).toBeFunction();
   });
 
+  it('rejects a filter — at the config — when P declares no filter params', () => {
+    // A P with only pagination keys (or `{}`) allows no filters; declaring one
+    // is a compile error on the *config*, not deferred to `params.<key>`.
+    const usePaginationOnly = () =>
+      useFilters<{ page: number; per_page: number }>({
+        // @ts-expect-error — this P has no filter params, so `q` is not allowed
+        q: f.text({ label: 'Q' })
+      });
+    const useEmpty = () =>
+      // eslint-disable-next-line ts/no-empty-object-type -- deliberately the empty object type
+      useFilters<{}>({
+        // @ts-expect-error — `{}` has no filter params
+        q: f.text({ label: 'Q' })
+      });
+    // A pagination-only P with an empty config is still fine.
+    const useNoFilters = () => useFilters<{ page: number; per_page: number }>({});
+
+    expectTypeOf(usePaginationOnly).toBeFunction();
+    expectTypeOf(useEmpty).toBeFunction();
+    expectTypeOf(useNoFilters).toBeFunction();
+  });
+
   it('applies the same contract to resolveFilterParams<P> and defineFilters<P>', () => {
     const contractConfigs = {
       status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),

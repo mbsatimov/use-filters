@@ -539,15 +539,21 @@ type ConfigForParam<V> = null extends V
  */
 export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
   ? FilterConfigMap
-  : {
-      [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? K : never]?: ConfigForParam<
-        Exclude<P[K], undefined>
-      >;
-    } & {
-      [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? never : K]-?: ConfigForParam<
-        P[K]
-      >;
-    };
+  : [Exclude<keyof P, keyof PP>] extends [never]
+    ? // `P` declares no filter params (only pagination): reject any config key
+      // here, at the config. An empty mapped type would be `{}`, which accepts
+      // anything and defers the error to `params.<key>`; the `never` index
+      // value makes a declared filter a compile error instead.
+      Record<string, never>
+    : {
+        [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? K : never]?: ConfigForParam<
+          Exclude<P[K], undefined>
+        >;
+      } & {
+        [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? never : K]-?: ConfigForParam<
+          P[K]
+        >;
+      };
 
 /**
  * The **loose** config-map shape for `P` — optional keys, no default
