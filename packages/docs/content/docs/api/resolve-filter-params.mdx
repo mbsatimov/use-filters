@@ -5,6 +5,7 @@ description: Compute the hook's params object outside React, for route loaders.
 
 ```ts
 resolveFilterParams(configs, rawSearch, options?) => params
+resolveFilterParams<P>(configs, rawSearch, options?) => params // validate against an API type
 ```
 
 The framework-agnostic twin of the hook's `params` derivation. Runs anywhere
@@ -31,6 +32,16 @@ computes on mount, so a prefetch hits the same cache key. See
 ```ts
 const params = resolveFilterParams(productConfigs, new URL(request.url).searchParams);
 // => { search, status, page, per_page } — same shape as useFilters' params
+```
+
+Passing `<P>` validates `configs` against your API's params type and types the
+result as exactly `P` — the same
+[contract `useFilters<P>` enforces](/docs/guides/typed-params) (required keys
+declared, non-null params defaulted):
+
+```ts
+const params = resolveFilterParams<ProductListParams>(productConfigs, request.url);
+// params: ProductListParams — soundly
 ```
 
 <Callout>

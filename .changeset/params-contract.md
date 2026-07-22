@@ -6,7 +6,10 @@
 
 - **`useFilters<P>` now enforces a contract derived from `P`'s own shape — and
   `params` is typed as exactly `P`** (was `Partial<P>`, which was unsound: unset
-  filters are `null` at runtime, never `undefined`).
+  filters are `null` at runtime, never `undefined`). The same `<P>` works
+  identically on `resolveFilterParams<P>` and `defineFilters<P>` (both
+  previously inference-only), so a shared config can be validated once and
+  produce `P`-shaped params in the hook and the loader alike.
 
   The obligations mirror the type:
   - a **required** key in `P` must have a filter declared; optional (`?:`) keys

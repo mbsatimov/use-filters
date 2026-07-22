@@ -66,6 +66,28 @@ The compile errors read as instructions: a missing required key errors with
 _"property `sort` is missing"_, and a missing default errors with _"property
 `defaultValue` is missing"_ on that filter.
 
+## The same contract everywhere
+
+`<P>` works identically on all three entry points — same obligations, same
+exact-`P` params:
+
+```ts
+// the hook
+const { params } = useFilters<ProductListParams>(configs);
+
+// the loader helper
+const params = resolveFilterParams<ProductListParams>(configs, request.url);
+
+// or bind once for both — checked once, aligned everywhere
+const productFilters = defineFilters<ProductListParams>(configs);
+productFilters.useFilters(); //          params: ProductListParams
+productFilters.resolveFilterParams(raw); // params: ProductListParams
+```
+
+For a config shared between the hook and a loader,
+[`defineFilters<P>`](/docs/api/define-filters) is the natural home for the type
+argument — one validation, guaranteed parity.
+
 ## `satisfies`: validation with full inference
 
 Passing `<P>` turns off per-config inference — TypeScript can't partially infer

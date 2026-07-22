@@ -235,6 +235,56 @@ describe('type checking — the `<P>` contract (required keys, required defaults
     expectTypeOf(useMissingDefault).toBeFunction();
     expectTypeOf(useOptionalNonNullNoDefault).toBeFunction();
   });
+
+  it('applies the same contract to resolveFilterParams<P> and defineFilters<P>', () => {
+    const contractConfigs = {
+      status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+      sort: f.select({
+        label: 'Sort',
+        valueType: 'string',
+        options: [{ label: 'Date', value: 'date' }],
+        defaultValue: 'date'
+      })
+    };
+
+    // resolveFilterParams<P>: params typed exactly like P, contract enforced.
+    const loaderParams = resolveFilterParams<ContractParams>(contractConfigs, {});
+    expectTypeOf(loaderParams.status).toEqualTypeOf<'closed' | 'open' | null>();
+    expectTypeOf(loaderParams.sort).toEqualTypeOf<'date' | 'price'>();
+    expectTypeOf(loaderParams.page).toEqualTypeOf<number>();
+    // Runtime parity: non-null param resolves to its default.
+    expect(loaderParams.sort).toBe('date');
+    expect(loaderParams.status).toBe(null);
+
+    const rejectsMissingDefault = () =>
+      resolveFilterParams<ContractParams>(
+        // @ts-expect-error — `sort` is required in ContractParams and missing here
+        { status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }) },
+        {}
+      );
+
+    // defineFilters<P>: both the bound loader and hook return P-shaped params.
+    const { defineFilters } = createFilters();
+    const bound = defineFilters<ContractParams>(contractConfigs);
+    const boundLoaderParams = bound.resolveFilterParams({});
+    expectTypeOf(boundLoaderParams.status).toEqualTypeOf<'closed' | 'open' | null>();
+    expectTypeOf(boundLoaderParams.sort).toEqualTypeOf<'date' | 'price'>();
+    const useBound = () => {
+      const { params } = bound.useFilters();
+      expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | null>();
+      expectTypeOf(params.sort).toEqualTypeOf<'date' | 'price'>();
+    };
+
+    const rejectsBadDefine = () =>
+      // @ts-expect-error — `sort` is required in ContractParams and missing here
+      defineFilters<ContractParams>({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+      });
+
+    expectTypeOf(rejectsMissingDefault).toBeFunction();
+    expectTypeOf(useBound).toBeFunction();
+    expectTypeOf(rejectsBadDefine).toBeFunction();
+  });
 });
 
 describe('type inference — createFilters pagination keys', () => {
