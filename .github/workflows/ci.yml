@@ -20,6 +20,9 @@ jobs:
       - run: pnpm format:check
       - run: pnpm typecheck
       - run: pnpm build
+      # Type-check the docs app too — its interactive examples are what users
+      # copy, so a broken one must fail CI (needs the built dist above).
+      - run: pnpm typecheck:docs
       # Validate that the published types resolve under every module system
       # (node10 / node16 CJS / node16 ESM / bundler) — guards the exports map.
       - run: pnpm check:exports
