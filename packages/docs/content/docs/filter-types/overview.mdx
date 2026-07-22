@@ -22,6 +22,11 @@ value is parsed and what type it has in `params`:
 | `f.asyncSelect`      | One choice, server-searched    | `V \| null`                |
 | `f.asyncMultiSelect` | Many choices, server-searched  | `V[] \| null`              |
 
+The `| null` is the **unset** state. Give a filter a
+[`defaultValue`](/docs/concepts/the-filter-config#defaults) and it can never be
+unset — the value type drops the `| null` (`f.number({ defaultValue: 25 })` →
+`number`).
+
 Each type has its own page with a live example:
 
 - [Text & number](/docs/filter-types/text-and-number) — `text`, `number`, `numberRange`
