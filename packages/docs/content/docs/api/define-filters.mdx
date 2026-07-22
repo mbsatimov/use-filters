@@ -9,6 +9,7 @@ defineFilters(configs, options?) => {
   useFilters,
   resolveFilterParams
 }
+defineFilters<P>(configs, options?) // validate against an API type
 ```
 
 Binds one screen's `configs` and the shared call option `{ arraySeparator, pagination }`
@@ -47,3 +48,22 @@ const params = productFilters.resolveFilterParams(new URL(request.url).searchPar
 The per-call `useFilters` accepts the hook-only options (`defaultCommit`, `meta`,
 `history`, `shallow`, `clearOnDefault`) — never `arraySeparator` / `pagination`,
 which are fixed at the `defineFilters` call so the two sides stay identical.
+
+## Validating against an API type
+
+Pass `<P>` to validate `configs` against your API's params type — the same
+[contract `useFilters<P>` enforces](/docs/guides/typed-params) (required keys
+declared, non-null params defaulted). Both the bound hook **and** the bound
+loader then return `params` typed as exactly `P`:
+
+```ts
+export const productFilters = defineFilters<ProductListParams>({
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+  sort: f.select({ label: 'Sort', valueType: 'string', options: sortOptions, defaultValue: 'date' })
+});
+// hook and loader both produce ProductListParams — checked once, aligned everywhere
+```
+
+Prefer the config checked but the **inferred** (most precise) params instead?
+Validate with `satisfies FiltersFor<P>` and call `defineFilters` without the
+type argument — see [Typed params](/docs/guides/typed-params#satisfies-validation-with-full-inference).

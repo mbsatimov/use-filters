@@ -87,15 +87,18 @@ describe('type inference — per-config `params` (no type argument)', () => {
 });
 
 describe('type checking — explicit `<P>` (API params type)', () => {
+  // The `<P>` contract mirrors the type's own shape (see `FiltersFor`):
+  // nullable params (`| null`) may be declared without a default — `null`
+  // in `params` is representable — and optional keys may omit the filter.
   interface LoanListParams {
-    customer_id?: number;
+    customer_id?: number | null;
     page: number;
     per_page: number;
-    search?: string;
-    status?: 'closed' | 'open';
+    search?: string | null;
+    status?: 'closed' | 'open' | null;
   }
 
-  it('shapes params like the API type (pagination owned by the hook)', () => {
+  it('shapes params exactly like the API type (pagination owned by the hook)', () => {
     const { result } = renderHook(
       () =>
         useFilters<LoanListParams>({
@@ -106,10 +109,14 @@ describe('type checking — explicit `<P>` (API params type)', () => {
     );
 
     const { params } = result.current;
-    expectTypeOf(params.search).toEqualTypeOf<string | undefined>();
-    expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | undefined>();
+    expectTypeOf(params.search).toEqualTypeOf<string | null | undefined>();
+    expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | null | undefined>();
     expectTypeOf(params.page).toEqualTypeOf<number>();
     expectTypeOf(params.per_page).toEqualTypeOf<number>();
+    // `params` is assignable to the API type — soundly (unset filters are
+    // `null`, which the nullable param types admit).
+    const forApi: LoanListParams = params;
+    void forApi;
   });
 
   it('rejects keys and value types that do not fit the API type', () => {
@@ -139,6 +146,144 @@ describe('type checking — explicit `<P>` (API params type)', () => {
     expectTypeOf(useRejectsUnknownKey).toBeFunction();
     expectTypeOf(useRejectsWrongValueType).toBeFunction();
     expectTypeOf(rejectsPaginationKeyOnSetFilter).toBeFunction();
+  });
+});
+
+describe('type checking — the `<P>` contract (required keys, required defaults)', () => {
+  interface ContractParams {
+    brand_id?: number | null; //  optional + nullable  -> filter optional, default optional
+    page: number;
+    per_page: number;
+    search?: string; //           optional + non-null  -> filter optional; default required if declared
+    sort: 'date' | 'price'; //    required + non-null  -> filter AND default required
+    status: 'closed' | 'open' | null; // required + nullable -> filter required, default optional
+  }
+
+  it('accepts a config satisfying the contract; params mirror P exactly', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters<ContractParams>({
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+          sort: f.select({
+            label: 'Sort',
+            valueType: 'string',
+            options: [
+              { label: 'Date', value: 'date' },
+              { label: 'Price', value: 'price' }
+            ],
+            defaultValue: 'date'
+          }),
+          search: f.text({ label: 'Search', defaultValue: '' })
+          // brand_id omitted — optional key, no filter required
+        }),
+      { wrapper }
+    );
+
+    const { params } = result.current;
+    // required + nullable: always present, null representable
+    expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | null>();
+    // required + non-null: always present, never null (default guarantees it)
+    expectTypeOf(params.sort).toEqualTypeOf<'date' | 'price'>();
+    // optional + non-null (declared with default): V when present
+    expectTypeOf(params.search).toEqualTypeOf<string | undefined>();
+    // optional + nullable (undeclared): absent-or-nullable
+    expectTypeOf(params.brand_id).toEqualTypeOf<number | null | undefined>();
+
+    // Runtime: required non-null params start at their defaults, never null.
+    expect(params.sort).toBe('date');
+    expect(params.search).toBe('');
+    expect(params.status).toBe(null);
+  });
+
+  it('rejects a config missing a filter for a required key', () => {
+    const useMissingRequired = () =>
+      // @ts-expect-error — `sort` (and `status`) are required in ContractParams
+      useFilters<ContractParams>({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+      });
+    expectTypeOf(useMissingRequired).toBeFunction();
+  });
+
+  it('rejects a non-null param declared without a defaultValue', () => {
+    const useMissingDefault = () =>
+      useFilters<ContractParams>({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+        // @ts-expect-error — `sort` is non-null, so its filter must set a defaultValue
+        sort: f.select({
+          label: 'Sort',
+          valueType: 'string',
+          options: [
+            { label: 'Date', value: 'date' },
+            { label: 'Price', value: 'price' }
+          ]
+        })
+      });
+
+    const useOptionalNonNullNoDefault = () =>
+      useFilters<ContractParams>({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+        sort: f.select({
+          label: 'Sort',
+          valueType: 'string',
+          options: [{ label: 'Date', value: 'date' }],
+          defaultValue: 'date'
+        }),
+        // @ts-expect-error — `search?: string` excludes null, so a declared filter needs a default
+        search: f.text({ label: 'Search' })
+      });
+
+    expectTypeOf(useMissingDefault).toBeFunction();
+    expectTypeOf(useOptionalNonNullNoDefault).toBeFunction();
+  });
+
+  it('applies the same contract to resolveFilterParams<P> and defineFilters<P>', () => {
+    const contractConfigs = {
+      status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+      sort: f.select({
+        label: 'Sort',
+        valueType: 'string',
+        options: [{ label: 'Date', value: 'date' }],
+        defaultValue: 'date'
+      })
+    };
+
+    // resolveFilterParams<P>: params typed exactly like P, contract enforced.
+    const loaderParams = resolveFilterParams<ContractParams>(contractConfigs, {});
+    expectTypeOf(loaderParams.status).toEqualTypeOf<'closed' | 'open' | null>();
+    expectTypeOf(loaderParams.sort).toEqualTypeOf<'date' | 'price'>();
+    expectTypeOf(loaderParams.page).toEqualTypeOf<number>();
+    // Runtime parity: non-null param resolves to its default.
+    expect(loaderParams.sort).toBe('date');
+    expect(loaderParams.status).toBe(null);
+
+    const rejectsMissingDefault = () =>
+      resolveFilterParams<ContractParams>(
+        // @ts-expect-error — `sort` is required in ContractParams and missing here
+        { status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }) },
+        {}
+      );
+
+    // defineFilters<P>: both the bound loader and hook return P-shaped params.
+    const { defineFilters } = createFilters();
+    const bound = defineFilters<ContractParams>(contractConfigs);
+    const boundLoaderParams = bound.resolveFilterParams({});
+    expectTypeOf(boundLoaderParams.status).toEqualTypeOf<'closed' | 'open' | null>();
+    expectTypeOf(boundLoaderParams.sort).toEqualTypeOf<'date' | 'price'>();
+    const useBound = () => {
+      const { params } = bound.useFilters();
+      expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | null>();
+      expectTypeOf(params.sort).toEqualTypeOf<'date' | 'price'>();
+    };
+
+    const rejectsBadDefine = () =>
+      // @ts-expect-error — `sort` is required in ContractParams and missing here
+      defineFilters<ContractParams>({
+        status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
+      });
+
+    expectTypeOf(rejectsMissingDefault).toBeFunction();
+    expectTypeOf(useBound).toBeFunction();
+    expectTypeOf(rejectsBadDefine).toBeFunction();
   });
 });
 
@@ -333,7 +478,7 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
     interface ListParams {
       page: number;
       per_page: number;
-      q?: string;
+      q?: string | null;
     }
     const useConfigured = () => useFilters<ListParams>({ q: f.text({ label: 'Q' }) });
     const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);

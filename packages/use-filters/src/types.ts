@@ -491,20 +491,76 @@ type ConfigFor<V> = [V] extends [boolean]
             : FilterConfig;
 
 /**
- * Constrains a filter config map to an API's list-params type: every key must
- * exist in `P` (pagination keys excluded — `useFilters` owns those) and its
- * config must produce a value assignable to `P[key]`. Pass the params type to
- * `useFilters` to get key autocomplete and checking:
+ * Requires the config kind's own `defaultValue` field, made non-optional.
+ * Distributes over the {@link ConfigFor} union so each member demands *its*
+ * default shape (`V` for selects, `readonly V[]` for multi-selects, tuples for
+ * ranges, …). The `f.*` builders capture `defaultValue` presence in their
+ * return type, which is what makes this checkable.
+ */
+type RequireDefault<C> = C extends { defaultValue?: infer D }
+  ? C & { defaultValue: NonNullable<D> }
+  : never;
+
+/**
+ * The config constraint for one API param, derived from the param's
+ * nullability: a nullable param (`null` in its type) may leave `defaultValue`
+ * unset — `null` in `params` is representable. A non-nullable param **must**
+ * set `defaultValue`, since without one an unset filter resolves to `null` at
+ * runtime, which the param's type says is impossible.
+ */
+type ConfigForParam<V> = null extends V
+  ? ConfigFor<NonNullable<V>>
+  : RequireDefault<ConfigFor<NonNullable<V>>>;
+
+/**
+ * Constrains a filter config map to an API's list-params type (pagination keys
+ * excluded — `useFilters` owns those). Pass the params type to `useFilters` to
+ * get key autocomplete and checking. The obligations mirror `P`'s own shape, so
+ * `params` can be typed as exactly `P`:
+ *
+ * - a **required** key in `P` must have a filter declared; an optional (`?:`)
+ *   key may omit one (the key is then absent from `params`).
+ * - a **non-nullable** param must set `defaultValue` (it can never be `null`);
+ *   a `| null` param may leave it unset.
  *
  * @example
+ * interface LoanListParams {
+ *   status: LoanStatus | null; // required + nullable -> filter required, default optional
+ *   sort?: 'date' | 'price';   // optional + non-null -> filter optional; default required if declared
+ *   page: number;
+ *   per_page: number;
+ * }
  * useFilters<LoanListParams>({
- *   status: f.select({ label: 'Holat', options: loanStatusLabelOptions })
+ *   status: f.select({ label: 'Holat', valueType: 'string', options: loanStatusLabelOptions })
  * });
  *
  * `[P] extends [never]` (no type argument given) falls back to any config map,
  * keeping full per-config inference.
  */
 export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
+  ? FilterConfigMap
+  : {
+      [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? K : never]?: ConfigForParam<
+        Exclude<P[K], undefined>
+      >;
+    } & {
+      [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? never : K]-?: ConfigForParam<
+        P[K]
+      >;
+    };
+
+/**
+ * The **loose** config-map shape for `P` — optional keys, no default
+ * requirement. This (not {@link FiltersFor}) is the generic *bound* and
+ * default* for `T`: the strict contract in bound position makes the checker
+ * expand its enriched config unions through every `ResolvedFilter` in the
+ * return type — a multi-GB blowup (same hazard `FilterMapOf` documents). The
+ * contract is instead enforced once, concretely, at the `configs` parameter
+ * (`T & FiltersFor<P, PP>`); in the explicit-`P` path `T` is never inferred
+ * (TS has no partial type-argument inference), so the loose bound costs
+ * nothing.
+ */
+export type FiltersForBound<P, PP = PaginationParams> = [P] extends [never]
   ? FilterConfigMap
   : { [K in Exclude<keyof P, keyof PP>]?: ConfigFor<NonNullable<P[K]>> };
 
@@ -677,7 +733,7 @@ export type ParamsChangeCause = 'change' | 'external' | 'reset';
 export interface ParamsChangeContext<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
 > {
   /** The whole `useFilters` return — read state and call methods from here. */
   api: UseFiltersReturn<P, PP, T>;
@@ -698,7 +754,7 @@ export interface ParamsChangeContext<
 export interface UseFiltersListeners<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
 > {
   /** Fires whenever committed `params` change (respects debounce/manual commit). */
   onParamsChange?: (ctx: ParamsChangeContext<P, PP, T>) => void;
@@ -713,7 +769,7 @@ export interface UseFiltersListeners<
 export interface UseFiltersOptions<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
 > extends SharedFilterCallOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
@@ -730,14 +786,19 @@ export interface UseFiltersOptions<
 }
 
 /**
- * The `params` shape: derived from the API params type `P` when one is given
- * (plus pagination `PP`), otherwise computed per config from the inferred map.
+ * The `params` shape: exactly the API params type `P` when one is given (plus
+ * pagination `PP`), otherwise computed per config from the inferred map.
+ *
+ * The explicit-`P` arm mirrors `P` **without** `Partial`: {@link FiltersFor}'s
+ * obligations (required key -> filter declared; non-nullable param ->
+ * `defaultValue` set) make `P`'s own shape hold at runtime, so `params` is
+ * directly assignable to the API's params type — soundly.
  */
 export type ParamsOf<P, T extends Record<string, FilterConfig | undefined>, PP> = [P] extends [
   never
 ]
   ? FilterParams<{ [K in keyof T]-?: NonNullable<T[K]> }, PP>
-  : Partial<Omit<P, keyof PP>> & PP;
+  : Omit<P, keyof PP> & PP;
 
 /**
  * Filter keys/values only (pagination stripped) — the domain of `setFilter`.
@@ -766,7 +827,7 @@ export type FilterMapOf<T extends Record<string, FilterConfig | undefined>> = {
 export interface UseFiltersReturn<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersFor<P, PP> = FiltersFor<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
 > {
   /** Same filters as `filters`, keyed by config key (includes hidden ones). */
   filterMap: FilterMapOf<T>;

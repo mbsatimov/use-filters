@@ -1,7 +1,8 @@
 import type { RawSearchParams } from './search';
 import type {
-  FilterConfigMap,
-  FilterParams,
+  FiltersFor,
+  FiltersForBound,
+  ParamsOf,
   ResolvedFiltersConfig,
   SharedFilterCallOptions
 } from './types';
@@ -14,15 +15,23 @@ import { coerceRawValue, normalizeRawSearch } from './search';
  * Produces the **identical** object `useFilters` computes on mount — same
  * parsers, same defaults, same pagination keys — so a loader's prefetch lands
  * under the same query key the page's `useQuery` uses. See the route-loaders guide.
+ *
+ * Pass your API's params type as `<P>` to validate the config against it and
+ * get `params` typed as exactly `P` — the same contract `useFilters<P>`
+ * enforces (required keys declared, non-null params defaulted). Enforced at
+ * the `configs` parameter, not `T`'s bound — see `useFilters`.
  */
 export function makeResolveFilterParams<PP extends Record<string, number>>(
   cfg: ResolvedFiltersConfig
 ) {
-  return function resolveFilterParams<T extends FilterConfigMap>(
-    configs: T,
+  return function resolveFilterParams<
+    P = never,
+    T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  >(
+    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP>),
     raw: RawSearchParams,
     options: SharedFilterCallOptions = {}
-  ): FilterParams<T, PP> {
+  ): ParamsOf<P, T, PP> {
     const { pagination = true, arraySeparator = cfg.arraySeparator } = options;
     const { enabled, defaultPerPage } = resolvePaginationOverride(pagination, cfg);
 
@@ -35,6 +44,6 @@ export function makeResolveFilterParams<PP extends Record<string, number>>(
       result[cfg.pageKey] = coerceInt(search[cfg.pageKey]) ?? cfg.firstPage;
       result[cfg.perPageKey] = coerceInt(search[cfg.perPageKey]) ?? defaultPerPage;
     }
-    return result as FilterParams<T, PP>;
+    return result as ParamsOf<P, T, PP>;
   };
 }

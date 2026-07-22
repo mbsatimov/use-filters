@@ -6,31 +6,109 @@ description: Validate your filter config against your list endpoint's params typ
 By default, `params` is **inferred** from your config — each filter's value type
 flows through automatically. That's the right choice most of the time.
 
-When you have a typed API client, you can instead **validate** your config against
-the endpoint's params type by passing it as a type argument. You get key
-autocomplete, a compile error if a filter produces the wrong type, and a `params`
-shaped exactly like your API expects:
+When you have a typed API client, you can instead pass the endpoint's params
+type as a type argument. You get key autocomplete, compile-time checking, and a
+`params` typed **exactly** as your API type — directly and _soundly_ assignable
+to it:
 
 ```ts
 interface ProductListParams {
-  search?: string;
-  status?: 'open' | 'closed';
-  brand_id?: number;
-  page: number; // pagination keys are owned by the hook —
-  per_page: number; // exclude them from what you validate against
+  status: 'open' | 'closed' | null; // required + nullable
+  sort: 'date' | 'price'; //           required + non-null
+  search?: string | null; //           optional + nullable
+  page: number; //   pagination keys are owned by the hook —
+  per_page: number; // exclude them from what you declare filters for
 }
 
 const { params } = useFilters<ProductListParams>({
-  search: f.text({ label: 'Search' }),
   status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
-  brand_id: f.asyncSelect({ label: 'Brand', valueType: 'number', loadOptions })
+  sort: f.select({
+    label: 'Sort',
+    valueType: 'string',
+    options: sortOptions,
+    defaultValue: 'date'
+  }),
+  search: f.text({ label: 'Search' })
 });
-// ❌ a key not in ProductListParams, or a filter whose value doesn't fit it, errors.
+
+productApi.getAll(params); // ✓ compiles — and every claim the type makes is true
 ```
 
+## The contract
+
+`<P>` isn't just a lookup table for value types — its **shape states
+obligations**, and the compiler enforces them:
+
+| your param            | obligation                                            |
+| --------------------- | ----------------------------------------------------- |
+| `sort: X` (required)  | a filter for `sort` **must be declared**              |
+| `sort?: X` (optional) | the filter may be omitted (key absent from `params`)  |
+| `status: X \| null`   | `defaultValue` optional — unset resolves to `null`    |
+| `sort: X` (no `null`) | `defaultValue` **required** — the value can't be null |
+
+Together these make `P`'s own shape hold at runtime, which is why `params` can
+be typed as exactly `P` with no lies:
+
+- a **required** key always has a declared filter, so it's always present;
+- a **non-null** param always has a default, so an unset filter resolves to the
+  default — never `null`;
+- a **nullable** (`| null`) param is allowed to be unset;
+- an **optional** (`?:`) key without a filter simply never appears.
+
 <Callout>
-  Inference and explicit `<P>` are mutually exclusive — passing `useFilters<P>` turns
-  off per-config inference (TypeScript can't do both at once). Use whichever fits a
-  given screen: inference for quick local configs, `<P>` where you want the API
-  contract enforced.
+  Unset filters are `null` at runtime — never `undefined`. If your API type declares a param as
+  `search?: string` (no `null`), the hook could produce a value your type says is impossible. That's
+  why the contract demands a `defaultValue` there — or declare the param as `string | null` if
+  "unset" is a state your API accepts.
 </Callout>
+
+The compile errors read as instructions: a missing required key errors with
+_"property `sort` is missing"_, and a missing default errors with _"property
+`defaultValue` is missing"_ on that filter.
+
+## The same contract everywhere
+
+`<P>` works identically on all three entry points — same obligations, same
+exact-`P` params:
+
+```ts
+// the hook
+const { params } = useFilters<ProductListParams>(configs);
+
+// the loader helper
+const params = resolveFilterParams<ProductListParams>(configs, request.url);
+
+// or bind once for both — checked once, aligned everywhere
+const productFilters = defineFilters<ProductListParams>(configs);
+productFilters.useFilters(); //          params: ProductListParams
+productFilters.resolveFilterParams(raw); // params: ProductListParams
+```
+
+For a config shared between the hook and a loader,
+[`defineFilters<P>`](/docs/api/define-filters) is the natural home for the type
+argument — one validation, guaranteed parity.
+
+## `satisfies`: validation with full inference
+
+Passing `<P>` turns off per-config inference — TypeScript can't partially infer
+type arguments, so `params` comes from `P`, not from your configs (literal
+option types, for example, are widened to `P`'s declarations). If you want the
+checking **and** fully inferred params, validate the config with `satisfies`
+instead and let the hook infer:
+
+```ts
+import type { FiltersFor } from '@mbsatimov/use-filters';
+
+const configs = {
+  status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+  sort: f.select({ label: 'Sort', valueType: 'string', options: sortOptions, defaultValue: 'date' })
+} satisfies FiltersFor<ProductListParams>;
+
+const { params } = useFilters(configs);
+// params.sort: 'date' | 'price' — inferred, non-null (it has a default),
+// and the config was still checked against ProductListParams.
+```
+
+Use whichever fits a given screen: `<P>` when you want `params` shaped as the
+API contract, `satisfies FiltersFor<P>` when you want the contract checked but
+the inferred (most precise) params.

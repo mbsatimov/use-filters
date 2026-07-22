@@ -12,6 +12,7 @@ import type {
   FilterOption,
   FilterPrimitive,
   FiltersFor,
+  FiltersForBound,
   FiltersMeta,
   ParamsChangeCause,
   ParamsOf,
@@ -190,8 +191,17 @@ const resolveStaticSelectFields = (
 export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig) {
   const { pageKey, perPageKey, firstPage } = cfg;
 
-  return function useFilters<P = never, const T extends FiltersFor<P, PP> = FiltersFor<P, PP>>(
-    configs: T,
+  return function useFilters<
+    P = never,
+    const T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  >(
+    // The strict `<P>` contract (required keys declared, non-null params
+    // defaulted — see `FiltersFor`) is enforced here at the parameter, where
+    // `P` and the argument are concrete. It must NOT live in `T`'s bound: the
+    // checker would expand its enriched unions through every `ResolvedFilter`
+    // in the return type (see `FiltersForBound`). With no `<P>` the extra arm
+    // is `unknown` and inference is untouched.
+    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP>),
     options: UseFiltersOptions<P, PP, T> = {}
   ): UseFiltersReturn<P, PP, T> {
     const {
