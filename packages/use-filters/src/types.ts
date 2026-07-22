@@ -310,29 +310,48 @@ export type FilterConfig =
 /** The shape `useFilters` accepts: URL param key -> filter config. */
 export type FilterConfigMap = Record<string, FilterConfig>;
 
-/** Maps a `FilterConfig` to the type of the value it stores (and exposes in `params`). */
+/**
+ * Whether a config was given a `defaultValue`. A filter with a default never
+ * resolves to `null` at runtime (nuqs `withDefault`, and reset/clear fall back
+ * to it), so its value type drops the `| null`. An absent — or explicitly
+ * `undefined` — default stays nullable.
+ */
+type HasDefault<C> = C extends { defaultValue: infer D }
+  ? [D] extends [undefined]
+    ? false
+    : true
+  : false;
+
+/** A filter's base value type, made nullable unless the config carries a `defaultValue`. */
+type MaybeNull<C, B> = HasDefault<C> extends true ? B : B | null;
+
+/**
+ * Maps a `FilterConfig` to the type of the value it stores (and exposes in
+ * `params`). `null` is included only when the filter has no `defaultValue` —
+ * with one, the value is always at least the default.
+ */
 export type FilterValue<C extends FilterConfig> =
   C extends SelectFilterConfig<infer V>
-    ? V | null
+    ? MaybeNull<C, V>
     : C extends AsyncSelectFilterConfig<infer V>
-      ? V | null
+      ? MaybeNull<C, V>
       : C extends AsyncMultiSelectFilterConfig<infer V>
-        ? V[] | null
+        ? MaybeNull<C, V[]>
         : C extends MultiSelectFilterConfig<infer V>
-          ? V[] | null
+          ? MaybeNull<C, V[]>
           : C extends TagsFilterConfig
-            ? string[] | null
+            ? MaybeNull<C, string[]>
             : C extends NumberRangeFilterConfig
-              ? [number, number] | null
+              ? MaybeNull<C, [number, number]>
               : C extends NumberFilterConfig
-                ? number | null
+                ? MaybeNull<C, number>
                 : C extends BooleanFilterConfig
-                  ? boolean | null
+                  ? MaybeNull<C, boolean>
                   : C extends DateRangeFilterConfig
-                    ? [string, string] | null
+                    ? MaybeNull<C, [string, string]>
                     : C extends TimeRangeFilterConfig
-                      ? [string, string] | null
-                      : string | null; // text, date, time
+                      ? MaybeNull<C, [string, string]>
+                      : MaybeNull<C, string>; // text, date, time
 
 /**
  * A selected entity as reconstructed from the URL: the value plus its label
@@ -433,8 +452,9 @@ export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends un
         key: string;
         // Method syntax on purpose — bivariant params keep a narrow resolved
         // filter assignable to the wide `ResolvedFilter` union (see `AsyncResolvedExtras`).
+        // `| null` so a defaulted filter can still be cleared back to its default.
         // eslint-disable-next-line ts/method-signature-style -- intentional bivariance
-        onChange(value: FilterValue<C>): void;
+        onChange(value: FilterValue<C> | null): void;
         /** Reset to default, **respecting** `commit` (stays a draft on manual/debounced filters). */
         reset: () => void;
         value: FilterValue<C>;

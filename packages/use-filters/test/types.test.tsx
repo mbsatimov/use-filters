@@ -209,6 +209,71 @@ describe('type checking — choice valueType', () => {
   });
 });
 
+describe('type inference — non-null params when a defaultValue is set', () => {
+  it('drops `| null` for filters with a default, keeps it otherwise', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          // no default -> nullable
+          search: f.text({ label: 'Search' }),
+          amount: f.number({ label: 'Amount' }),
+          status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+          // default set -> non-null
+          q: f.text({ label: 'Q', defaultValue: '' }),
+          page_size: f.number({ label: 'Size', defaultValue: 25 }),
+          active: f.boolean({ label: 'Active', defaultValue: false }),
+          sort: f.select({
+            label: 'Sort',
+            valueType: 'string',
+            options: statusOptions,
+            defaultValue: 'open'
+          }),
+          ids: f.multiSelect({ label: 'Ids', valueType: 'number', options: [], defaultValue: [] }),
+          range: f.numberRange({ label: 'Range', defaultValue: [0, 10] })
+        }),
+      { wrapper }
+    );
+    const { params } = result.current;
+    // nullable — no default
+    expectTypeOf(params.search).toEqualTypeOf<string | null>();
+    expectTypeOf(params.amount).toEqualTypeOf<number | null>();
+    expectTypeOf(params.status).toEqualTypeOf<'closed' | 'open' | null>();
+    // non-null — default provided
+    expectTypeOf(params.q).toEqualTypeOf<string>();
+    expectTypeOf(params.page_size).toEqualTypeOf<number>();
+    expectTypeOf(params.active).toEqualTypeOf<boolean>();
+    expectTypeOf(params.sort).toEqualTypeOf<'closed' | 'open'>();
+    expectTypeOf(params.ids).toEqualTypeOf<number[]>();
+    expectTypeOf(params.range).toEqualTypeOf<[number, number]>();
+
+    // Runtime: a defaulted filter is never null — it starts at its default.
+    expect(params.page_size).toBe(25);
+    expect(params.active).toBe(false);
+    expect(params.sort).toBe('open');
+  });
+
+  it('a defaulted filter is still clearable — onChange accepts null', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          sort: f.select({
+            label: 'Sort',
+            valueType: 'string',
+            options: statusOptions,
+            defaultValue: 'open'
+          })
+        }),
+      { wrapper }
+    );
+    const sort = result.current.filterMap.sort;
+    // value/committedValue are non-null (never null with a default)…
+    expectTypeOf(sort.value).toEqualTypeOf<'closed' | 'open'>();
+    expectTypeOf(sort.committedValue).toEqualTypeOf<'closed' | 'open'>();
+    // …but onChange still takes null, to reset back to the default.
+    expectTypeOf(sort.onChange).parameter(0).toEqualTypeOf<'closed' | 'open' | null>();
+  });
+});
+
 describe('ResolvedFilter ↔ ResolvedFilterBase tie', () => {
   it('every resolved variant carries the kind-independent base fields', () => {
     // Locks `ResolvedFilter` to the internal `ResolvedFilterBase` contract so a
