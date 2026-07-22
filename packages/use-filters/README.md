@@ -53,39 +53,32 @@ using this hook underneath.
 
 ## Development
 
+This package lives in a [pnpm](https://pnpm.io) workspace under
+[`packages/use-filters`](https://github.com/mbsatimov/use-filters/tree/main/packages/use-filters).
+From the repo root:
+
 ```bash
-nvm use               # Node version from .nvmrc (tests need >= 20.19 for require(esm))
-npm install
-npm run typecheck     # tsc (src + tests — includes the type-level tests)
-npm run test          # vitest
-npm run build         # tsup -> dist/ (ESM + CJS + .d.ts)
-npm run check:exports # attw — published types resolve under every module system
-npm run size          # size-limit budget for dist
-npm run docs          # next dev server for the docs site (apps/docs/), with live interactive demos throughout
+pnpm install
+pnpm typecheck     # tsc (src + tests — includes the type-level tests)
+pnpm test          # vitest
+pnpm build         # tsup -> dist/ (ESM + CJS + .d.ts)
+pnpm check:exports # attw — published types resolve under every module system
+pnpm size          # size-limit budget for dist
+pnpm docs          # Next.js dev server for the docs site, with live demos
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full contributor guide.
-
-This is an npm workspaces monorepo: the library lives at the repo root and
-publishes as usual, while [`apps/docs/`](apps/docs/) is a dev-only Next.js app —
-the docs site, with live interactive demos embedded throughout — that exercises
-the live `src`. It never reaches the published package (`package.json#files`
-ships only `dist`, and the library build bundles only `src/index.ts`). It
-deploys to Vercel via [`vercel.json`](vercel.json).
+The docs site ([`packages/docs`](https://github.com/mbsatimov/use-filters/tree/main/packages/docs))
+is dev-only and never reaches the published package — `package.json#files`
+ships only `dist`. See
+[CONTRIBUTING.md](https://github.com/mbsatimov/use-filters/blob/main/CONTRIBUTING.md)
+for the full contributor guide.
 
 ## Publishing
 
-Releases are automated with [Changesets](https://github.com/changesets/changesets)
-via [`.github/workflows/release.yml`](.github/workflows/release.yml):
-
-1. Land your change with a changeset: run `npx changeset`, pick the bump level,
-   describe the change, and commit the generated `.changeset/*.md` with your PR.
-2. On push to `main`, the workflow opens (or updates) a **"Version Packages"**
-   PR that bumps `package.json` and rewrites `CHANGELOG.md` from the pending
-   changesets.
-3. Merging that PR publishes to npm with provenance and tags the release.
-   `prepublishOnly` typechecks, tests, builds, and verifies the published types
-   (`attw`) and the size budget first.
-
-Requires an `NPM_TOKEN` repository secret (an npm automation token with publish
-rights to the `@mbsatimov` scope).
+Releases are automated with
+[Changesets](https://github.com/changesets/changesets): land a change with
+`pnpm changeset`, and merging the generated **"Version Packages"** PR publishes
+to npm with provenance and tags the release. `prepublishOnly` typechecks,
+tests, builds, and verifies the published types (`attw`) and the size budget
+first. Requires an `NPM_TOKEN` repository secret with publish rights to the
+`@mbsatimov` scope.

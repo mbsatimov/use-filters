@@ -1,0 +1,10 @@
+packages:
+  - 'packages/*'
+
+# Dependencies allowed to run install/build scripts (pnpm blocks these by
+# default). esbuild — tsup/vitest native binary; lefthook — installs the git
+# hook binary; sharp — Next.js image optimization in the docs.
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  sharp: true

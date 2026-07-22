@@ -7,15 +7,17 @@ Monorepo for **[@mbsatimov/use-filters](./packages/use-filters)** — headless, 
 
 ## Development
 
+This is a [pnpm](https://pnpm.io) workspace.
+
 ```bash
-npm install          # install all workspaces
-npm run build        # build the library
-npm test             # run the library test suite
-npm run typecheck    # type-check the library
-npm run docs         # run the docs site locally
+pnpm install         # install all workspaces
+pnpm build           # build the library
+pnpm test            # run the library test suite
+pnpm typecheck       # type-check the library
+pnpm docs            # run the docs site locally
 ```
 
-Releases are automated with [Changesets](https://github.com/changesets/changesets): add a changeset with `npm run changeset`, and merging the generated "Version Packages" PR publishes to npm.
+Releases are automated with [Changesets](https://github.com/changesets/changesets): add a changeset with `pnpm changeset`, and merging the generated "Version Packages" PR publishes to npm.
 
 ## License
 

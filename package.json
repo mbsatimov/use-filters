@@ -11,22 +11,20 @@
     "type": "git",
     "url": "git+https://github.com/mbsatimov/use-filters.git"
   },
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@11.11.0",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "npm run build --workspace @mbsatimov/use-filters",
-    "dev": "npm run dev --workspace @mbsatimov/use-filters",
-    "test": "npm run test --workspace @mbsatimov/use-filters",
-    "test:watch": "npm run test:watch --workspace @mbsatimov/use-filters",
-    "typecheck": "npm run typecheck --workspace @mbsatimov/use-filters",
-    "check:exports": "npm run check:exports --workspace @mbsatimov/use-filters",
-    "size": "npm run size --workspace @mbsatimov/use-filters",
-    "docs": "npm run dev --workspace @use-filters/docs",
-    "build:docs": "npm run build --workspace @mbsatimov/use-filters && npm run build --workspace @use-filters/docs",
+    "build": "pnpm --filter @mbsatimov/use-filters build",
+    "dev": "pnpm --filter @mbsatimov/use-filters dev",
+    "test": "pnpm --filter @mbsatimov/use-filters test",
+    "test:watch": "pnpm --filter @mbsatimov/use-filters test:watch",
+    "typecheck": "pnpm --filter @mbsatimov/use-filters typecheck",
+    "check:exports": "pnpm --filter @mbsatimov/use-filters check:exports",
+    "size": "pnpm --filter @mbsatimov/use-filters size",
+    "docs": "pnpm --filter @use-filters/docs dev",
+    "build:docs": "pnpm --filter @mbsatimov/use-filters build && pnpm --filter @use-filters/docs build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -40,6 +38,7 @@
     "@changesets/cli": "^2.31.0",
     "@siberiacancode/eslint": "^2.18.0",
     "@siberiacancode/prettier": "^1.8.0",
+    "eslint": "^10.6.0",
     "lefthook": "^2.1.10",
     "prettier": "^3.9.5",
     "typescript": "~5.9.3"
