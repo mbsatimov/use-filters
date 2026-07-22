@@ -2,7 +2,8 @@ dist
 coverage
 node_modules
 package-lock.json
+pnpm-lock.yaml
 CHANGELOG.md
 .next
 next-env.d.ts
-apps/docs/.source
+packages/docs/.source

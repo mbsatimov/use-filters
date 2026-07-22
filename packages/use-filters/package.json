@@ -1,0 +1,98 @@
+{
+  "name": "@mbsatimov/use-filters",
+  "version": "0.9.0",
+  "description": "Headless, URL-synced filter state for React. Declare filters once, get typed params, resolved filter state, and nuqs-backed URL sync back — bring your own UI.",
+  "author": {
+    "name": "Mahkambek Satimov",
+    "url": "https://github.com/mbsatimov"
+  },
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "homepage": "https://use-filters.vercel.app",
+  "bugs": "https://github.com/mbsatimov/use-filters/issues",
+  "keywords": [
+    "react",
+    "hooks",
+    "filters",
+    "nuqs",
+    "url-state",
+    "query-params",
+    "search-params",
+    "querystring",
+    "table-filters",
+    "faceted-search",
+    "pagination",
+    "headless",
+    "typescript"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mbsatimov/use-filters.git",
+    "directory": "packages/use-filters"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check:exports": "attw --pack .",
+    "size": "size-limit",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run check:exports && npm run size"
+  },
+  "size-limit": [
+    {
+      "name": "esm (whole package, min+gzip)",
+      "path": "dist/index.js",
+      "limit": "4 kB"
+    }
+  ],
+  "peerDependencies": {
+    "nuqs": ">=2",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "jsdom": "^29.1.1",
+    "nuqs": "^2.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.7",
+    "size-limit": "^12.1.0",
+    "tsup": "^8.3.5",
+    "typescript": "~5.9.3",
+    "vitest": "^2.1.9"
+  }
+}
