@@ -37,6 +37,6 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: npm ci
-      - run: npm install --no-save react@${{ matrix.react }} react-dom@${{ matrix.react }}
+      - run: npm install --no-save --workspace @mbsatimov/use-filters react@${{ matrix.react }} react-dom@${{ matrix.react }}
       - run: npm run typecheck
       - run: npm run test

@@ -9,10 +9,9 @@ export default eslint(
     jsonc: false,
     yaml: false,
     markdown: false,
-    // The `apps/*` workspaces (playground, docs) are dev-only — not published,
-    // not part of the library build — and have their own tooling. Keep them out
-    // of the library's lint gate.
-    ignores: ['dist', 'coverage', 'apps']
+    // The docs workspace is dev-only — not published, not part of the library
+    // build — and has its own tooling. Keep it out of the library's lint gate.
+    ignores: ['dist', 'coverage', 'packages/docs']
   },
   {
     rules: {
