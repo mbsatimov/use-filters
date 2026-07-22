@@ -60,6 +60,19 @@ status: f.select({
 // No `?status` in the URL → params.status is 'open', and isFiltered ignores it.
 ```
 
+Because a defaulted filter falls back to its default when unset (and again when
+cleared), it can **never** be `null` — so its value type drops the `| null`:
+
+```ts
+f.select({ label: 'Status', valueType: 'string', options }); //                   'open' | 'closed' | null
+f.select({ label: 'Status', valueType: 'string', options, defaultValue: 'open' }); // 'open' | 'closed'  (never null)
+```
+
+This holds for every kind, and everywhere `params` is derived — the hook and
+[`resolveFilterParams`](/docs/api/resolve-filter-params) alike. A defaulted
+filter is still clearable in the UI: clearing (or `onChange(null)`) resets it to
+its default.
+
 ## Hidden filters
 
 `hidden: true` keeps a filter's value in `params` (and `filterMap`) but leaves it

@@ -21,6 +21,7 @@
     "test": "pnpm --filter @mbsatimov/use-filters test",
     "test:watch": "pnpm --filter @mbsatimov/use-filters test:watch",
     "typecheck": "pnpm --filter @mbsatimov/use-filters typecheck",
+    "typecheck:docs": "pnpm --filter @use-filters/docs typecheck",
     "check:exports": "pnpm --filter @mbsatimov/use-filters check:exports",
     "size": "pnpm --filter @mbsatimov/use-filters size",
     "docs": "pnpm --filter @use-filters/docs dev",

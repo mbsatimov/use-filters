@@ -65,8 +65,10 @@ equivalent states collide and distinct ones don't.
 
 ## A note on nulls
 
-Unset filters are `null` in `params`. Most JSON APIs and query-string serializers
-handle that fine, but if yours can't, strip them before the request:
+Unset filters are `null` in `params` (a filter with a
+[`defaultValue`](/docs/concepts/the-filter-config#defaults) is its default
+instead — never `null`). Most JSON APIs and query-string serializers handle
+`null` fine, but if yours can't, strip them before the request:
 
 ```ts
 const clean = Object.fromEntries(Object.entries(params).filter(([, v]) => v != null));

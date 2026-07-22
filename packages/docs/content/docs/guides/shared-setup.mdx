@@ -79,3 +79,8 @@ const params = productFilters.resolveFilterParams(new URL(request.url).searchPar
 so they're safe to vary. Only `arraySeparator` and `pagination` are locked at the
 `defineFilters` call. It's available on every `createFilters(...)` instance and the
 default export.
+
+Since `defineFilters` already binds the config both sides share, it's the natural
+place to validate against your API type — `defineFilters<ProductListParams>(configs)`
+checks the config once and gives the bound hook **and** loader `params` typed as
+exactly that type. See [Typed params](/docs/guides/typed-params).
