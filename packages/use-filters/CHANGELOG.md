@@ -1,5 +1,193 @@
 # Changelog
 
+## 1.0.0-beta.0
+
+### Major Changes
+
+- 795f562: ### Changed
+
+  - **`useFilters<P>` now enforces a contract derived from `P`'s own shape — and
+    `params` is typed as exactly `P`** (was `Partial<P>`, which was unsound: unset
+    filters are `null` at runtime, never `undefined`). The same `<P>` works
+    identically on `resolveFilterParams<P>` and `defineFilters<P>` (both
+    previously inference-only), so a shared config can be validated once and
+    produce `P`-shaped params in the hook and the loader alike.
+
+    The obligations mirror the type:
+    - a **required** key in `P` must have a filter declared; optional (`?:`) keys
+      may omit one (the key is then absent from `params`).
+    - a **non-nullable** param must set `defaultValue` (its value can never be
+      `null`); a `| null` param may leave it unset.
+
+    ```ts
+    interface ProductListParams {
+      status: 'open' | 'closed' | null; // filter required, default optional
+      sort: 'date' | 'price'; //           filter AND defaultValue required
+      search?: string | null; //           filter optional, default optional
+      page: number;
+      per_page: number;
+    }
+
+    const { params } = useFilters<ProductListParams>({
+      status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
+      sort: f.select({
+        label: 'Sort',
+        valueType: 'string',
+        options: sortOptions,
+        defaultValue: 'date'
+      }),
+      search: f.text({ label: 'Search' })
+    });
+
+    productApi.getAll(params); // ✓ compiles — soundly: every claim `P` makes is true at runtime
+    ```
+
+    **Migration**: params your API allows to be absent/unset should be declared
+    optional and/or `| null` (`search?: string | null`); non-nullable params need
+    a `defaultValue` on their filter; every required key needs a filter. Configs
+    that previously compiled against a `P` with plain optionals (`search?: string`)
+    now error until one of those is applied — each error names the missing key or
+    the missing `defaultValue`.
+
+    For validation **with** full per-config inference (precise literal types,
+    non-null defaulted params), check the config with `satisfies FiltersFor<P>`
+    and call `useFilters(configs)` without the type argument.
+
+- 08265b3: ### Removed
+
+  - **`FilterOption.icon` / `leftSlot` / `rightSlot`, and the per-filter `className`** —
+    rendering hints don't belong on a headless core. Declare what you need on
+    `FilterOptionMeta` / `FilterMeta` and pass it via `meta` instead (same data, typed
+    by you). See [UI metadata](https://use-filters.vercel.app/docs/guides/ui-metadata).
+  - **`unit` on `f.number` / `f.numberRange`** — same reasoning; declare a `unit` field
+    on `NumberFilterMeta` / `NumberRangeFilterMeta` and pass it via `meta`.
+
+  ### Changed
+  - **`valueType` is now required** on `f.select`, `f.multiSelect`, `f.asyncSelect`,
+    and `f.asyncMultiSelect` — `'number' | 'string'`, checked against `options` (a
+    mismatched option is a compile error on that option).
+
+    ```ts
+    // before
+    status: f.select({ label: 'Status', options: statusOptions });
+    // after
+    status: f.select({ label: 'Status', valueType: 'string', options: statusOptions });
+    ```
+
+    Previously the value type was inferred from `options`/`defaultValue` when
+    present, and fell back to a runtime sniff with a dev-mode warning when it
+    couldn't be determined (e.g. options fetched at runtime and not yet loaded) —
+    a sniff that could disagree between the hook (options loaded) and
+    `resolveFilterParams` in a route loader (options empty), silently splitting a
+    query key. Requiring `valueType` makes that class of bug a compile error
+    instead of a runtime footgun, and removes the sniffing/indeterminate-warning
+    machinery entirely — simpler internals, one way to declare a choice filter's
+    value type.
+
+- c7e7cf5: ### Removed
+
+  - **`onClear` on resolved filters** — it was a deprecated alias for `reset` (the
+    same function reference). Call `reset()` instead.
+
+  ### Changed
+  - **The hook's whole-set `reset()` now respects each filter's `commit` mode**,
+    matching how each filter's own `reset()` already behaved. Previously the
+    whole-set `reset()` bypassed commit modes and wrote to the URL immediately;
+    now `'instant'` filters commit right away while `'manual'` / `{ debounce }`
+    filters stage the cleared value as a draft and wait for `apply()`, exactly
+    like any other change. This removes the surprise of `reset()` and a filter's
+    own `reset()` doing two different things.
+
+    For the previous "clear everything immediately, whatever the commit mode"
+    behavior, use the new `instantReset()` (below) — e.g. a toolbar "Clear all"
+    button:
+
+    ```ts
+    // before — reset() always cleared immediately
+    <button onClick={reset}>Clear all</button>
+
+    // after — instantReset() is the immediate, mode-bypassing clear
+    const { instantReset } = useFilters(configs);
+    <button onClick={instantReset}>Clear all</button>
+    ```
+
+  ### Added
+  - **`instantReset()` on the hook** — clears every filter to its default in one
+    batched URL write, bypassing commit modes and cancelling any pending drafts /
+    debounce timers. The whole-set twin of each resolved filter's own
+    `instantReset()`, and the mode-bypassing counterpart to the hook's `reset()`
+    (the same relationship `setFilter` has to a filter's `onChange`).
+
+### Minor Changes
+
+- 8301085: ### Added
+
+  - **`listeners`** on `useFilters` options — declarative side-effect hooks, à la
+    TanStack Form. `onParamsChange` fires (in an effect) whenever the committed
+    `params` change, with the new params, the previous params, what triggered the
+    change, and the whole hook API:
+
+    ```ts
+    useFilters(configs, {
+      listeners: {
+        onParamsChange: ({ params, prev, cause, api }) => {
+          if (cause === 'reset') void api.post?.('/reset-event', params);
+        }
+      }
+    });
+    ```
+
+    `cause` is `'change' | 'reset' | 'external'` (`'external'` = a back/forward
+    navigation, another URL consumer, or a pagination write you own). `params`,
+    `prev`, and `api` are fully typed from your config. It fires only on
+    **committed** changes — never on mount, on a draft edit before commit, or when
+    a change resolves to the same value. Exports the `UseFiltersListeners`,
+    `ParamsChangeContext`, and `ParamsChangeCause` types.
+
+- 61c174f: ### Added
+
+  - **`paramsStr`** on the `useFilters` return — `params` serialized to a
+    deterministic, sorted string, for use as a stable cache key or memo
+    dependency when comparing a string is handier than an object:
+
+    ```ts
+    const { params, paramsStr } = useFilters(configs);
+    // params { page: 1, per_page: 10, search: 'acme', status: 'open' }
+    // paramsStr "page=1&per_page=10&search=acme&status=open"
+
+    const { data } = useQuery({ queryKey: [paramsStr], queryFn: () => fetchList(params) });
+    ```
+
+    Keys are sorted (so config/key order never changes it), unset/empty filters
+    are dropped (so equivalent states produce the same string), and values are
+    URL-encoded (so special characters can't collide). Array values join with the
+    call's `arraySeparator`.
+
+### Patch Changes
+
+- 9aac5c6: ### Fixed
+
+  - **`params.<key>` is now non-null when the filter declares a `defaultValue`.**
+    A filter with a default can never resolve to `null` at runtime (nuqs
+    `withDefault`, and reset/clear fall back to the default), but the type still
+    included `| null`. The `f.*` builders now capture whether a `defaultValue` was
+    given and drop `| null` from that key's value type — everywhere `params` is
+    derived (the hook, `resolveFilterParams`, and the resolved filter's
+    `value` / `committedValue`):
+
+    ```ts
+    const { params } = useFilters({
+      search: f.text({ label: 'Search' }), // string | null  (no default)
+      per_page: f.number({ label: 'Per page', defaultValue: 25 }), // number  (never null)
+      status: f.select({ label: 'Status', valueType: 'string', options, defaultValue: 'open' }) // Status  (never null)
+    });
+    ```
+
+    Filters without a default are unchanged (`V | null`). A defaulted filter is
+    still clearable — its `onChange` still accepts `null`, which resets it to the
+    default. Works across every builder (`text`, `number`, `boolean`, ranges,
+    dates/times, `select`/`multiSelect`, `asyncSelect`/`asyncMultiSelect`, `tags`).
+
 ## 0.9.0
 
 ### Minor Changes

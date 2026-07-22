@@ -1,7 +1,7 @@
 {
   "name": "@use-filters/docs",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1-beta.0",
   "type": "module",
   "packageManager": "pnpm@11.11.0",
   "engines": {
