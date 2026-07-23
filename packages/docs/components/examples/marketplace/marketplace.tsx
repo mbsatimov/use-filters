@@ -4,20 +4,20 @@ import { f, useFilters } from '@mbsatimov/use-filters';
 import { SlidersHorizontal, Star, X } from 'lucide-react';
 import { useMemo } from 'react';
 
-import { Badge } from '@/components/examples/ui/badge';
-import { Button } from '@/components/examples/ui/button';
-import { Checkbox } from '@/components/examples/ui/checkbox';
-import { Input } from '@/components/examples/ui/input';
-import { Label } from '@/components/examples/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
-} from '@/components/examples/ui/select';
-import { Separator } from '@/components/examples/ui/separator';
-import { Slider } from '@/components/examples/ui/slider';
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import {
   brandOptions,
   categoryOptions,

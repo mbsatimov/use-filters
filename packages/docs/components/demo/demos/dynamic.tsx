@@ -3,8 +3,17 @@
 import { type FilterConfig, f, useFilters } from '@mbsatimov/use-filters';
 import { useMemo } from 'react';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
-import { Button, Field, JsonPreview, SelectInput, ToggleGroup } from '@/components/demo/controls';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Field, FieldLabel } from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // Pretend this came from a backend "facets" endpoint.
 const FACETS = [
@@ -53,30 +62,45 @@ function Inner() {
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <div className='flex flex-col gap-3'>
+      <div className='flex flex-col gap-4'>
         {FACETS.map((facet) => {
           const filter = filterMap[facet.key];
           // The config is dynamic, so `filter` is the wide ResolvedFilter union
           // whose `onChange` param collapses — set through a permissive handler.
           const setValue = filter.onChange as (value: string | string[] | null) => void;
           return (
-            <Field key={facet.key} label={facet.label}>
+            <Field key={facet.key}>
+              <FieldLabel>{facet.label}</FieldLabel>
               {facet.type === 'select' ? (
-                <SelectInput
-                  value={(filter.value as string) ?? ''}
-                  onChange={(v) => setValue(v || null)}
-                  options={facet.values}
-                />
+                <Select
+                  value={(filter.value as string) ?? 'all'}
+                  onValueChange={(v) => setValue(v === 'all' ? null : v)}
+                >
+                  <SelectTrigger className='w-full'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='all'>Any</SelectItem>
+                    {facet.values.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <ToggleGroup
-                  options={facet.values}
-                  selected={((filter.value as string[]) ?? []).map(String)}
-                  onToggle={(v) => {
-                    const cur = ((filter.value as string[]) ?? []).map(String);
-                    const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
-                    setValue(next.length ? next : null);
-                  }}
-                />
+                  type='multiple'
+                  variant='outline'
+                  value={((filter.value as string[]) ?? []).map(String)}
+                  onValueChange={(next) => setValue(next.length ? next : null)}
+                >
+                  {facet.values.map((o) => (
+                    <ToggleGroupItem key={o.value} value={o.value}>
+                      {o.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
               )}
             </Field>
           );
@@ -89,8 +113,8 @@ function Inner() {
 
 export function DynamicDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }

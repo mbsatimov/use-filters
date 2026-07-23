@@ -2,8 +2,10 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
-import { Field, JsonPreview, TextInput } from '@/components/demo/controls';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 
 function Inner() {
   const { params, filterMap } = useFilters({
@@ -13,16 +15,20 @@ function Inner() {
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <div className='flex flex-col gap-3'>
-        <Field label='Created on (date)'>
-          <TextInput
+      <div className='flex flex-col gap-4'>
+        <Field>
+          <FieldLabel htmlFor='created'>Created on (date)</FieldLabel>
+          <Input
+            id='created'
             type='date'
             value={filterMap.created.value ?? ''}
             onChange={(e) => filterMap.created.onChange(e.target.value || null)}
           />
         </Field>
-        <Field label='Opens at (time)'>
-          <TextInput
+        <Field>
+          <FieldLabel htmlFor='opens-at'>Opens at (time)</FieldLabel>
+          <Input
+            id='opens-at'
             type='time'
             value={filterMap.opens_at.value ?? ''}
             onChange={(e) => filterMap.opens_at.onChange(e.target.value || null)}
@@ -36,8 +42,8 @@ function Inner() {
 
 export function DateTimeDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }

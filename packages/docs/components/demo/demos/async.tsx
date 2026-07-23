@@ -1,10 +1,14 @@
 'use client';
 
 import { f, type FilterOption, useFilters } from '@mbsatimov/use-filters';
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
-import { Field, JsonPreview, TextInput } from '@/components/demo/controls';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 
 const USERS = [
   { value: 1, label: 'Ada Lovelace' },
@@ -43,21 +47,24 @@ function Inner() {
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <div className='flex flex-col gap-3'>
-        <Field label='Assignee (asyncSelect)'>
+      <div className='flex flex-col gap-4'>
+        <Field>
+          <FieldLabel htmlFor='assignee'>Assignee (asyncSelect)</FieldLabel>
           {assignee.selectedOption ? (
-            <div className='flex items-center justify-between rounded-lg border border-fd-border px-3 py-1.5'>
+            <div className='flex items-center justify-between rounded-md border px-3 py-1.5 text-sm'>
               <span>{assignee.selectedOption.label}</span>
-              <button
-                type='button'
-                className='text-xs text-fd-muted-foreground hover:text-fd-foreground'
+              <Button
+                variant='ghost'
+                size='icon-xs'
+                aria-label='Clear'
                 onClick={() => assignee.onSelectOption(null)}
               >
-                clear
-              </button>
+                <X className='size-3' />
+              </Button>
             </div>
           ) : (
-            <TextInput
+            <Input
+              id='assignee'
               placeholder='Search people…'
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -67,17 +74,17 @@ function Inner() {
         {!assignee.selectedOption && results.length > 0 && (
           <div className='flex flex-wrap gap-1.5'>
             {results.map((o) => (
-              <button
+              <Button
                 key={o.value}
-                type='button'
-                className='rounded-full border border-fd-border px-3 py-1 text-xs hover:bg-fd-accent'
+                variant='outline'
+                size='sm'
                 onClick={() => {
                   assignee.onSelectOption(o);
                   setSearch('');
                 }}
               >
                 {o.label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -89,8 +96,8 @@ function Inner() {
 
 export function AsyncDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }
