@@ -1,0 +1,11 @@
+/* Landing-page-only styles. The shiki code-card styling lives in global.css
+   (shared with the examples' Code tab); this file just adds the hero glow. */
+
+/* Soft radial glow behind the hero, in the theme's foreground tint. */
+.home-glow {
+  background: radial-gradient(
+    58% 44% at 50% -8%,
+    color-mix(in oklab, var(--color-fd-foreground) 10%, transparent),
+    transparent 70%
+  );
+}

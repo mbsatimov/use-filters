@@ -1,16 +1,22 @@
 'use client';
 
 import { f, useFilters } from '@mbsatimov/use-filters';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Badge } from '@/components/ui/badge';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import {
-  Field,
-  JsonPreview,
-  SelectInput,
-  TextInput,
-  ToggleGroup
-} from '@/components/demo/controls';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const statusOptions = [
   { label: 'Open', value: 'open' },
@@ -37,28 +43,45 @@ function Inner() {
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <div className='flex flex-col gap-3'>
-        <Field label='Status (select)'>
-          <SelectInput
-            value={filterMap.status.value ?? ''}
-            onChange={(v) => filterMap.status.onChange(v || null)}
-            options={statusOptions}
-          />
+      <div className='flex flex-col gap-4'>
+        <Field>
+          <FieldLabel>Status (select)</FieldLabel>
+          <Select
+            value={filterMap.status.value ?? 'all'}
+            onValueChange={(v) => filterMap.status.onChange(v === 'all' ? null : v)}
+          >
+            <SelectTrigger className='w-full'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='all'>Any status</SelectItem>
+              {statusOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
-        <Field label='Labels (multiSelect)'>
+        <Field>
+          <FieldLabel>Labels (multiSelect)</FieldLabel>
           <ToggleGroup
-            options={labelOptions}
-            selected={selectedLabels}
-            onToggle={(v) => {
-              const next = selectedLabels.includes(v)
-                ? selectedLabels.filter((x) => x !== v)
-                : [...selectedLabels, v];
-              filterMap.labels.onChange(next.length ? next : null);
-            }}
-          />
+            type='multiple'
+            variant='outline'
+            value={selectedLabels}
+            onValueChange={(next) => filterMap.labels.onChange(next.length ? next : null)}
+          >
+            {labelOptions.map((o) => (
+              <ToggleGroupItem key={o.value} value={o.value}>
+                {o.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </Field>
-        <Field label='Tags (freeform — type + Enter)'>
-          <TextInput
+        <Field>
+          <FieldLabel htmlFor='tags'>Tags (freeform — type + Enter)</FieldLabel>
+          <Input
+            id='tags'
             placeholder='Add a tag…'
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -69,6 +92,25 @@ function Inner() {
               }
             }}
           />
+          {tags.length > 0 && (
+            <div className='flex flex-wrap gap-1.5'>
+              {tags.map((tag, i) => (
+                <Badge key={`${tag}-${i}`} variant='secondary' className='gap-1'>
+                  {tag}
+                  <button
+                    type='button'
+                    aria-label={`Remove ${tag}`}
+                    onClick={() => {
+                      const next = tags.filter((_, j) => j !== i);
+                      filterMap.tags.onChange(next.length ? next : null);
+                    }}
+                  >
+                    <X className='size-3' />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </Field>
       </div>
       <JsonPreview value={params} />
@@ -78,8 +120,8 @@ function Inner() {
 
 export function SelectTagsDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }

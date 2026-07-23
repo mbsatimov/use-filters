@@ -5,8 +5,8 @@ import { ChevronLeft, ChevronRight, Columns3, X } from 'lucide-react';
 import { parseAsInteger, useQueryState } from 'nuqs';
 import { type ReactNode, useMemo, useState } from 'react';
 
-import { Badge } from '@/components/examples/ui/badge';
-import { Button } from '@/components/examples/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -14,15 +14,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from '@/components/examples/ui/dropdown-menu';
-import { Input } from '@/components/examples/ui/input';
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
-} from '@/components/examples/ui/select';
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -30,13 +30,8 @@ import {
   TableHead,
   TableHeader,
   TableRow
-} from '@/components/examples/ui/table';
-import {
-  type Order,
-  type OrderStatus,
-  orders,
-  statusOptions
-} from '@/components/examples/data-table/orders';
+} from '@/components/ui/table';
+import { type Order, type OrderStatus, orders, statusOptions } from '@/lib/orders';
 
 interface Column {
   id: string;

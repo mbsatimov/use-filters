@@ -27,9 +27,9 @@ export default async function ExamplePage(props: { params: Promise<{ slug: strin
   if (!ex) notFound();
 
   // Read each source file at build time and pre-highlight it on the server.
-  // Base is statically scoped to `components/examples` so the bundler's file
-  // tracer doesn't over-trace on the dynamic filename.
-  const baseDir = path.join(process.cwd(), 'components/examples');
+  // Paths are repo-relative because an example's sources span `components/` and
+  // `lib/` (shared data lives in `lib`).
+  const baseDir = process.cwd();
   const files: ExampleFile[] = await Promise.all(
     ex.files.map(async (file) => {
       const raw = await fs.readFile(path.join(baseDir, file.path), 'utf8');

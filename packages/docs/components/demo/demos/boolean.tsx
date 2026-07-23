@@ -2,8 +2,10 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
-import { Field, JsonPreview, ToggleGroup } from '@/components/demo/controls';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 function Inner() {
   const { params, filterMap } = useFilters({
@@ -11,22 +13,20 @@ function Inner() {
   });
 
   const value = filterMap.in_stock.value;
-  const selected = value === null ? [] : [String(value)];
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <Field label='In stock (boolean)'>
+      <Field>
+        <FieldLabel>In stock (boolean)</FieldLabel>
         <ToggleGroup
-          options={[
-            { label: 'In stock', value: 'true' },
-            { label: 'Sold out', value: 'false' }
-          ]}
-          selected={selected}
-          onToggle={(v) => {
-            const next = v === 'true';
-            filterMap.in_stock.onChange(value === next ? null : next);
-          }}
-        />
+          type='single'
+          variant='outline'
+          value={value === null ? '' : String(value)}
+          onValueChange={(v) => filterMap.in_stock.onChange(v === '' ? null : v === 'true')}
+        >
+          <ToggleGroupItem value='true'>In stock</ToggleGroupItem>
+          <ToggleGroupItem value='false'>Sold out</ToggleGroupItem>
+        </ToggleGroup>
       </Field>
       <JsonPreview value={params} />
     </div>
@@ -35,8 +35,8 @@ function Inner() {
 
 export function BooleanDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }

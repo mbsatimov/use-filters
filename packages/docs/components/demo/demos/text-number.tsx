@@ -2,8 +2,10 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { DemoFrame } from '@/components/demo/demo-frame';
-import { Field, JsonPreview, TextInput } from '@/components/demo/controls';
+import { JsonPreview } from '@/components/json-preview';
+import { DemoWindow } from '@/components/demo-window';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 
 function Inner() {
   const { params, filterMap } = useFilters({
@@ -16,16 +18,20 @@ function Inner() {
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
-      <div className='flex flex-col gap-3'>
-        <Field label='Search (text)'>
-          <TextInput
+      <div className='flex flex-col gap-4'>
+        <Field>
+          <FieldLabel htmlFor='search'>Search (text)</FieldLabel>
+          <Input
+            id='search'
             placeholder='Name…'
             value={filterMap.search.value ?? ''}
             onChange={(e) => filterMap.search.onChange(e.target.value || null)}
           />
         </Field>
-        <Field label='Min price (number)'>
-          <TextInput
+        <Field>
+          <FieldLabel htmlFor='min-price'>Min price (number)</FieldLabel>
+          <Input
+            id='min-price'
             type='number'
             placeholder='0'
             value={filterMap.min_price.value ?? ''}
@@ -34,9 +40,10 @@ function Inner() {
             }
           />
         </Field>
-        <Field label='Price range (numberRange)'>
+        <Field>
+          <FieldLabel>Price range (numberRange)</FieldLabel>
           <div className='flex items-center gap-2'>
-            <TextInput
+            <Input
               type='number'
               placeholder='min'
               value={from ?? ''}
@@ -48,8 +55,8 @@ function Inner() {
                 )
               }
             />
-            <span className='text-fd-muted-foreground'>–</span>
-            <TextInput
+            <span className='text-muted-foreground'>–</span>
+            <Input
               type='number'
               placeholder='max'
               value={to ?? ''}
@@ -71,8 +78,8 @@ function Inner() {
 
 export function TextNumberDemo() {
   return (
-    <DemoFrame>
+    <DemoWindow>
       <Inner />
-    </DemoFrame>
+    </DemoWindow>
   );
 }
