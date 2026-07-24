@@ -11,6 +11,7 @@ import type { ExampleFile } from '@/components/examples/example-frame';
 import { CodeBlock } from '@/components/examples/code-block';
 import { ExampleFrame } from '@/components/examples/example-frame';
 import { examples, getExample } from '@/lib/examples';
+import { createMetadata } from '@/lib/metadata';
 
 export function generateStaticParams() {
   return examples.map((e) => ({ slug: e.slug }));
@@ -21,7 +22,13 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
   const { slug } = await props.params;
   const ex = getExample(slug);
-  return ex ? { title: `${ex.title} — Examples`, description: ex.description } : {};
+  return ex
+    ? createMetadata({
+        title: `${ex.title} — Examples`,
+        description: ex.description,
+        path: `/examples/${ex.slug}`
+      })
+    : {};
 }
 
 export default async function ExamplePage(props: { params: Promise<{ slug: string }> }) {

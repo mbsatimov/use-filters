@@ -4,11 +4,13 @@ import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { examples } from '@/lib/examples';
+import { createMetadata } from '@/lib/metadata';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createMetadata({
   title: 'Examples',
-  description: 'Real-world filtering patterns built with use-filters.'
-};
+  description: 'Real-world filtering patterns built with use-filters.',
+  path: '/examples'
+});
 
 export default function ExamplesIndexPage() {
   return (
