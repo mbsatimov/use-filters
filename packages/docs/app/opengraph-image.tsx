@@ -30,21 +30,12 @@ export default function OpengraphImage() {
             height: '72px',
             alignItems: 'center',
             justifyContent: 'center',
-            borderRadius: '16px',
-            background: '#6366f1'
+            borderRadius: '18px',
+            background: 'linear-gradient(160deg, #818cf8, #4f46e5)'
           }}
         >
-          <svg
-            fill='none'
-            height='40'
-            stroke='#ffffff'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='2.25'
-            viewBox='0 0 24 24'
-            width='40'
-          >
-            <path d='M3 5h18l-7 8v5l-4 2v-7L3 5z' />
+          <svg fill='#ffffff' height='44' viewBox='0 0 24 24' width='44'>
+            <path d='M3 5h18l-7 8v6h-4v-6z' />
           </svg>
         </div>
         <div style={{ display: 'flex', fontSize: '40px', fontWeight: 700 }}>{siteConfig.name}</div>
