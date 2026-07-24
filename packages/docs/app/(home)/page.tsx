@@ -1,13 +1,22 @@
+import type { Metadata } from 'next';
+
 import Link from 'next/link';
 
 import { OrdersDemo } from '@/components/orders-demo';
 import { Button } from '@/components/ui/button';
+import { createMetadata, homeJsonLd } from '@/lib/metadata';
 
 import './home.css';
+
+export const metadata: Metadata = createMetadata({ path: '/' });
 
 export default function HomePage() {
   return (
     <main className='relative flex flex-1 flex-col'>
+      <script
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd) }}
+        type='application/ld+json'
+      />
       <div className='home-glow pointer-events-none absolute inset-x-0 top-0 h-105' />
 
       <section className='relative mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-6 pt-24 pb-12 text-center'>

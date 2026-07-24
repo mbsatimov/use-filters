@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 
+import { articleJsonLd, createMetadata } from '@/lib/metadata';
 import { source } from '@/lib/source';
 import { getMDXComponents } from '@/mdx-components';
 
@@ -12,9 +13,18 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const jsonLd = articleJsonLd({
+    title: page.data.title,
+    description: page.data.description,
+    path: page.url
+  });
 
   return (
     <DocsPage full={page.data.full} toc={page.data.toc}>
+      <script
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        type='application/ld+json'
+      />
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
@@ -35,8 +45,9 @@ export async function generateMetadata(props: {
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
-  return {
+  return createMetadata({
     title: page.data.title,
-    description: page.data.description
-  };
+    description: page.data.description,
+    path: page.url
+  });
 }
