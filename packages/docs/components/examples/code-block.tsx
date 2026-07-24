@@ -7,7 +7,7 @@ import { codeToHtml } from 'shiki';
  * examples route is outside the docs layout, so it doesn't share fumadocs'
  * code styling.
  */
-export const CodeBlock = ({ code, lang = 'tsx' }: { code: string; lang?: string }) => {
+export const CodeBlock = async ({ code, lang = 'tsx' }: { code: string; lang?: string }) => {
   const html = await codeToHtml(code, {
     lang,
     themes: { light: 'github-light-default', dark: 'github-dark-default' },
