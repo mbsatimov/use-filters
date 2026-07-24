@@ -1,9 +1,13 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { f, useFilters } from '@mbsatimov/use-filters';
 import { ChevronLeft, ChevronRight, Columns3, X } from 'lucide-react';
 import { parseAsInteger, useQueryState } from 'nuqs';
-import { type ReactNode, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+
+import type { Order, OrderStatus } from '@/lib/orders';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,13 +35,13 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import { type Order, type OrderStatus, orders, statusOptions } from '@/lib/orders';
+import { orders, statusOptions } from '@/lib/orders';
 
 interface Column {
-  id: string;
-  header: string;
-  cell: (o: Order) => ReactNode;
   align?: 'right';
+  header: string;
+  id: string;
+  cell: (o: Order) => ReactNode;
 }
 
 const columns: Column[] = [
@@ -62,7 +66,7 @@ const columns: Column[] = [
   }
 ];
 
-export function DataTable() {
+export const DataTable = () => {
   const { params, filterMap, isFiltered, reset } = useFilters(
     {
       q: f.text({ label: 'Search', commit: { debounce: 300 } }),
@@ -106,10 +110,10 @@ export function DataTable() {
       {/* Toolbar */}
       <div className='flex flex-wrap items-center gap-2'>
         <Input
+          className='h-9 w-full sm:w-56'
           placeholder='Search orders…'
           value={filterMap.q.value ?? ''}
           onChange={(e) => filterMap.q.onChange(e.target.value || null)}
-          className='h-9 w-full sm:w-56'
         />
         <Select
           value={filterMap.status.value ?? 'all'}
@@ -128,28 +132,28 @@ export function DataTable() {
           </SelectContent>
         </Select>
         <Input
-          type='date'
           aria-label='From'
+          className='h-9 w-[150px]'
+          type='date'
           value={from}
           onChange={(e) => setRange(e.target.value, to)}
-          className='h-9 w-[150px]'
         />
         <Input
-          type='date'
           aria-label='To'
+          className='h-9 w-[150px]'
+          type='date'
           value={to}
           onChange={(e) => setRange(from, e.target.value)}
-          className='h-9 w-[150px]'
         />
         {isFiltered && (
-          <Button variant='ghost' size='sm' className='h-9' onClick={reset}>
+          <Button className='h-9' size='sm' variant='ghost' onClick={reset}>
             <X className='size-4' /> Reset
           </Button>
         )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant='outline' size='sm' className='ml-auto h-9'>
+            <Button className='ml-auto h-9' size='sm' variant='outline'>
               <Columns3 className='size-4' /> Columns
             </Button>
           </DropdownMenuTrigger>
@@ -198,8 +202,8 @@ export function DataTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={visibleColumns.length}
                   className='text-muted-foreground h-24 text-center'
+                  colSpan={visibleColumns.length}
                 >
                   No orders match these filters.
                 </TableCell>
@@ -219,22 +223,22 @@ export function DataTable() {
             Page {page} of {pageCount}
           </span>
           <Button
-            variant='outline'
-            size='icon'
+            aria-label='Previous page'
             className='size-8'
             disabled={page <= 1}
+            size='icon'
+            variant='outline'
             onClick={() => setPage(page - 1)}
-            aria-label='Previous page'
           >
             <ChevronLeft className='size-4' />
           </Button>
           <Button
-            variant='outline'
-            size='icon'
+            aria-label='Next page'
             className='size-8'
             disabled={page >= pageCount}
+            size='icon'
+            variant='outline'
             onClick={() => setPage(page + 1)}
-            aria-label='Next page'
           >
             <ChevronRight className='size-4' />
           </Button>
@@ -242,9 +246,9 @@ export function DataTable() {
       </div>
     </div>
   );
-}
+};
 
-function StatusBadge({ status }: { status: OrderStatus }) {
+const StatusBadge = ({ status }: { status: OrderStatus }) => {
   const styles: Record<OrderStatus, string> = {
     paid: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
     pending: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
@@ -252,8 +256,8 @@ function StatusBadge({ status }: { status: OrderStatus }) {
     failed: 'bg-red-500/15 text-red-600 dark:text-red-400'
   };
   return (
-    <Badge variant='secondary' className={`border-transparent capitalize ${styles[status]}`}>
+    <Badge className={`border-transparent capitalize ${styles[status]}`} variant='secondary'>
       {status}
     </Badge>
   );
-}
+};

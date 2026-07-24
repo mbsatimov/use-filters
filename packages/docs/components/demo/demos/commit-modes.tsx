@@ -2,8 +2,8 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,7 @@ const statusOptions = [
   { label: 'Closed', value: 'closed' }
 ];
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap, isDirty, apply, cancel } = useFilters({
     search: f.text({ label: 'Search', commit: { debounce: 600 } }),
     status: f.select({
@@ -69,7 +69,7 @@ function Inner() {
           <Button disabled={!isDirty} onClick={apply}>
             Apply
           </Button>
-          <Button variant='outline' disabled={!isDirty} onClick={cancel}>
+          <Button disabled={!isDirty} variant='outline' onClick={cancel}>
             Cancel
           </Button>
           <span className='text-muted-foreground text-xs'>
@@ -79,22 +79,20 @@ function Inner() {
       </div>
       <div className='flex flex-col gap-3'>
         <JsonPreview
-          label='drafts vs committed'
           value={{
             search: { value: search.value, committed: search.committedValue },
             status: { value: status.value, committed: status.committedValue }
           }}
+          label='drafts vs committed'
         />
         <JsonPreview label='params (fetch)' value={params} />
       </div>
     </div>
   );
-}
+};
 
-export function CommitModesDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const CommitModesDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

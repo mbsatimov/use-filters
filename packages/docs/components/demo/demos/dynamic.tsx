@@ -1,10 +1,12 @@
 'use client';
 
-import { type FilterConfig, f, useFilters } from '@mbsatimov/use-filters';
+import type { FilterConfig } from '@mbsatimov/use-filters';
+
+import { f, useFilters } from '@mbsatimov/use-filters';
 import { useMemo } from 'react';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Field, FieldLabel } from '@/components/ui/field';
 import {
   Select,
@@ -38,7 +40,7 @@ const FACETS = [
   }
 ];
 
-function Inner() {
+const Inner = () => {
   // Build the config map from runtime data — memoized on the source.
   const configs = useMemo<Record<string, FilterConfig>>(
     () =>
@@ -91,8 +93,8 @@ function Inner() {
               ) : (
                 <ToggleGroup
                   type='multiple'
-                  variant='outline'
                   value={((filter.value as string[]) ?? []).map(String)}
+                  variant='outline'
                   onValueChange={(next) => setValue(next.length ? next : null)}
                 >
                   {facet.values.map((o) => (
@@ -109,12 +111,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function DynamicDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const DynamicDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

@@ -4,6 +4,13 @@ import { f, useFilters } from '@mbsatimov/use-filters';
 import { SlidersHorizontal, Star, X } from 'lucide-react';
 import { useMemo } from 'react';
 
+import {
+  brandOptions,
+  categoryOptions,
+  priceBounds,
+  products,
+  sortOptions
+} from '@/components/examples/marketplace/products';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,15 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import {
-  brandOptions,
-  categoryOptions,
-  priceBounds,
-  products,
-  sortOptions
-} from '@/components/examples/marketplace/products';
 
-export function Marketplace() {
+export const Marketplace = () => {
   const { params, filterMap, isFiltered, reset } = useFilters(
     {
       q: f.text({ label: 'Search', commit: { debounce: 300 } }),
@@ -69,10 +69,10 @@ export function Marketplace() {
       {/* Toolbar: search + sort */}
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
         <Input
+          className='sm:max-w-xs'
           placeholder='Search products…'
           value={filterMap.q.value ?? ''}
           onChange={(e) => filterMap.q.onChange(e.target.value || null)}
-          className='sm:max-w-xs'
         />
         <div className='flex items-center gap-2 sm:ml-auto'>
           <span className='text-muted-foreground text-sm whitespace-nowrap'>
@@ -104,9 +104,9 @@ export function Marketplace() {
             <span className='text-sm font-medium'>Filters</span>
             {isFiltered && (
               <Button
-                variant='ghost'
-                size='sm'
                 className='ml-auto h-7 px-2 text-xs'
+                size='sm'
+                variant='ghost'
                 onClick={reset}
               >
                 <X className='size-3' /> Clear
@@ -121,14 +121,13 @@ export function Marketplace() {
                 return (
                   <button
                     key={c.value}
+                    className={`rounded-md px-2 py-1 text-left text-sm transition-colors ${
+                      active
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
                     type='button'
                     onClick={() => filterMap.category.onChange(active ? null : c.value)}
-                    className={
-                      'rounded-md px-2 py-1 text-left text-sm transition-colors ' +
-                      (active
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground')
-                    }
                   >
                     {c.label}
                   </button>
@@ -162,8 +161,8 @@ export function Marketplace() {
 
           <Facet label='Price'>
             <Slider
-              min={priceBounds[0]}
               max={priceBounds[1]}
+              min={priceBounds[0]}
               step={10}
               value={price}
               onValueChange={([lo, hi]) =>
@@ -201,7 +200,7 @@ export function Marketplace() {
         ) : (
           <div className='text-muted-foreground flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-sm'>
             No products match these filters.
-            <Button variant='outline' size='sm' onClick={reset}>
+            <Button size='sm' variant='outline' onClick={reset}>
               Clear filters
             </Button>
           </div>
@@ -209,37 +208,33 @@ export function Marketplace() {
       </div>
     </div>
   );
-}
+};
 
-function Facet({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className='flex flex-col gap-2'>
-      <Label className='text-muted-foreground text-xs tracking-wide uppercase'>{label}</Label>
-      {children}
-    </div>
-  );
-}
+const Facet = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className='flex flex-col gap-2'>
+    <Label className='text-muted-foreground text-xs tracking-wide uppercase'>{label}</Label>
+    {children}
+  </div>
+);
 
-function ProductCard({ product: p }: { product: (typeof products)[number] }) {
-  return (
-    <div className='group border-border bg-card flex flex-col overflow-hidden rounded-lg border'>
-      <div className='from-muted to-muted/40 flex aspect-[4/3] items-center justify-center bg-gradient-to-br text-4xl'>
-        {p.emoji}
-      </div>
-      <div className='flex flex-1 flex-col gap-1 p-3'>
-        <div className='text-muted-foreground text-xs'>{p.brand}</div>
-        <div className='line-clamp-2 text-sm leading-snug font-medium'>{p.name}</div>
-        <div className='mt-1 flex items-center gap-1 text-xs'>
-          <Star className='size-3 fill-amber-400 text-amber-400' />
-          <span className='text-muted-foreground'>{p.rating.toFixed(1)}</span>
-          {!p.inStock && (
-            <Badge variant='secondary' className='ml-auto text-[10px]'>
-              Sold out
-            </Badge>
-          )}
-        </div>
-        <div className='mt-1 text-base font-semibold'>${p.price}</div>
-      </div>
+const ProductCard = ({ product: p }: { product: (typeof products)[number] }) => (
+  <div className='group border-border bg-card flex flex-col overflow-hidden rounded-lg border'>
+    <div className='from-muted to-muted/40 flex aspect-[4/3] items-center justify-center bg-gradient-to-br text-4xl'>
+      {p.emoji}
     </div>
-  );
-}
+    <div className='flex flex-1 flex-col gap-1 p-3'>
+      <div className='text-muted-foreground text-xs'>{p.brand}</div>
+      <div className='line-clamp-2 text-sm leading-snug font-medium'>{p.name}</div>
+      <div className='mt-1 flex items-center gap-1 text-xs'>
+        <Star className='size-3 fill-amber-400 text-amber-400' />
+        <span className='text-muted-foreground'>{p.rating.toFixed(1)}</span>
+        {!p.inStock && (
+          <Badge className='ml-auto text-[10px]' variant='secondary'>
+            Sold out
+          </Badge>
+        )}
+      </div>
+      <div className='mt-1 text-base font-semibold'>${p.price}</div>
+    </div>
+  </div>
+);

@@ -4,6 +4,7 @@ import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'n
 import * as React from 'react';
 
 import type {
+  ArrayFormat,
   AsyncMultiSelectFilterConfig,
   AsyncSelectFilterConfig,
   FilterCommitMode,
@@ -28,6 +29,7 @@ import type {
 import { debounceAsync, DEFAULT_ASYNC_DEBOUNCE_MS } from './debounce';
 import {
   asyncKindOf,
+  formatArrayParams,
   hasFilterValue,
   isLabelKey,
   LABEL_SUFFIX,
@@ -188,7 +190,10 @@ const resolveStaticSelectFields = (
  * });
  * const { data } = useQuery(listQueryOptions(params));
  */
-export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedFiltersConfig) {
+export function makeUseFilters<
+  PP extends Record<string, number>,
+  FAF extends ArrayFormat = 'array'
+>(cfg: ResolvedFiltersConfig) {
   const { pageKey, perPageKey, firstPage } = cfg;
 
   return function useFilters<
@@ -200,10 +205,12 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
     // `P` and the argument are concrete. It must NOT live in `T`'s bound: the
     // checker would expand its enriched unions through every `ResolvedFilter`
     // in the return type (see `FiltersForBound`). With no `<P>` the extra arm
-    // is `unknown` and inference is untouched.
-    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP>),
-    options: UseFiltersOptions<P, PP, T> = {}
-  ): UseFiltersReturn<P, PP, T> {
+    // is `unknown` and inference is untouched. `FAF` (the factory's
+    // `request.arrayFormat`) shapes `params`; it's fixed per factory, not a
+    // per-call type argument.
+    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP, FAF>),
+    options: UseFiltersOptions<P, PP, T, FAF> = {}
+  ): UseFiltersReturn<P, PP, T, FAF> {
     const {
       history = 'replace',
       shallow = true,
@@ -518,20 +525,32 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       [entries, filterMap]
     );
 
-    const params = React.useMemo(() => {
+    // Raw params — array-shaped values kept as arrays, before `arrayFormat`.
+    // `paramsStr` derives from this so the cache key is identical whether arrays
+    // are emitted as arrays or as joined strings (`arrayFormat` never re-keys).
+    const rawParams = React.useMemo(() => {
       const result: Record<string, unknown> = {};
       for (const [key] of entries) result[key] = values[key] ?? null;
       if (paginationEnabled) {
         result[pageKey] = (values[pageKey] as number | null) ?? firstPage;
         result[perPageKey] = (values[perPageKey] as number | null) ?? defaultPerPage;
       }
-      return result as ParamsOf<P, T, PP>;
+      return result;
     }, [entries, values, paginationEnabled, defaultPerPage]);
+
+    // Public `params` — array values joined per the factory's `arrayFormat`
+    // (identity-stable for the default `'array'`, where `formatArrayParams`
+    // returns `rawParams` untouched).
+    const params = React.useMemo(
+      () =>
+        formatArrayParams(rawParams, cfg.arrayFormat, arraySeparator) as ParamsOf<P, T, PP, FAF>,
+      [rawParams, arraySeparator]
+    );
 
     // Deterministic, sorted serialization of `params` — a stable cache key.
     const paramsStr = React.useMemo(
-      () => serializeParamsKey(params as Record<string, unknown>, arraySeparator),
-      [params, arraySeparator]
+      () => serializeParamsKey(rawParams, arraySeparator),
+      [rawParams, arraySeparator]
     );
 
     // Reuse each filter's own `isFiltered` (already excludes hidden, computed in resolveFilter).
@@ -591,7 +610,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       void setValues(cleared);
     }, [paginationEnabled, resetPageOnFilterChange, setValues, entries]);
 
-    const result: UseFiltersReturn<P, PP, T> = {
+    const result: UseFiltersReturn<P, PP, T, FAF> = {
       params,
       paramsStr,
       filters,
@@ -603,7 +622,7 @@ export function makeUseFilters<PP extends Record<string, number>>(cfg: ResolvedF
       cancel,
       reset,
       instantReset,
-      setFilter: setFilter as UseFiltersReturn<P, PP, T>['setFilter']
+      setFilter: setFilter as UseFiltersReturn<P, PP, T, FAF>['setFilter']
     };
 
     // Keep the latest return + committed params for the `onParamsChange` effect,

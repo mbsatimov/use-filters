@@ -1,6 +1,8 @@
 'use client';
 
-import { type ResolvedFilter } from '@mbsatimov/use-filters';
+import type { ResolvedFilter } from '@mbsatimov/use-filters';
+
+import { format, parseISO } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,9 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
 
-export function FilterBar({ filters }: { filters: ResolvedFilter[] }) {
+export const FilterBar = ({ filters }: { filters: ResolvedFilter[] }) => {
   const inline = filters.filter((filter) => filter.type === 'text');
   const menu = filters.filter((filter) => filter.type !== 'text');
 
@@ -31,20 +32,20 @@ export function FilterBar({ filters }: { filters: ResolvedFilter[] }) {
           <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
           <Input
             aria-label={filter.label}
+            className='h-9 pl-9'
             placeholder={`${filter.label}…`}
             value={(filter.value as string | null) ?? ''}
             onChange={(e) => filter.onChange(e.target.value || null)}
-            className='h-9 pl-9'
           />
         </div>
       ))}
       {menu.length > 0 && <FilterMenu filters={menu} />}
     </div>
   );
-}
+};
 
 /** The single entry point: one button, one popover, two levels. */
-function FilterMenu({ filters }: { filters: ResolvedFilter[] }) {
+const FilterMenu = ({ filters }: { filters: ResolvedFilter[] }) => {
   const [open, setOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
@@ -64,16 +65,16 @@ function FilterMenu({ filters }: { filters: ResolvedFilter[] }) {
     <Popover open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
       <PopoverTrigger asChild>
         <Button
-          variant='outline'
-          size='sm'
           className={cn('h-9 border-dashed', activeCount > 0 && 'border-solid')}
+          size='sm'
+          variant='outline'
         >
           <SlidersHorizontal className='size-4' />
           Filters
           {activeCount > 0 && (
             <>
-              <Separator orientation='vertical' className='mx-0.5 h-4' />
-              <Badge variant='secondary' className='rounded-sm px-1 font-normal'>
+              <Separator className='mx-0.5 h-4' orientation='vertical' />
+              <Badge className='rounded-sm px-1 font-normal' variant='secondary'>
                 {activeCount}
               </Badge>
             </>
@@ -82,54 +83,52 @@ function FilterMenu({ filters }: { filters: ResolvedFilter[] }) {
       </PopoverTrigger>
       <PopoverContent align='start' className='w-72 p-0'>
         {active ? (
-          <FilterPanel filter={active} onBack={() => setActiveKey(null)} onApplied={close} />
+          <FilterPanel filter={active} onApplied={close} onBack={() => setActiveKey(null)} />
         ) : (
           <FilterList filters={filters} onPick={setActiveKey} />
         )}
       </PopoverContent>
     </Popover>
   );
-}
+};
 
 /** Level one — every filter, with the value it currently holds. */
-function FilterList({
+const FilterList = ({
   filters,
   onPick
 }: {
   filters: ResolvedFilter[];
   onPick: (key: string) => void;
-}) {
-  return (
-    <Command>
-      <CommandInput placeholder='Find a filter…' />
-      <CommandList>
-        <CommandEmpty>No filters found.</CommandEmpty>
-        <CommandGroup>
-          {filters.map((filter) => {
-            const summary = summarize(filter);
-            return (
-              <CommandItem
-                key={filter.key}
-                value={filter.label}
-                showCheckIcon={false}
-                onSelect={() => onPick(filter.key)}
-              >
-                <span className='flex-1'>{filter.label}</span>
-                {summary && (
-                  <span className='text-muted-foreground max-w-28 truncate text-xs'>{summary}</span>
-                )}
-                <ChevronRight className='text-muted-foreground size-3.5' />
-              </CommandItem>
-            );
-          })}
-        </CommandGroup>
-      </CommandList>
-    </Command>
-  );
-}
+}) => (
+  <Command>
+    <CommandInput placeholder='Find a filter…' />
+    <CommandList>
+      <CommandEmpty>No filters found.</CommandEmpty>
+      <CommandGroup>
+        {filters.map((filter) => {
+          const summary = summarize(filter);
+          return (
+            <CommandItem
+              key={filter.key}
+              showCheckIcon={false}
+              value={filter.label}
+              onSelect={() => onPick(filter.key)}
+            >
+              <span className='flex-1'>{filter.label}</span>
+              {summary && (
+                <span className='text-muted-foreground max-w-28 truncate text-xs'>{summary}</span>
+              )}
+              <ChevronRight className='text-muted-foreground size-3.5' />
+            </CommandItem>
+          );
+        })}
+      </CommandGroup>
+    </CommandList>
+  </Command>
+);
 
 /** Level two — the chosen filter's own editor, keyed off its type. */
-function FilterPanel({
+const FilterPanel = ({
   filter,
   onBack,
   onApplied
@@ -137,67 +136,65 @@ function FilterPanel({
   filter: ResolvedFilter;
   onBack: () => void;
   onApplied: () => void;
-}) {
-  return (
-    <div>
-      <div className='flex items-center gap-1 border-b p-1'>
+}) => (
+  <div>
+    <div className='flex items-center gap-1 border-b p-1'>
+      <Button
+        aria-label='Back to all filters'
+        className='h-7 gap-1 px-1.5'
+        size='sm'
+        variant='ghost'
+        onClick={onBack}
+      >
+        <ChevronLeft className='size-4' />
+      </Button>
+      <span className='text-sm font-medium'>{filter.label}</span>
+      {filter.isFiltered && (
         <Button
-          variant='ghost'
+          className='text-muted-foreground ml-auto h-7 px-2 text-xs'
           size='sm'
-          className='h-7 gap-1 px-1.5'
-          onClick={onBack}
-          aria-label='Back to all filters'
+          variant='ghost'
+          onClick={() => filter.onChange(null)}
         >
-          <ChevronLeft className='size-4' />
+          Clear
         </Button>
-        <span className='text-sm font-medium'>{filter.label}</span>
-        {filter.isFiltered && (
-          <Button
-            variant='ghost'
-            size='sm'
-            className='text-muted-foreground ml-auto h-7 px-2 text-xs'
-            onClick={() => filter.onChange(null)}
-          >
-            Clear
-          </Button>
-        )}
-      </div>
-
-      {/* Remount on commit so a draft editor reseeds from the applied value. */}
-      <FilterEditor key={JSON.stringify(filter.committedValue)} filter={filter} />
-
-      {/* Filters configured with `commit: 'manual'` hold a draft until Apply. */}
-      {filter.isManual && (
-        <div className='flex items-center justify-end gap-1 border-t p-2'>
-          <Button
-            variant='ghost'
-            size='sm'
-            className='h-7 text-xs'
-            onClick={() => {
-              filter.cancel();
-              onBack();
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            size='sm'
-            className='h-7 text-xs'
-            disabled={!filter.isDirty}
-            onClick={() => {
-              filter.apply();
-              onApplied();
-            }}
-          >
-            Apply
-          </Button>
-        </div>
       )}
     </div>
-  );
-}
 
-function FilterEditor({ filter }: { filter: ResolvedFilter }) {
+    {/* Remount on commit so a draft editor reseeds from the applied value. */}
+    <FilterEditor key={JSON.stringify(filter.committedValue)} filter={filter} />
+
+    {/* Filters configured with `commit: 'manual'` hold a draft until Apply. */}
+    {filter.isManual && (
+      <div className='flex items-center justify-end gap-1 border-t p-2'>
+        <Button
+          className='h-7 text-xs'
+          size='sm'
+          variant='ghost'
+          onClick={() => {
+            filter.cancel();
+            onBack();
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          className='h-7 text-xs'
+          disabled={!filter.isDirty}
+          size='sm'
+          onClick={() => {
+            filter.apply();
+            onApplied();
+          }}
+        >
+          Apply
+        </Button>
+      </div>
+    )}
+  </div>
+);
+
+const FilterEditor = ({ filter }: { filter: ResolvedFilter }) => {
   switch (filter.type) {
     case 'select':
       return (
@@ -211,11 +208,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
                 return (
                   <CommandItem
                     key={String(option.value)}
-                    value={option.label}
                     showCheckIcon={false}
+                    value={option.label}
                     onSelect={() => filter.onChange(isSelected ? null : option.value)}
                   >
-                    <CheckIndicator selected={isSelected} rounded />
+                    <CheckIndicator rounded selected={isSelected} />
                     <span>{option.label}</span>
                   </CommandItem>
                 );
@@ -238,8 +235,8 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
                 return (
                   <CommandItem
                     key={String(option.value)}
-                    value={option.label}
                     showCheckIcon={false}
+                    value={option.label}
                     onSelect={() => {
                       const next = filter.options.filter((o) => {
                         const has = selected.has(String(o.value));
@@ -267,11 +264,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
               {[true, false].map((option) => (
                 <CommandItem
                   key={String(option)}
-                  value={String(option)}
                   showCheckIcon={false}
+                  value={String(option)}
                   onSelect={() => filter.onChange(filter.value === option ? null : option)}
                 >
-                  <CheckIndicator selected={filter.value === option} rounded />
+                  <CheckIndicator rounded selected={filter.value === option} />
                   <span>{option ? (filter.trueLabel ?? 'Yes') : (filter.falseLabel ?? 'No')}</span>
                 </CommandItem>
               ))}
@@ -284,11 +281,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
       const [from, to] = filter.value ?? ['', ''];
       return (
         <RangeFields
+          from={from}
           fromLabel='From'
+          to={to}
           toLabel='To'
           type='date'
-          from={from}
-          to={to}
           onChange={(range) => filter.onChange(range)}
         />
       );
@@ -298,11 +295,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
       const [min, max] = filter.value ?? [null, null];
       return (
         <RangeFields
+          from={min == null ? '' : String(min)}
           fromLabel='Min'
+          to={max == null ? '' : String(max)}
           toLabel='Max'
           type='number'
-          from={min == null ? '' : String(min)}
-          to={max == null ? '' : String(max)}
           onChange={(range) => filter.onChange(range && [Number(range[0]), Number(range[1])])}
         />
       );
@@ -312,11 +309,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
       return (
         <div className='p-3'>
           <Input
-            type='date'
             aria-label={filter.label}
+            className='h-8'
+            type='date'
             value={filter.value ?? ''}
             onChange={(e) => filter.onChange(e.target.value || null)}
-            className='h-8'
           />
         </div>
       );
@@ -325,11 +322,11 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
       return (
         <div className='p-3'>
           <Input
-            type='number'
             aria-label={filter.label}
+            className='h-8'
+            type='number'
             value={filter.value ?? ''}
             onChange={(e) => filter.onChange(e.target.value === '' ? null : Number(e.target.value))}
-            className='h-8'
           />
         </div>
       );
@@ -337,9 +334,9 @@ function FilterEditor({ filter }: { filter: ResolvedFilter }) {
     default:
       return null;
   }
-}
+};
 
-function RangeFields({
+const RangeFields = ({
   fromLabel,
   toLabel,
   type,
@@ -353,7 +350,7 @@ function RangeFields({
   from: string;
   to: string;
   onChange: (range: [string, string] | null) => void;
-}) {
+}) => {
   const [draft, setDraft] = useState<[string, string]>([from, to]);
 
   const update = (next: [string, string]) => {
@@ -369,46 +366,44 @@ function RangeFields({
       <label className='flex flex-col gap-1'>
         <span className='text-muted-foreground text-xs'>{fromLabel}</span>
         <Input
+          className='h-8'
           type={type}
           value={draft[0]}
           onChange={(e) => update([e.target.value, draft[1]])}
-          className='h-8'
         />
       </label>
       <label className='flex flex-col gap-1'>
         <span className='text-muted-foreground text-xs'>{toLabel}</span>
         <Input
+          className='h-8'
           type={type}
           value={draft[1]}
           onChange={(e) => update([draft[0], e.target.value])}
-          className='h-8'
         />
       </label>
     </div>
   );
-}
+};
 
-function CheckIndicator({ selected, rounded }: { selected: boolean; rounded?: boolean }) {
-  return (
-    <span
-      className={cn(
-        'border-primary flex size-4 items-center justify-center border',
-        rounded ? 'rounded-full' : 'rounded-sm',
-        selected ? 'bg-primary text-primary-foreground' : 'opacity-50'
-      )}
-    >
-      {selected && <Check className='size-3' />}
-    </span>
-  );
-}
+const CheckIndicator = ({ selected, rounded }: { selected: boolean; rounded?: boolean }) => (
+  <span
+    className={cn(
+      'border-primary flex size-4 items-center justify-center border',
+      rounded ? 'rounded-full' : 'rounded-sm',
+      selected ? 'bg-primary text-primary-foreground' : 'opacity-50'
+    )}
+  >
+    {selected && <Check className='size-3' />}
+  </span>
+);
 
-export function ActiveFilters({
+export const ActiveFilters = ({
   filters,
   onReset
 }: {
   filters: ResolvedFilter[];
   onReset: () => void;
-}) {
+}) => {
   // `isFiltered` is per-filter "differs from its default", so a filter sitting
   // at its default value (e.g. the initial sort) doesn't show up as a chip.
   const active = filters.filter((filter) => filter.isFiltered);
@@ -424,21 +419,21 @@ export function ActiveFilters({
           <span className='text-muted-foreground'>{filter.label}</span>
           <span className='font-medium'>{summarize(filter)}</span>
           <button
-            type='button'
             aria-label={`Clear ${filter.label}`}
-            onClick={() => filter.instantReset()}
             className='text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm focus-visible:ring-2 focus-visible:outline-none'
+            type='button'
+            onClick={() => filter.instantReset()}
           >
             <X className='size-3' />
           </button>
         </span>
       ))}
-      <Button variant='ghost' size='sm' className='h-7 text-xs' onClick={onReset}>
+      <Button className='h-7 text-xs' size='sm' variant='ghost' onClick={onReset}>
         Clear all
       </Button>
     </div>
   );
-}
+};
 
 const numberFormat = new Intl.NumberFormat('en-US');
 

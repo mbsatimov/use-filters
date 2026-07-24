@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -14,10 +13,8 @@ function readChangelog(): string {
 }
 
 /** Renders the package CHANGELOG.md as markdown, styled by the surrounding docs body. */
-export function Changelog() {
-  return (
-    <div className='changelog-body'>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{readChangelog()}</ReactMarkdown>
-    </div>
-  );
-}
+export const Changelog = () => (
+  <div className='changelog-body'>
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>{readChangelog()}</ReactMarkdown>
+  </div>
+);

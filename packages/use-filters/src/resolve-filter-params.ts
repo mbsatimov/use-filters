@@ -1,5 +1,6 @@
 import type { RawSearchParams } from './search';
 import type {
+  ArrayFormat,
   FiltersFor,
   FiltersForBound,
   ParamsOf,
@@ -7,6 +8,7 @@ import type {
   SharedFilterCallOptions
 } from './types';
 
+import { formatArrayParams } from './filter-utils';
 import { coerceInt, resolvePaginationOverride } from './pagination';
 import { coerceRawValue, normalizeRawSearch } from './search';
 
@@ -21,17 +23,18 @@ import { coerceRawValue, normalizeRawSearch } from './search';
  * enforces (required keys declared, non-null params defaulted). Enforced at
  * the `configs` parameter, not `T`'s bound — see `useFilters`.
  */
-export function makeResolveFilterParams<PP extends Record<string, number>>(
-  cfg: ResolvedFiltersConfig
-) {
+export function makeResolveFilterParams<
+  PP extends Record<string, number>,
+  FAF extends ArrayFormat = 'array'
+>(cfg: ResolvedFiltersConfig) {
   return function resolveFilterParams<
     P = never,
     T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
   >(
-    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP>),
+    configs: T & ([P] extends [never] ? unknown : FiltersFor<P, PP, FAF>),
     raw: RawSearchParams,
     options: SharedFilterCallOptions = {}
-  ): ParamsOf<P, T, PP> {
+  ): ParamsOf<P, T, PP, FAF> {
     const { pagination = true, arraySeparator = cfg.arraySeparator } = options;
     const { enabled, defaultPerPage } = resolvePaginationOverride(pagination, cfg);
 
@@ -44,6 +47,6 @@ export function makeResolveFilterParams<PP extends Record<string, number>>(
       result[cfg.pageKey] = coerceInt(search[cfg.pageKey]) ?? cfg.firstPage;
       result[cfg.perPageKey] = coerceInt(search[cfg.perPageKey]) ?? defaultPerPage;
     }
-    return result as ParamsOf<P, T, PP>;
+    return formatArrayParams(result, cfg.arrayFormat, arraySeparator) as ParamsOf<P, T, PP, FAF>;
   };
 }

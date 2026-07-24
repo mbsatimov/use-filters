@@ -2,12 +2,12 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap } = useFilters({
     search: f.text({ label: 'Search' }),
     min_price: f.number({ label: 'Min price' }),
@@ -32,8 +32,8 @@ function Inner() {
           <FieldLabel htmlFor='min-price'>Min price (number)</FieldLabel>
           <Input
             id='min-price'
-            type='number'
             placeholder='0'
+            type='number'
             value={filterMap.min_price.value ?? ''}
             onChange={(e) =>
               filterMap.min_price.onChange(e.target.value === '' ? null : Number(e.target.value))
@@ -44,8 +44,8 @@ function Inner() {
           <FieldLabel>Price range (numberRange)</FieldLabel>
           <div className='flex items-center gap-2'>
             <Input
-              type='number'
               placeholder='min'
+              type='number'
               value={from ?? ''}
               onChange={(e) =>
                 filterMap.price.onChange(
@@ -57,8 +57,8 @@ function Inner() {
             />
             <span className='text-muted-foreground'>–</span>
             <Input
-              type='number'
               placeholder='max'
+              type='number'
               value={to ?? ''}
               onChange={(e) =>
                 filterMap.price.onChange(
@@ -74,12 +74,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function TextNumberDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const TextNumberDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

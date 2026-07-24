@@ -2,8 +2,8 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
@@ -19,7 +19,7 @@ const statusOptions = [
   { label: 'Closed', value: 'closed' }
 ];
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap } = useFilters({
     search: f.text({ label: 'Search' }),
     status: f.select({ label: 'Status', valueType: 'string', options: statusOptions })
@@ -60,12 +60,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function BasicFiltersDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const BasicFiltersDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

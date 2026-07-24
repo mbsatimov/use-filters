@@ -1,12 +1,15 @@
-import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
+
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import type { ExampleFile } from '@/components/examples/example-frame';
+
 import { CodeBlock } from '@/components/examples/code-block';
-import { ExampleFrame, type ExampleFile } from '@/components/examples/example-frame';
+import { ExampleFrame } from '@/components/examples/example-frame';
 import { examples, getExample } from '@/lib/examples';
 
 export function generateStaticParams() {
@@ -43,8 +46,8 @@ export default async function ExamplePage(props: { params: Promise<{ slug: strin
   return (
     <div className='mx-auto max-w-6xl px-6 py-10'>
       <Link
-        href='/examples'
         className='text-muted-foreground hover:text-foreground mb-6 inline-flex items-center gap-1.5 text-sm'
+        href='/examples'
       >
         <ArrowLeft className='size-4' /> All examples
       </Link>
@@ -52,7 +55,7 @@ export default async function ExamplePage(props: { params: Promise<{ slug: strin
       <p className='text-muted-foreground mt-1.5 mb-6 max-w-2xl text-sm leading-relaxed'>
         {ex.description}
       </p>
-      <ExampleFrame preview={<Component />} files={files} />
+      <ExampleFrame files={files} preview={<Component />} />
     </div>
   );
 }

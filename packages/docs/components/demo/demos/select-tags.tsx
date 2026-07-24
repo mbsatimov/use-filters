@@ -4,8 +4,8 @@ import { f, useFilters } from '@mbsatimov/use-filters';
 import { X } from 'lucide-react';
 import { useState } from 'react';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Badge } from '@/components/ui/badge';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,7 @@ const labelOptions = [
   { label: 'Docs', value: 'docs' }
 ];
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap } = useFilters({
     status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
     labels: f.multiSelect({ label: 'Labels', valueType: 'string', options: labelOptions }),
@@ -67,8 +67,8 @@ function Inner() {
           <FieldLabel>Labels (multiSelect)</FieldLabel>
           <ToggleGroup
             type='multiple'
-            variant='outline'
             value={selectedLabels}
+            variant='outline'
             onValueChange={(next) => filterMap.labels.onChange(next.length ? next : null)}
           >
             {labelOptions.map((o) => (
@@ -95,11 +95,11 @@ function Inner() {
           {tags.length > 0 && (
             <div className='flex flex-wrap gap-1.5'>
               {tags.map((tag, i) => (
-                <Badge key={`${tag}-${i}`} variant='secondary' className='gap-1'>
+                <Badge key={`${tag}-${i}`} className='gap-1' variant='secondary'>
                   {tag}
                   <button
-                    type='button'
                     aria-label={`Remove ${tag}`}
+                    type='button'
                     onClick={() => {
                       const next = tags.filter((_, j) => j !== i);
                       filterMap.tags.onChange(next.length ? next : null);
@@ -116,12 +116,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function SelectTagsDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const SelectTagsDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

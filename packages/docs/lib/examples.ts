@@ -1,21 +1,22 @@
-import { ShoppingBag, Table2 } from 'lucide-react';
 import type { ComponentType } from 'react';
+
+import { ShoppingBag, Table2 } from 'lucide-react';
 
 import { DataTable } from '@/components/examples/data-table/data-table';
 import { Marketplace } from '@/components/examples/marketplace/marketplace';
 
 export interface ExampleMeta {
-  slug: string;
-  title: string;
-  description: string;
-  /** Short one-liner for the gallery card. */
-  tagline: string;
-  /** Icon for the gallery card. */
-  icon: ComponentType<{ className?: string }>;
   /** The live component rendered in the Preview tab. */
   Component: ComponentType;
+  description: string;
   /** Source files shown in the Code tab, in order. Paths are relative to the docs package root. */
   files: { name: string; path: string; lang?: string }[];
+  /** Icon for the gallery card. */
+  icon: ComponentType<{ className?: string }>;
+  slug: string;
+  /** Short one-liner for the gallery card. */
+  tagline: string;
+  title: string;
 }
 
 export const examples: ExampleMeta[] = [

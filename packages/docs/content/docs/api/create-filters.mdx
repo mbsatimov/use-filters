@@ -25,10 +25,31 @@ Call it once per project (or per API convention) and export the result. See
 | `arraySeparator` | `','`       | Delimiter for array-shaped params (`multiSelect`, `tags`, ranges) in the URL.                       |
 | `pagination`     | —           | Pagination keys and defaults (below).                                                               |
 | `date`           | —           | Date (de)serialization (below).                                                                     |
+| `request`        | —           | How `params` are shaped for a backend request (below).                                              |
 
 ```ts
 createFilters({ arraySeparator: '|' });
 // tags: ['a', 'b', 'c']  ↔  ?tags=a|b|c
+```
+
+## `request`
+
+Per-API request conventions — a constant like `date` and `pagination`. Governs
+the `params` object the hook and `resolveFilterParams` produce.
+
+| Option        | Default   | Description                                                                             |
+| ------------- | --------- | --------------------------------------------------------------------------------------- |
+| `arrayFormat` | `'array'` | Array-shaped params as a JS array (`'array'`) or an `arraySeparator`-joined `'string'`. |
+
+Most backends expect array values as a comma-separated string. Set
+`request.arrayFormat: 'string'` and `params` hands you exactly that — no mapping
+before a request. Only `params` changes; `filters` / `filterMap` still expose
+arrays for your UI, and the type of `params` updates to match (array kinds
+become `string`).
+
+```ts
+const { useFilters } = createFilters({ request: { arrayFormat: 'string' } });
+// tags: ['a', 'b']  →  params.tags === 'a,b'   (typed as string)
 ```
 
 ## `pagination`

@@ -1,4 +1,4 @@
-import type { FiltersConfig, PaginationParams, ResolvedFiltersConfig } from './types';
+import type { ArrayFormat, FiltersConfig, PaginationParams, ResolvedFiltersConfig } from './types';
 
 import { f } from './builders';
 import {
@@ -23,10 +23,12 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
   const {
     pagination = {},
     date = {},
+    request = {},
     defaultCommit = 'instant',
     arraySeparator = DEFAULT_ARRAY_SEPARATOR
   } = config;
   return {
+    arrayFormat: request.arrayFormat ?? 'array',
     arraySeparator,
     defaultCommit,
     defaultPerPage: pagination.defaultPerPage ?? DEFAULT_PER_PAGE,
@@ -42,19 +44,22 @@ function resolveConfig(config: FiltersConfig<string, string> = {}): ResolvedFilt
 }
 
 /** Everything a `createFilters` call returns, all bound to the same config. */
-export interface Filters<PP extends Record<string, number> = PaginationParams> {
+export interface Filters<
+  PP extends Record<string, number> = PaginationParams,
+  FAF extends ArrayFormat = 'array'
+> {
   /**
    * Bind one screen's `configs` and `{ arraySeparator, pagination }` once for
    * both `useFilters` and `resolveFilterParams`, so the two can't drift out of
    * sync. See {@link makeDefineFilters} (define-filters.ts).
    */
-  defineFilters: ReturnType<typeof makeDefineFilters<PP>>;
+  defineFilters: ReturnType<typeof makeDefineFilters<PP, FAF>>;
   /** The filter builders (`f.select`, `f.text`, …) — config-independent, re-exported for convenience. */
   f: typeof f;
   /** Route-`loader` twin of the hook's `params` — see {@link makeResolveFilterParams} (resolve-filter-params.ts). */
-  resolveFilterParams: ReturnType<typeof makeResolveFilterParams<PP>>;
+  resolveFilterParams: ReturnType<typeof makeResolveFilterParams<PP, FAF>>;
   /** The URL-synced filters hook, bound to this config. */
-  useFilters: ReturnType<typeof makeUseFilters<PP>>;
+  useFilters: ReturnType<typeof makeUseFilters<PP, FAF>>;
   /** Stored datetime string -> `Date`, or `undefined` — for `precision: 'datetime'` filters. */
   fromDateTimeValue: (value?: string | null) => Date | undefined;
   /** Stored date string -> `Date`, or `undefined` when empty/invalid. */
@@ -82,13 +87,14 @@ export interface Filters<PP extends Record<string, number> = PaginationParams> {
 export function createFilters<
   PageKey extends string = typeof DEFAULT_PAGE_KEY,
   PerPageKey extends string = typeof DEFAULT_PER_PAGE_KEY,
-  PP extends Record<string, number> = Record<PageKey | PerPageKey, number>
->(config: FiltersConfig<PageKey, PerPageKey> = {}): Filters<PP> {
+  PP extends Record<string, number> = Record<PageKey | PerPageKey, number>,
+  FAF extends ArrayFormat = 'array'
+>(config: FiltersConfig<PageKey, PerPageKey, FAF> = {}): Filters<PP, FAF> {
   const cfg = resolveConfig(config);
-  const useFiltersBound = makeUseFilters<PP>(cfg);
-  const resolveFilterParamsBound = makeResolveFilterParams<PP>(cfg);
+  const useFiltersBound = makeUseFilters<PP, FAF>(cfg);
+  const resolveFilterParamsBound = makeResolveFilterParams<PP, FAF>(cfg);
   return {
-    defineFilters: makeDefineFilters<PP>(useFiltersBound, resolveFilterParamsBound),
+    defineFilters: makeDefineFilters<PP, FAF>(useFiltersBound, resolveFilterParamsBound),
     f,
     // null/empty guard lives here so the bound parse fns only ever see a real string.
     fromDateTimeValue: (value?: string | null) =>

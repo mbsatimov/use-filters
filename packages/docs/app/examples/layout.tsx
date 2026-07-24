@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
+
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Suspense } from 'react';
-import type { ReactNode } from 'react';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 

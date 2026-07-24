@@ -1,17 +1,17 @@
-export type OrderStatus = 'paid' | 'pending' | 'refunded' | 'failed';
-export type PaymentMethod = 'card' | 'paypal' | 'transfer' | 'crypto';
-export type Region = 'na' | 'eu' | 'apac' | 'latam';
+export type OrderStatus = 'failed' | 'paid' | 'pending' | 'refunded';
+export type PaymentMethod = 'card' | 'crypto' | 'paypal' | 'transfer';
+export type Region = 'apac' | 'eu' | 'latam' | 'na';
 
 export interface Order {
-  id: string;
+  amount: number;
   customer: string;
+  date: string; // yyyy-MM-dd
   email: string;
-  status: OrderStatus;
+  id: string;
+  items: number;
   method: PaymentMethod;
   region: Region;
-  items: number;
-  date: string; // yyyy-MM-dd
-  amount: number;
+  status: OrderStatus;
 }
 
 export const statusOptions = [

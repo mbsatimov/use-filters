@@ -1,12 +1,15 @@
 'use client';
 
+import type { UrlUpdateEvent } from 'nuqs/adapters/testing';
+import type { ReactNode } from 'react';
+
 import { Github, RotateCw } from 'lucide-react';
-import { NuqsTestingAdapter, type UrlUpdateEvent } from 'nuqs/adapters/testing';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { NuqsTestingAdapter } from 'nuqs/adapters/testing';
+import { useEffect, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
-export function DemoWindow({
+export const DemoWindow = ({
   children,
   path = '/products',
   sourceUrl,
@@ -16,7 +19,7 @@ export function DemoWindow({
   path?: string;
   sourceUrl?: string;
   className?: string;
-}) {
+}) => {
   const [queryString, setQueryString] = useState('');
   // Bumping `id` remounts the adapter; `search` seeds the fresh mount. They
   // change together so the adapter only ever re-seeds on an actual reload.
@@ -30,7 +33,7 @@ export function DemoWindow({
     setSession((current) => ({ id: current.id + 1, search: queryString }));
     setReloading(true);
     if (spinTimer.current) clearTimeout(spinTimer.current);
-    spinTimer.current = setTimeout(() => setReloading(false), 450);
+    spinTimer.current = setTimeout(setReloading, 450, false);
   };
 
   return (
@@ -42,11 +45,11 @@ export function DemoWindow({
           <span className='size-2.5 rounded-full bg-emerald-400/80' />
         </div>
         <button
+          aria-label='Reload the demo'
+          className='text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none'
+          title='Reload — the filters survive, because they live in the URL'
           type='button'
           onClick={reload}
-          aria-label='Reload the demo'
-          title='Reload — the filters survive, because they live in the URL'
-          className='text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none'
         >
           <RotateCw className={cn('size-3.5', reloading && 'motion-safe:animate-spin')} />
         </button>
@@ -58,10 +61,10 @@ export function DemoWindow({
         </div>
         {sourceUrl && (
           <a
-            href={sourceUrl}
-            target='_blank'
-            rel='noreferrer'
             className='text-muted-foreground hover:text-foreground focus-visible:ring-ring flex shrink-0 items-center gap-1.5 rounded-md text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none'
+            href={sourceUrl}
+            rel='noreferrer'
+            target='_blank'
           >
             <Github className='size-3.5' />
             <span className='hidden sm:inline'>View source</span>
@@ -70,8 +73,8 @@ export function DemoWindow({
       </div>
 
       <NuqsTestingAdapter
-        key={session.id}
         hasMemory
+        key={session.id}
         searchParams={session.search}
         onUrlUpdate={(e: UrlUpdateEvent) => setQueryString(e.queryString)}
       >
@@ -81,10 +84,10 @@ export function DemoWindow({
       </NuqsTestingAdapter>
     </div>
   );
-}
+};
 
 /** Renders `?a=1&b=2` with the keys, separators, and values each distinguished. */
-function QueryString({ value }: { value: string }) {
+const QueryString = ({ value }: { value: string }) => {
   if (!value || value === '?') return null;
 
   const pairs = value.replace(/^\?/, '').split('&').filter(Boolean);
@@ -106,4 +109,4 @@ function QueryString({ value }: { value: string }) {
       })}
     </>
   );
-}
+};
