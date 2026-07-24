@@ -1,12 +1,12 @@
 export interface Product {
-  id: number;
-  name: string;
   brand: string;
   category: string;
+  emoji: string;
+  id: number;
+  inStock: boolean;
+  name: string;
   price: number;
   rating: number;
-  inStock: boolean;
-  emoji: string;
 }
 
 export const products: Product[] = [

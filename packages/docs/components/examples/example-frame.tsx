@@ -1,14 +1,16 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { Check, Code2, Copy, Eye } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
 export interface ExampleFile {
-  name: string;
   /** Pre-highlighted code, rendered on the server. */
   code: ReactNode;
+  name: string;
   /** Raw source, for the copy button. */
   raw: string;
 }
@@ -18,24 +20,24 @@ export interface ExampleFile {
  * toggle. The live preview stays mounted across tabs (hidden with CSS) so its
  * URL state survives switching to the code view.
  */
-export function ExampleFrame({ preview, files }: { preview: ReactNode; files: ExampleFile[] }) {
-  const [tab, setTab] = useState<'preview' | 'code'>('preview');
+export const ExampleFrame = ({ preview, files }: { preview: ReactNode; files: ExampleFile[] }) => {
+  const [tab, setTab] = useState<'code' | 'preview'>('preview');
   const [fileIndex, setFileIndex] = useState(0);
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
     await navigator.clipboard.writeText(files[fileIndex].raw);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(setCopied, 1500, false);
   };
 
   return (
     <div className='border-border bg-card overflow-hidden rounded-xl border'>
       <div className='border-border flex items-center gap-1 border-b px-2 py-1.5'>
-        <TabButton active={tab === 'preview'} onClick={() => setTab('preview')} icon={<Eye />}>
+        <TabButton active={tab === 'preview'} icon={<Eye />} onClick={() => setTab('preview')}>
           Preview
         </TabButton>
-        <TabButton active={tab === 'code'} onClick={() => setTab('code')} icon={<Code2 />}>
+        <TabButton active={tab === 'code'} icon={<Code2 />} onClick={() => setTab('code')}>
           Code
         </TabButton>
         {tab === 'code' && (
@@ -44,24 +46,24 @@ export function ExampleFrame({ preview, files }: { preview: ReactNode; files: Ex
               {files.map((f, i) => (
                 <button
                   key={f.name}
-                  type='button'
-                  onClick={() => setFileIndex(i)}
                   className={cn(
                     'rounded-md px-2 py-1 font-mono text-xs transition-colors',
                     i === fileIndex
                       ? 'bg-muted text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
+                  type='button'
+                  onClick={() => setFileIndex(i)}
                 >
                   {f.name}
                 </button>
               ))}
             </div>
             <button
+              aria-label='Copy code'
+              className='text-muted-foreground hover:text-foreground ml-auto rounded-md p-1.5 transition-colors'
               type='button'
               onClick={copy}
-              className='text-muted-foreground hover:text-foreground ml-auto rounded-md p-1.5 transition-colors'
-              aria-label='Copy code'
             >
               {copied ? <Check className='size-4' /> : <Copy className='size-4' />}
             </button>
@@ -82,9 +84,9 @@ export function ExampleFrame({ preview, files }: { preview: ReactNode; files: Ex
       </div>
     </div>
   );
-}
+};
 
-function TabButton({
+const TabButton = ({
   active,
   onClick,
   icon,
@@ -94,18 +96,16 @@ function TabButton({
   onClick: () => void;
   icon: ReactNode;
   children: ReactNode;
-}) {
-  return (
-    <button
-      type='button'
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors [&_svg]:size-4',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
-      )}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
+}) => (
+  <button
+    className={cn(
+      'flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors [&_svg]:size-4',
+      active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+    )}
+    type='button'
+    onClick={onClick}
+  >
+    {icon}
+    {children}
+  </button>
+);

@@ -12,8 +12,8 @@ export default function HomePage() {
 
       <section className='relative mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-6 pt-24 pb-12 text-center'>
         <Link
-          href='https://www.npmjs.com/package/@mbsatimov/use-filters'
           className='rounded-full border px-3 py-1 font-mono text-xs text-fd-muted-foreground transition-colors hover:bg-fd-accent'
+          href='https://www.npmjs.com/package/@mbsatimov/use-filters'
         >
           @mbsatimov/use-filters
         </Link>
@@ -28,7 +28,7 @@ export default function HomePage() {
           <Button asChild size='lg'>
             <Link href='/docs'>Get started</Link>
           </Button>
-          <Button asChild variant='secondary' size='lg'>
+          <Button asChild size='lg' variant='secondary'>
             <Link href='https://github.com/mbsatimov/use-filters'>GitHub</Link>
           </Button>
         </div>

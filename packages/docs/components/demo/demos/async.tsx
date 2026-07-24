@@ -1,11 +1,13 @@
 'use client';
 
-import { f, type FilterOption, useFilters } from '@mbsatimov/use-filters';
+import type { FilterOption } from '@mbsatimov/use-filters';
+
+import { f, useFilters } from '@mbsatimov/use-filters';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -27,7 +29,7 @@ const loadUsers = (search: string): Promise<FilterOption[]> =>
     }, 250);
   });
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap } = useFilters({
     assignee: f.asyncSelect({ label: 'Assignee', valueType: 'number', loadOptions: loadUsers })
   });
@@ -54,9 +56,9 @@ function Inner() {
             <div className='flex items-center justify-between rounded-md border px-3 py-1.5 text-sm'>
               <span>{assignee.selectedOption.label}</span>
               <Button
-                variant='ghost'
-                size='icon-xs'
                 aria-label='Clear'
+                size='icon-xs'
+                variant='ghost'
                 onClick={() => assignee.onSelectOption(null)}
               >
                 <X className='size-3' />
@@ -76,8 +78,8 @@ function Inner() {
             {results.map((o) => (
               <Button
                 key={o.value}
-                variant='outline'
                 size='sm'
+                variant='outline'
                 onClick={() => {
                   assignee.onSelectOption(o);
                   setSearch('');
@@ -92,12 +94,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function AsyncDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const AsyncDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

@@ -2,12 +2,12 @@
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 
-import { JsonPreview } from '@/components/json-preview';
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
-function Inner() {
+const Inner = () => {
   const { params, filterMap } = useFilters({
     created: f.date({ label: 'Created on' }),
     opens_at: f.time({ label: 'Opens at' })
@@ -38,12 +38,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function DateTimeDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const DateTimeDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);

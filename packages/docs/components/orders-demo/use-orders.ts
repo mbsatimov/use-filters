@@ -4,14 +4,9 @@ import { f, useFilters } from '@mbsatimov/use-filters';
 import { parseAsInteger, useQueryState } from 'nuqs';
 import { useMemo } from 'react';
 
-import {
-  methodOptions,
-  type Order,
-  orders,
-  regionOptions,
-  sortOptions,
-  statusOptions
-} from '@/lib/orders';
+import type { Order } from '@/lib/orders';
+
+import { methodOptions, orders, regionOptions, sortOptions, statusOptions } from '@/lib/orders';
 
 export const FIRST_PAGE = 1;
 export const PER_PAGE_DEFAULT = 10;

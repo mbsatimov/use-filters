@@ -1,5 +1,6 @@
-import { ArrowUpRight } from 'lucide-react';
 import type { Metadata } from 'next';
+
+import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 
 import { examples } from '@/lib/examples';
@@ -26,8 +27,8 @@ export default function ExamplesIndexPage() {
           return (
             <Link
               key={ex.slug}
-              href={`/examples/${ex.slug}`}
               className='group border-border bg-card hover:border-foreground/20 relative flex flex-col gap-4 rounded-xl border p-5 transition-colors'
+              href={`/examples/${ex.slug}`}
             >
               <div className='bg-muted text-foreground flex size-11 items-center justify-center rounded-lg'>
                 <Icon className='size-5' />

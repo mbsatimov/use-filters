@@ -12,7 +12,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 
-export function Pagination({
+export const Pagination = ({
   total,
   start,
   page,
@@ -28,7 +28,7 @@ export function Pagination({
   perPage: number;
   onPageChange: (page: number) => void;
   onPerPageChange: (size: number) => void;
-}) {
+}) => {
   const shown =
     total === 0 ? 'No results' : `${start + 1}–${Math.min(start + perPage, total)} of ${total}`;
 
@@ -40,7 +40,7 @@ export function Pagination({
         <label className='text-muted-foreground flex items-center gap-1.5 text-xs'>
           <span className='hidden sm:inline'>Rows per page</span>
           <Select value={String(perPage)} onValueChange={(value) => onPerPageChange(Number(value))}>
-            <SelectTrigger size='sm' className='h-8 w-[68px]'>
+            <SelectTrigger className='h-8 w-[68px]' size='sm'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -58,26 +58,26 @@ export function Pagination({
         </span>
 
         <Button
-          variant='outline'
-          size='icon'
+          aria-label='Previous page'
           className='size-8'
           disabled={page <= 1}
+          size='icon'
+          variant='outline'
           onClick={() => onPageChange(page - 1)}
-          aria-label='Previous page'
         >
           <ChevronLeft className='size-4' />
         </Button>
         <Button
-          variant='outline'
-          size='icon'
+          aria-label='Next page'
           className='size-8'
           disabled={page >= pageCount}
+          size='icon'
+          variant='outline'
           onClick={() => onPageChange(page + 1)}
-          aria-label='Next page'
         >
           <ChevronRight className='size-4' />
         </Button>
       </div>
     </div>
   );
-}
+};

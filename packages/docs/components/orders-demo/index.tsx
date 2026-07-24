@@ -23,15 +23,13 @@ const SOURCE_URL =
  * The frame comes from the shared `components/demo-window.tsx`, which every
  * demo on the site runs in.
  */
-export function OrdersDemo() {
-  return (
-    <DemoWindow path='/orders' sourceUrl={SOURCE_URL} className='my-0'>
-      <OrdersBrowser />
-    </DemoWindow>
-  );
-}
+export const OrdersDemo = () => (
+  <DemoWindow className='my-0' path='/orders' sourceUrl={SOURCE_URL}>
+    <OrdersBrowser />
+  </DemoWindow>
+);
 
-function OrdersBrowser() {
+const OrdersBrowser = () => {
   const {
     filters,
     isFiltered,
@@ -51,17 +49,17 @@ function OrdersBrowser() {
       <FilterBar filters={filters} />
       <ActiveFilters filters={filters} onReset={instantReset} />
 
-      <OrdersTable rows={rows} isFiltered={isFiltered} onReset={instantReset} />
+      <OrdersTable isFiltered={isFiltered} rows={rows} onReset={instantReset} />
 
       <Pagination
-        total={total}
-        start={start}
         page={page}
         pageCount={pageCount}
         perPage={perPage}
+        start={start}
+        total={total}
         onPageChange={goToPage}
         onPerPageChange={setPerPage}
       />
     </div>
   );
-}
+};

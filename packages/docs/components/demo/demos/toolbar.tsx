@@ -1,9 +1,11 @@
 'use client';
 
-import { f, type ResolvedFilter, useFilters } from '@mbsatimov/use-filters';
+import type { ResolvedFilter } from '@mbsatimov/use-filters';
 
-import { JsonPreview } from '@/components/json-preview';
+import { f, useFilters } from '@mbsatimov/use-filters';
+
 import { DemoWindow } from '@/components/demo-window';
+import { JsonPreview } from '@/components/json-preview';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -26,7 +28,7 @@ const labelOptions = [
 ];
 
 /** Renders one resolved filter based on its `type` — the core of a generic toolbar. */
-function Control({ filter }: { filter: ResolvedFilter }) {
+const Control = ({ filter }: { filter: ResolvedFilter }) => {
   switch (filter.type) {
     case 'text':
       return (
@@ -59,8 +61,8 @@ function Control({ filter }: { filter: ResolvedFilter }) {
       return (
         <ToggleGroup
           type='multiple'
-          variant='outline'
           value={(filter.value ?? []).map(String)}
+          variant='outline'
           onValueChange={(next) => filter.onChange(next.length ? next : null)}
         >
           {filter.options.map((o) => (
@@ -73,9 +75,9 @@ function Control({ filter }: { filter: ResolvedFilter }) {
     default:
       return null;
   }
-}
+};
 
-function Inner() {
+const Inner = () => {
   const { params, filters, isFiltered, reset } = useFilters({
     search: f.text({ label: 'Search' }),
     status: f.select({ label: 'Status', valueType: 'string', options: statusOptions }),
@@ -92,7 +94,7 @@ function Inner() {
           </Field>
         ))}
         {isFiltered && (
-          <Button variant='outline' onClick={reset} className='w-fit'>
+          <Button className='w-fit' variant='outline' onClick={reset}>
             Clear all filters
           </Button>
         )}
@@ -100,12 +102,10 @@ function Inner() {
       <JsonPreview value={params} />
     </div>
   );
-}
+};
 
-export function ToolbarDemo() {
-  return (
-    <DemoWindow>
-      <Inner />
-    </DemoWindow>
-  );
-}
+export const ToolbarDemo = () => (
+  <DemoWindow>
+    <Inner />
+  </DemoWindow>
+);
