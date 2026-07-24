@@ -7,6 +7,23 @@ export type FilterPrimitive = number | string;
 export type FilterParserValue = boolean | number | string | number[] | string[];
 
 /**
+ * How array-shaped params (`multiSelect`, `tags`, ranges, …) appear in the
+ * `params` object handed to your API:
+ *
+ * - `'array'` (default) — a real JS array (`['a', 'b']`), the value the URL
+ *   parser produces.
+ * - `'string'` — the items joined with `arraySeparator` (`'a,b'`), the
+ *   comma-separated shape most backends expect, so you never hand-join.
+ *
+ * Set it once on `createFilters` via `request.arrayFormat`. See
+ * {@link RequestConfig}.
+ */
+export type ArrayFormat = 'array' | 'string';
+
+/** An array-shaped param's `params` type under `AF`: joined `string`, or the array `A` itself. */
+type ArrayValue<A, AF extends ArrayFormat> = [AF] extends ['string'] ? string : A;
+
+/**
  * The URL value-type token for a choice filter, constrained to match the option
  * type `V` (number → `'number'`, string → `'string'`). The tuple wrappers stop
  * the conditional distributing over a union (so `1 | 2` resolves to `'number'`).
@@ -330,27 +347,27 @@ type MaybeNull<C, B> = HasDefault<C> extends true ? B : B | null;
  * `params`). `null` is included only when the filter has no `defaultValue` —
  * with one, the value is always at least the default.
  */
-export type FilterValue<C extends FilterConfig> =
+export type FilterValue<C extends FilterConfig, AF extends ArrayFormat = 'array'> =
   C extends SelectFilterConfig<infer V>
     ? MaybeNull<C, V>
     : C extends AsyncSelectFilterConfig<infer V>
       ? MaybeNull<C, V>
       : C extends AsyncMultiSelectFilterConfig<infer V>
-        ? MaybeNull<C, V[]>
+        ? MaybeNull<C, ArrayValue<V[], AF>>
         : C extends MultiSelectFilterConfig<infer V>
-          ? MaybeNull<C, V[]>
+          ? MaybeNull<C, ArrayValue<V[], AF>>
           : C extends TagsFilterConfig
-            ? MaybeNull<C, string[]>
+            ? MaybeNull<C, ArrayValue<string[], AF>>
             : C extends NumberRangeFilterConfig
-              ? MaybeNull<C, [number, number]>
+              ? MaybeNull<C, ArrayValue<[number, number], AF>>
               : C extends NumberFilterConfig
                 ? MaybeNull<C, number>
                 : C extends BooleanFilterConfig
                   ? MaybeNull<C, boolean>
                   : C extends DateRangeFilterConfig
-                    ? MaybeNull<C, [string, string]>
+                    ? MaybeNull<C, ArrayValue<[string, string], AF>>
                     : C extends TimeRangeFilterConfig
-                      ? MaybeNull<C, [string, string]>
+                      ? MaybeNull<C, ArrayValue<[string, string], AF>>
                       : MaybeNull<C, string>; // text, date, time
 
 /**
@@ -465,7 +482,7 @@ export type ResolvedFilter<C extends FilterConfig = FilterConfig> = C extends un
 export type ResolvedFilterOf<T extends FilterType> = Extract<ResolvedFilter, { type: T }>;
 
 /** The filter kinds able to produce a value assignable to `V` (an API param's type). */
-type ConfigFor<V> = [V] extends [boolean]
+type ConfigFor<V, AF extends ArrayFormat = 'array'> = [V] extends [boolean]
   ? BooleanFilterConfig
   : [V] extends [number]
     ? number extends V
@@ -481,7 +498,11 @@ type ConfigFor<V> = [V] extends [boolean]
             : AsyncMultiSelectFilterConfig<E> | MultiSelectFilterConfig<E>
           : [V] extends [string]
             ? string extends V
-              ? | AsyncSelectFilterConfig<string>
+              ? // Open `string`: the single-string kinds — plus, under
+                // `arrayFormat: 'string'`, every array-shaped kind, since a
+                // serialized array *is* a string (`multiSelect` -> `'a,b'`).
+                | ([AF] extends ['string'] ? SerializedArrayConfig : never)
+                | AsyncSelectFilterConfig<string>
                 | DateFilterConfig
                 | SelectFilterConfig<string>
                 | TextFilterConfig
@@ -489,6 +510,19 @@ type ConfigFor<V> = [V] extends [boolean]
               : | AsyncSelectFilterConfig<V & FilterPrimitive>
                 | SelectFilterConfig<V & FilterPrimitive> // closed union, e.g. LoanStatus
             : FilterConfig;
+
+/**
+ * The array-shaped configs that serialize to a plain `string` under
+ * `arrayFormat: 'string'` — so an open-`string` API param may be satisfied by
+ * any of them (its element type is erased by joining, so it's unconstrained).
+ */
+type SerializedArrayConfig =
+  | AsyncMultiSelectFilterConfig<FilterPrimitive>
+  | DateRangeFilterConfig
+  | MultiSelectFilterConfig<FilterPrimitive>
+  | NumberRangeFilterConfig
+  | TagsFilterConfig
+  | TimeRangeFilterConfig;
 
 /**
  * Requires the config kind's own `defaultValue` field, made non-optional.
@@ -508,9 +542,9 @@ type RequireDefault<C> = C extends { defaultValue?: infer D }
  * set `defaultValue`, since without one an unset filter resolves to `null` at
  * runtime, which the param's type says is impossible.
  */
-type ConfigForParam<V> = null extends V
-  ? ConfigFor<NonNullable<V>>
-  : RequireDefault<ConfigFor<NonNullable<V>>>;
+type ConfigForParam<V, AF extends ArrayFormat = 'array'> = null extends V
+  ? ConfigFor<NonNullable<V>, AF>
+  : RequireDefault<ConfigFor<NonNullable<V>, AF>>;
 
 /**
  * Constrains a filter config map to an API's list-params type (pagination keys
@@ -537,7 +571,9 @@ type ConfigForParam<V> = null extends V
  * `[P] extends [never]` (no type argument given) falls back to any config map,
  * keeping full per-config inference.
  */
-export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
+export type FiltersFor<P, PP = PaginationParams, AF extends ArrayFormat = 'array'> = [P] extends [
+  never
+]
   ? FilterConfigMap
   : [Exclude<keyof P, keyof PP>] extends [never]
     ? // `P` declares no filter params (only pagination): reject any config key
@@ -547,11 +583,13 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
       Record<string, never>
     : {
         [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? K : never]?: ConfigForParam<
-          Exclude<P[K], undefined>
+          Exclude<P[K], undefined>,
+          AF
         >;
       } & {
         [K in Exclude<keyof P, keyof PP> as undefined extends P[K] ? never : K]-?: ConfigForParam<
-          P[K]
+          P[K],
+          AF
         >;
       };
 
@@ -568,7 +606,10 @@ export type FiltersFor<P, PP = PaginationParams> = [P] extends [never]
  */
 export type FiltersForBound<P, PP = PaginationParams> = [P] extends [never]
   ? FilterConfigMap
-  : { [K in Exclude<keyof P, keyof PP>]?: ConfigFor<NonNullable<P[K]>> };
+  : // Widest `ConfigFor` (`'string'`, whose open-string arm also admits the
+    // array kinds) so this loose bound never rejects a config the strict
+    // `FiltersFor<P, PP, AF>` (at the `configs` parameter) would accept.
+    { [K in Exclude<keyof P, keyof PP>]?: ConfigFor<NonNullable<P[K]>, 'string'> };
 
 /**
  * Pagination URL keys, page defaults, and where numbering starts. `params`
@@ -635,13 +676,28 @@ export interface DateConfig {
 }
 
 /**
+ * How the factory shapes a **backend request** — a per-API constant, like
+ * {@link DateConfig} and {@link PaginationConfig}. Set once on `createFilters`;
+ * it governs the `params` object the hook and `resolveFilterParams` produce.
+ */
+export interface RequestConfig<AF extends ArrayFormat = ArrayFormat> {
+  /**
+   * How array-shaped params appear in `params`: `'array'` (default, a JS array)
+   * or `'string'` (items joined with `arraySeparator`, backend-ready). See
+   * {@link ArrayFormat}.
+   */
+  arrayFormat?: AF;
+}
+
+/**
  * Per-project constants injected once through `createFilters`, so the hook and
  * `resolveFilterParams` share the exact same values (a provider can't reach the
  * loader, which runs outside React). Every option falls back to a default.
  */
 export interface FiltersConfig<
   PageKey extends string = string,
-  PerPageKey extends string = string
+  PerPageKey extends string = string,
+  AF extends ArrayFormat = ArrayFormat
 > {
   /** Delimiter for array-shaped params in the URL. Defaults to `','`. */
   arraySeparator?: string;
@@ -651,6 +707,8 @@ export interface FiltersConfig<
   defaultCommit?: FilterCommitMode;
   /** URL keys, page defaults, and where numbering starts. See {@link PaginationConfig}. */
   pagination?: PaginationConfig<PageKey, PerPageKey>;
+  /** How `params` are shaped for a backend request. See {@link RequestConfig}. */
+  request?: RequestConfig<AF>;
 }
 
 /**
@@ -660,6 +718,7 @@ export interface FiltersConfig<
  * `FiltersConfig`); this is the normalized form the internals consume.
  */
 export interface ResolvedFiltersConfig {
+  arrayFormat: ArrayFormat;
   arraySeparator: string;
   defaultCommit: FilterCommitMode;
   defaultPerPage: number;
@@ -689,8 +748,12 @@ export type PaginationParams = {
  * plus the pagination params (`PP`, `{ page, per_page }` by default) for the
  * API request.
  */
-export type FilterParams<T extends FilterConfigMap, PP = PaginationParams> = {
-  [K in keyof T]: FilterValue<T[K]>;
+export type FilterParams<
+  T extends FilterConfigMap,
+  PP = PaginationParams,
+  AF extends ArrayFormat = 'array'
+> = {
+  [K in keyof T]: FilterValue<T[K], AF>;
 } & PP;
 
 /** Any value nuqs can serialize for our parsers, or `null` for "unset". */
@@ -739,16 +802,17 @@ export type ParamsChangeCause = 'change' | 'external' | 'reset';
 export interface ParamsChangeContext<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>,
+  AF extends ArrayFormat = ArrayFormat
 > {
   /** The whole `useFilters` return — read state and call methods from here. */
-  api: UseFiltersReturn<P, PP, T>;
+  api: UseFiltersReturn<P, PP, T, AF>;
   /** What triggered this change. See {@link ParamsChangeCause}. */
   cause: ParamsChangeCause;
   /** The new committed params. */
-  params: ParamsOf<P, T, PP>;
+  params: ParamsOf<P, T, PP, AF>;
   /** The committed params before this change (for diffing). */
-  prev: ParamsOf<P, T, PP>;
+  prev: ParamsOf<P, T, PP, AF>;
 }
 
 /**
@@ -760,10 +824,11 @@ export interface ParamsChangeContext<
 export interface UseFiltersListeners<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>,
+  AF extends ArrayFormat = ArrayFormat
 > {
   /** Fires whenever committed `params` change (respects debounce/manual commit). */
-  onParamsChange?: (ctx: ParamsChangeContext<P, PP, T>) => void;
+  onParamsChange?: (ctx: ParamsChangeContext<P, PP, T, AF>) => void;
 }
 
 /**
@@ -775,7 +840,8 @@ export interface UseFiltersListeners<
 export interface UseFiltersOptions<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>,
+  AF extends ArrayFormat = ArrayFormat
 > extends SharedFilterCallOptions {
   /** Remove a param from the URL when it is cleared. Defaults to `true`. */
   clearOnDefault?: boolean;
@@ -784,7 +850,7 @@ export interface UseFiltersOptions<
   /** How URL updates affect history. Defaults to `'replace'`. */
   history?: 'push' | 'replace';
   /** Side-effect listeners — e.g. `onParamsChange`. See {@link UseFiltersListeners}. */
-  listeners?: UseFiltersListeners<P, PP, T>;
+  listeners?: UseFiltersListeners<P, PP, T, AF>;
   /** Whole-set UI hints, echoed back on the return. Augment {@link FiltersMeta} to type it. */
   meta?: FiltersMeta;
   /** Keep navigation client-side. Defaults to `true`. */
@@ -800,10 +866,13 @@ export interface UseFiltersOptions<
  * `defaultValue` set) make `P`'s own shape hold at runtime, so `params` is
  * directly assignable to the API's params type — soundly.
  */
-export type ParamsOf<P, T extends Record<string, FilterConfig | undefined>, PP> = [P] extends [
-  never
-]
-  ? FilterParams<{ [K in keyof T]-?: NonNullable<T[K]> }, PP>
+export type ParamsOf<
+  P,
+  T extends Record<string, FilterConfig | undefined>,
+  PP,
+  AF extends ArrayFormat = 'array'
+> = [P] extends [never]
+  ? FilterParams<{ [K in keyof T]-?: NonNullable<T[K]> }, PP, AF>
   : Omit<P, keyof PP> & PP;
 
 /**
@@ -833,7 +902,8 @@ export type FilterMapOf<T extends Record<string, FilterConfig | undefined>> = {
 export interface UseFiltersReturn<
   P = never,
   PP extends Record<string, number> = PaginationParams,
-  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>
+  T extends FiltersForBound<P, PP> = FiltersForBound<P, PP>,
+  AF extends ArrayFormat = ArrayFormat
 > {
   /** Same filters as `filters`, keyed by config key (includes hidden ones). */
   filterMap: FilterMapOf<T>;
@@ -846,7 +916,7 @@ export interface UseFiltersReturn<
   /** The `meta` passed to `useFilters` (or `{}`). */
   meta: FiltersMeta;
   /** Current committed values + pagination. Pass straight to your fetcher / use as a query key. */
-  params: ParamsOf<P, T, PP>;
+  params: ParamsOf<P, T, PP, AF>;
   /**
    * `params` serialized to a deterministic, sorted string — a stable cache key
    * (same state always produces the same string). Handy as a React Query key or

@@ -1,7 +1,27 @@
-import type { FilterConfig } from './types';
+import type { ArrayFormat, FilterConfig } from './types';
 
 /** Reserved suffix for async filters' label-sidecar param. One source of truth for the convention. */
 export const LABEL_SUFFIX = '_label';
+
+/**
+ * Shape a `params` object for its `arrayFormat`: `'array'` (default) returns it
+ * untouched; `'string'` joins every array-shaped value with `separator` (e.g.
+ * `['a', 'b']` -> `'a,b'`), the comma-separated form most backends expect. Only
+ * array values change — scalars and `null` pass through. Shared by `useFilters`
+ * and `resolveFilterParams` so their `params` stay identical.
+ */
+export const formatArrayParams = (
+  params: Record<string, unknown>,
+  arrayFormat: ArrayFormat,
+  separator: string
+): Record<string, unknown> => {
+  if (arrayFormat !== 'string') return params;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(params)) {
+    result[key] = Array.isArray(value) ? value.join(separator) : value;
+  }
+  return result;
+};
 
 /** URL key of an async filter's label sidecar (`<key>_label`), so labels survive a refresh. */
 export const labelKeyOf = (key: string): string => `${key}${LABEL_SUFFIX}`;

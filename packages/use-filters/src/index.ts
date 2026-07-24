@@ -14,6 +14,7 @@ export {
 export { DEFAULT_ARRAY_SEPARATOR } from './parsers';
 export type { RawSearchParams } from './search';
 export type {
+  ArrayFormat,
   AsyncMultiSelectFilterConfig,
   AsyncMultiSelectFilterMeta,
   AsyncSelectFilterConfig,
@@ -51,6 +52,7 @@ export type {
   PaginationParams,
   ParamsChangeCause,
   ParamsChangeContext,
+  RequestConfig,
   ResolvedFilter,
   ResolvedFilterOf,
   ResolvedFiltersConfig,
