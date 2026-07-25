@@ -3,12 +3,12 @@ title: Typed params from your API
 description: Validate your filter config against your list endpoint's params type.
 ---
 
-By default, `params` is **inferred** from your config — each filter's value type
+By default, `params` is **inferred** from your config. Each filter's value type
 flows through automatically. That's the right choice most of the time.
 
 When you have a typed API client, you can instead pass the endpoint's params
 type as a type argument. You get key autocomplete, compile-time checking, and a
-`params` typed **exactly** as your API type — directly and _soundly_ assignable
+`params` typed **exactly** as your API type, directly and _soundly_ assignable
 to it:
 
 ```ts
@@ -31,34 +31,34 @@ const { params } = useFilters<ProductListParams>({
   search: f.text({ label: 'Search' })
 });
 
-productApi.getAll(params); // ✓ compiles — and every claim the type makes is true
+productApi.getAll(params); // ✓ compiles, and every claim the type makes is true
 ```
 
 ## The contract
 
-`<P>` isn't just a lookup table for value types — its **shape states
+`<P>` isn't just a lookup table for value types. Its **shape states
 obligations**, and the compiler enforces them:
 
-| your param            | obligation                                            |
-| --------------------- | ----------------------------------------------------- |
-| `sort: X` (required)  | a filter for `sort` **must be declared**              |
-| `sort?: X` (optional) | the filter may be omitted (key absent from `params`)  |
-| `status: X \| null`   | `defaultValue` optional — unset resolves to `null`    |
-| `sort: X` (no `null`) | `defaultValue` **required** — the value can't be null |
+| your param            | obligation                                           |
+| --------------------- | ---------------------------------------------------- |
+| `sort: X` (required)  | a filter for `sort` **must be declared**             |
+| `sort?: X` (optional) | the filter may be omitted (key absent from `params`) |
+| `status: X \| null`   | `defaultValue` optional; unset resolves to `null`    |
+| `sort: X` (no `null`) | `defaultValue` **required**; the value can't be null |
 
 Together these make `P`'s own shape hold at runtime, which is why `params` can
 be typed as exactly `P` with no lies:
 
 - a **required** key always has a declared filter, so it's always present;
 - a **non-null** param always has a default, so an unset filter resolves to the
-  default — never `null`;
+  default, never `null`;
 - a **nullable** (`| null`) param is allowed to be unset;
 - an **optional** (`?:`) key without a filter simply never appears.
 
 <Callout>
-  Unset filters are `null` at runtime — never `undefined`. If your API type declares a param as
+  Unset filters are `null` at runtime, never `undefined`. If your API type declares a param as
   `search?: string` (no `null`), the hook could produce a value your type says is impossible. That's
-  why the contract demands a `defaultValue` there — or declare the param as `string | null` if
+  why the contract demands a `defaultValue` there, or declare the param as `string | null` if
   "unset" is a state your API accepts.
 </Callout>
 
@@ -68,7 +68,7 @@ _"property `sort` is missing"_, and a missing default errors with _"property
 
 ## The same contract everywhere
 
-`<P>` works identically on all three entry points — same obligations, same
+`<P>` works identically on all three entry points, with the same obligations and the same
 exact-`P` params:
 
 ```ts
@@ -86,15 +86,15 @@ productFilters.resolveFilterParams(raw); // params: ProductListParams
 
 For a config shared between the hook and a loader,
 [`defineFilters<P>`](/docs/api/define-filters) is the natural home for the type
-argument — one validation, guaranteed parity.
+argument: one validation, guaranteed parity.
 
 ## `satisfies`: validation with full inference
 
-Passing `<P>` turns off per-config inference — TypeScript can't partially infer
+Passing `<P>` turns off per-config inference. TypeScript can't partially infer
 type arguments, so `params` comes from `P`, not from your configs (literal
 option types, for example, are widened to `P`'s declarations). If you want the
-checking **and** fully inferred params, validate the config with `satisfies`
-instead and let the hook infer:
+checking **and** fully inferred params, validate the config with `satisfies` and
+let the hook infer:
 
 ```ts
 import type { FiltersFor } from '@mbsatimov/use-filters';
@@ -112,3 +112,40 @@ const { params } = useFilters(configs);
 Use whichever fits a given screen: `<P>` when you want `params` shaped as the
 API contract, `satisfies FiltersFor<P>` when you want the contract checked but
 the inferred (most precise) params.
+
+<Callout type="warn" title="Customized `createFilters`? Bind `FiltersFor` first">
+  `FiltersFor` is a standalone type, so it cannot see your `createFilters` config: on its own it
+  assumes the built-in pagination keys (`page` / `per_page`) and `arrayFormat: 'array'`. If you
+  changed either, it checks against the wrong contract. Pass your values as the second and third
+  type arguments, and alias it once next to your factory:
+
+```ts
+// lib/filters.ts — next to your createFilters call
+import type { FiltersFor as FiltersForBase } from '@mbsatimov/use-filters';
+
+export type FiltersFor<P> = FiltersForBase<P, Record<'page' | 'page_size', number>, 'string'>;
+```
+
+Then import `FiltersFor` from your own module. The factory-bound functions
+(`useFilters<P>`, `resolveFilterParams<P>`, `defineFilters<P>`) already carry your config and need
+no such binding.
+
+</Callout>
+
+## Serialized array params
+
+Under [`request.arrayFormat: 'string'`](/docs/api/create-filters#request), array-shaped
+filters (`multiSelect`, `tags`, ranges) arrive in `params` as a joined string, so
+declare those params as `string` in your API type:
+
+```ts
+interface ProductListParams {
+  page: number;
+  per_page: number;
+  tags?: string | null; // f.multiSelect -> 'a,b'
+}
+```
+
+A factory-bound check knows this and accepts the `multiSelect`. A bare
+`satisfies FiltersFor<P>` doesn't, and reports a type error that looks like a
+library bug.

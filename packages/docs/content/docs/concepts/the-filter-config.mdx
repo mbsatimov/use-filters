@@ -1,10 +1,10 @@
 ---
 title: The filter config
-description: A config is plain data built with f.* — value types, defaults, and hidden filters.
+description: 'A config is plain data built with f.*: value types, defaults, and hidden filters.'
 ---
 
 The object you pass to `useFilters` is just **data**. Each entry is built with an
-`f.*` helper that records the filter's kind and options — nothing is rendered, and
+`f.*` helper that records the filter's kind and options. Nothing is rendered, and
 nothing runs until the hook resolves it.
 
 ```ts
@@ -17,7 +17,7 @@ const configs = {
 
 Because it's plain data, a config can be shared (exported from a module),
 [built at runtime](/docs/guides/dynamic-filters) from a backend response, or handed
-to a [route loader](/docs/guides/route-loaders) — the same object drives the hook
+to a [route loader](/docs/guides/route-loaders). The same object drives the hook
 and its loader twin.
 
 ## Value types
@@ -33,13 +33,13 @@ f.multiSelect(...)  // V[] | null
 ```
 
 For a `select` or `multiSelect`, `V` is driven by the **required** `valueType`
-(`'number' | 'string'`) — numeric options give `number | null`, a string union
+(`'number' | 'string'`). Numeric options give `number | null`, a string union
 gives `'open' | 'closed' | null`, and `options` are checked against it (a
 mismatched option is a compile error). See [Filter types](/docs/filter-types/overview)
 for the full list.
 
 <Callout>
-  `valueType` is required — rather than inferred from `options` — so a route loader calling
+  `valueType` is required, rather than inferred from `options`, so a route loader calling
   `resolveFilterParams` (which never sees `options`) always parses the same type the hook does. See
   [Async filters](/docs/filter-types/async#value-types).
 </Callout>
@@ -47,7 +47,7 @@ for the full list.
 ## Defaults
 
 `defaultValue` sets the value used when the URL has no param for that filter. A
-filter sitting at its default counts as **inactive** — it's excluded from
+filter sitting at its default counts as **inactive**: it's excluded from
 `isFiltered` and, with `clearOnDefault` (the default), kept out of the URL entirely:
 
 ```ts
@@ -61,14 +61,14 @@ status: f.select({
 ```
 
 Because a defaulted filter falls back to its default when unset (and again when
-cleared), it can **never** be `null` — so its value type drops the `| null`:
+cleared), it can **never** be `null`, so its value type drops the `| null`:
 
 ```ts
 f.select({ label: 'Status', valueType: 'string', options }); //                   'open' | 'closed' | null
 f.select({ label: 'Status', valueType: 'string', options, defaultValue: 'open' }); // 'open' | 'closed'  (never null)
 ```
 
-This holds for every kind, and everywhere `params` is derived — the hook and
+This holds for every kind, and everywhere `params` is derived: the hook and
 [`resolveFilterParams`](/docs/api/resolve-filter-params) alike. A defaulted
 filter is still clearable in the UI: clearing (or `onChange(null)`) resets it to
 its default.
@@ -77,7 +77,7 @@ its default.
 
 `hidden: true` keeps a filter's value in `params` (and `filterMap`) but leaves it
 out of the `filters` array. Use it for a value you manage somewhere other than the
-main toolbar — a search box in the header, or a fixed value you set imperatively:
+main toolbar: a search box in the header, or a fixed value you set imperatively:
 
 ```ts
 const { params, filters, filterMap } = useFilters({
@@ -93,12 +93,12 @@ More on placing filters in different parts of your UI in
 
 Every kind accepts these, regardless of type:
 
-| Option         | Purpose                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `label`        | Required. Human label for the control.                                                     |
-| `placeholder`  | Optional; defaults to `label`.                                                             |
-| `defaultValue` | Value when the URL param is absent (above).                                                |
-| `hidden`       | Keep in `params`, omit from `filters` (above).                                             |
-| `commit`       | When a change reaches the URL — see [Values & commits](/docs/concepts/values-and-commits). |
-| `meta`         | Your own typed UI hints — see [UI metadata](/docs/guides/ui-metadata).                     |
-| `nuqs`         | Per-filter [nuqs options](https://nuqs.dev), e.g. `{ history: 'push' }`.                   |
+| Option         | Purpose                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `label`        | Required. Human label for the control.                                                    |
+| `placeholder`  | Optional; defaults to `label`.                                                            |
+| `defaultValue` | Value when the URL param is absent (above).                                               |
+| `hidden`       | Keep in `params`, omit from `filters` (above).                                            |
+| `commit`       | When a change reaches the URL. See [Values & commits](/docs/concepts/values-and-commits). |
+| `meta`         | Your own typed UI hints. See [UI metadata](/docs/guides/ui-metadata).                     |
+| `nuqs`         | Per-filter [nuqs options](https://nuqs.dev), e.g. `{ history: 'push' }`.                  |

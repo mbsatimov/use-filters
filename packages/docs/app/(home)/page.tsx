@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import Link from 'next/link';
 
-import { OrdersDemo } from '@/components/orders-demo';
+import { OrdersDemo } from '@/app/(home)/-components/orders-demo';
 import { Button } from '@/components/ui/button';
 import { createMetadata, homeJsonLd } from '@/lib/metadata';
 

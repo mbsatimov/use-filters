@@ -17,5 +17,13 @@ export default eslint(
       'ts/no-use-before-define': 'off',
       'siberiacancode/function-component-definition': 'off'
     }
+  },
+  {
+    // Vendored shadcn/ui components — kept in upstream shape so the CLI can
+    // update them (e.g. Calendar passes inline `components` to DayPicker).
+    files: ['packages/docs/components/ui/**'],
+    rules: {
+      'react/no-nested-component-definitions': 'off'
+    }
   }
 );

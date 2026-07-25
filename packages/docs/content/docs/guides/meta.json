@@ -2,15 +2,15 @@
   "title": "Guides",
   "pages": [
     "fetching-data",
-    "listeners",
     "building-a-toolbar",
-    "apply-panel",
-    "search-sort-and-placement",
-    "dynamic-filters",
-    "route-loaders",
     "shared-setup",
     "typed-params",
-    "custom-date-formats",
-    "ui-metadata"
+    "route-loaders",
+    "search-sort-and-placement",
+    "apply-panel",
+    "dynamic-filters",
+    "listeners",
+    "ui-metadata",
+    "custom-date-formats"
   ]
 }

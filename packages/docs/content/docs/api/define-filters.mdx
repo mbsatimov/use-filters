@@ -67,3 +67,11 @@ export const productFilters = defineFilters<ProductListParams>({
 Prefer the config checked but the **inferred** (most precise) params instead?
 Validate with `satisfies FiltersFor<P>` and call `defineFilters` without the
 type argument — see [Typed params](/docs/guides/typed-params#satisfies-validation-with-full-inference).
+If you customized `pagination` or `request.arrayFormat`, bind `FiltersFor` to those
+values first; unlike `defineFilters<P>`, the bare type doesn't know them.
+
+<Callout title="It returns a bundle, not the config map">
+  `defineFilters` hands back `{ configs, useFilters, resolveFilterParams }`. Passing its result
+  straight into another `useFilters(...)` is a type error — reach for `.configs`, or call the
+  returned `useFilters()` / `resolveFilterParams(search)`, which already have the config applied.
+</Callout>
