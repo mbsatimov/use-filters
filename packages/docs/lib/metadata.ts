@@ -80,7 +80,8 @@ export const rootMetadata: Metadata = {
     apple: '/apple-touch-icon.png'
   },
   manifest: '/manifest.webmanifest',
-  formatDetection: { telephone: false }
+  formatDetection: { telephone: false },
+  verification: { google: 'eNMd6YUcZq1L2zqYcM0mVwsa_oj2IsXk7jSf5trPSF8' }
 };
 
 /** Theme color follows the site's light/dark background. */

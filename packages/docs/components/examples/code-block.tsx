@@ -8,9 +8,11 @@ import { codeToHtml } from 'shiki';
  * code styling.
  */
 export const CodeBlock = async ({ code, lang = 'tsx' }: { code: string; lang?: string }) => {
+  // Same themes fumadocs renders the docs' code blocks with, so the Code tab
+  // reads like any other code on the site.
   const html = await codeToHtml(code, {
     lang,
-    themes: { light: 'github-light-default', dark: 'github-dark-default' },
+    themes: { light: 'github-light', dark: 'github-dark' },
     defaultColor: false
   });
 

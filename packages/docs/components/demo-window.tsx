@@ -87,7 +87,7 @@ export const DemoWindow = ({
 };
 
 /** Renders `?a=1&b=2` with the keys, separators, and values each distinguished. */
-const QueryString = ({ value }: { value: string }) => {
+export const QueryString = ({ value }: { value: string }) => {
   if (!value || value === '?') return null;
 
   const pairs = value.replace(/^\?/, '').split('&').filter(Boolean);

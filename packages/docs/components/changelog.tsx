@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import './changelog.css';
+import '../styles/changelog.css';
 
 /** Read the package's generated CHANGELOG.md (packages/use-filters) at build time. */
 function readChangelog(): string {
