@@ -1,10 +1,10 @@
 ---
 title: How it works
-description: The mental model — one config in, two things out, synced to the URL.
+description: 'The mental model: one config in, two things out, synced to the URL.'
 ---
 
 Everything in this library follows from one idea: **your filter state lives in the
-URL**, and a single hook keeps it in sync with the two things your screen needs — a
+URL**, and a single hook keeps it in sync with the two things your screen needs: a
 value to fetch with, and controls to render.
 
 ## One config in, two things out
@@ -19,10 +19,10 @@ const { params, filters } = useFilters({
 });
 ```
 
-- **`params`** is your _data_ side — a plain object of the committed values plus
+- **`params`** is your _data_ side: a plain object of the committed values plus
   pagination (`{ status, search, page, per_page }`), shaped to hand straight to your
   API and to use as a cache key.
-- **`filters`** is your _UI_ side — an array of **resolved filters**, each your
+- **`filters`** is your _UI_ side: an array of **resolved filters**, each your
   original config plus a live `value` and the handlers to change it. You render
   these; the library ships no components.
 
@@ -40,7 +40,7 @@ Both are derived from the **URL query string**, the single source of truth:
 ```
 
 Because the URL is the source of truth, refreshes, the back button, bookmarks, and
-shared links all just work — no extra persistence layer. And since `params` changes
+shared links all just work, with no extra persistence layer. And since `params` changes
 exactly when the URL changes, it's a correct cache key for React Query, SWR, or any
 fetcher.
 
@@ -55,7 +55,7 @@ most of using this library well:
 | `filter.committedValue` | what's **actually applied** and in the URL       |
 | `params.<key>`          | the same committed value, for **fetching**       |
 
-For a normal (instant) filter these are always equal — a change flows straight to
+For a normal (instant) filter these are always equal: a change flows straight to
 the URL. They only diverge when you defer a commit (a debounced search box, or a
 manual "Apply" panel), where `value` reflects the in-progress control while
 `committedValue` / `params` still hold the last applied value. That's covered in
@@ -65,9 +65,9 @@ manual "Apply" panel), where `value` reflects the in-progress control while
 
 Two more outputs round out the return:
 
-- **`filterMap`** — the same resolved filters keyed by their config key
+- **`filterMap`**: the same resolved filters keyed by their config key
   (`filterMap.status`), for reaching one filter directly instead of iterating.
-- **`isFiltered`, `isDirty`, `apply`, `cancel`, `reset`, `setFilter`, `meta`** —
+- **`isFiltered`, `isDirty`, `apply`, `cancel`, `reset`, `setFilter`, `meta`**:
   whole-set state and actions, introduced where they're relevant.
 
 That's the entire model. The rest of the docs is detail on top of it: which

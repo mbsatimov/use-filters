@@ -12,7 +12,7 @@ const { params } = useFilters(configs);
 ```
 
 The keys are yours to name (they default to `page` / `per_page`), and they're the
-**same** in the URL and in `params` — there's no separate mapping to maintain. You
+**same** in the URL and in `params`: there's no separate mapping to maintain. You
 set them once with [`createFilters`](/docs/guides/shared-setup):
 
 ```ts
@@ -25,13 +25,13 @@ export const { useFilters } = createFilters({
 ## Reading and setting the page
 
 The page and per-page values are plain keys on `params`. You drive them however
-your pagination UI works — nuqs directly, or your own state — and spread them into
+your pagination UI works (nuqs directly, or your own state) and spread them into
 your query. `useFilters` doesn't render pagination controls; it just keeps the
 values in the URL and in `params`.
 
 ## Resetting on filter change
 
-When a filter changes, the old page of results no longer applies — page 7 of an
+When a filter changes, the old page of results no longer applies: page 7 of an
 unfiltered list isn't page 7 of the filtered one. So by default, **changing any
 filter resets the page** to its first value:
 
@@ -40,7 +40,7 @@ filter resets the page** to its first value:
 ```
 
 If your pagination is driven entirely outside the hook and it should never touch
-the page param, opt out — for the whole app or one screen:
+the page param, opt out, for the whole app or one screen:
 
 ```ts
 createFilters({ pagination: { resetPageOnFilterChange: false } });
@@ -50,7 +50,7 @@ useFilters(configs, { pagination: { resetPageOnFilterChange: false } });
 
 ## First page and 0-indexed APIs
 
-`firstPage` is the number your first page counts from — the value when the URL has
+`firstPage` is the number your first page counts from: the value when the URL has
 none, what a reset writes, and the base your backend expects. It defaults to `1`;
 set it to `0` for a 0-indexed API:
 
@@ -60,16 +60,16 @@ createFilters({ pagination: { firstPage: 0 } });
 ```
 
 This is also how you drive an **offset/limit backend directly**, with no
-conversion at all — name the keys to match and let `firstPage: 0` be the starting
+conversion at all. Name the keys to match and let `firstPage: 0` be the starting
 offset:
 
 ```ts
 createFilters({ pagination: { pageKey: 'offset', perPageKey: 'limit', firstPage: 0 } });
-// params: { offset, limit, ...filters } — increment `offset` by `limit` yourself
+// params: { offset, limit, ...filters }; increment `offset` by `limit` yourself
 // (e.g. setFilter('offset', offset + limit)) to page forward.
 ```
 
-`pageKey` / `perPageKey` don't have to mean "page number" — they're just the two
+`pageKey` / `perPageKey` don't have to mean "page number"; they're just the two
 pagination values `useFilters` mirrors into `params` and resets on filter change.
 Only reach for a page-number UI (1, 2, 3…) converting to offset/limit at the fetch
 call if your **UI** specifically wants page numbers; if it doesn't, drive the

@@ -24,16 +24,16 @@ value is parsed and what type it has in `params`:
 
 The `| null` is the **unset** state. Give a filter a
 [`defaultValue`](/docs/concepts/the-filter-config#defaults) and it can never be
-unset — the value type drops the `| null` (`f.number({ defaultValue: 25 })` →
+unset, the value type drops the `| null` (`f.number({ defaultValue: 25 })` →
 `number`).
 
 Each type has its own page with a live example:
 
-- [Text & number](/docs/filter-types/text-and-number) — `text`, `number`, `numberRange`
-- [Boolean](/docs/filter-types/boolean) — `boolean`
-- [Date & time](/docs/filter-types/date-and-time) — `date`, `dateRange`, `time`, `timeRange`
-- [Select & tags](/docs/filter-types/select-and-tags) — `select`, `multiSelect`, `tags`
-- [Async](/docs/filter-types/async) — `asyncSelect`, `asyncMultiSelect`
+- [Text & number](/docs/filter-types/text-and-number): `text`, `number`, `numberRange`
+- [Boolean](/docs/filter-types/boolean): `boolean`
+- [Date & time](/docs/filter-types/date-and-time): `date`, `dateRange`, `time`, `timeRange`
+- [Select & tags](/docs/filter-types/select-and-tags): `select`, `multiSelect`, `tags`
+- [Async](/docs/filter-types/async): `asyncSelect`, `asyncMultiSelect`
 
 ## How the value type is decided
 
@@ -51,7 +51,7 @@ f.select({ label: 'Owner', valueType: 'number', options: [{ label: 'Ada', value:
 ```
 
 `valueType` is required (rather than inferred from `options`) so a route loader
-calling `resolveFilterParams` — which never sees `options` — always parses the
+calling `resolveFilterParams`, which never sees `options`, always parses the
 same type the hook does, even when `options` are fetched at runtime and start
 empty. See [Async filters](/docs/filter-types/async#value-types).
 
