@@ -10,6 +10,7 @@ import {
   Github,
   Link as LinkIcon,
   Monitor,
+  Package,
   RotateCw,
   Smartphone,
   Tablet
@@ -41,6 +42,8 @@ interface BlockViewerProps {
   defaultViewport?: Viewport;
   files: BlockFile[];
   iframeHeight: number;
+  /** Registry kit names this example builds on — rendered as tags linking to /registry. */
+  kits?: string[];
   slug: string;
   sourceUrl: string;
   tagline: string;
@@ -60,6 +63,7 @@ export function BlockViewer({
   defaultViewport = '100%',
   files,
   iframeHeight,
+  kits = [],
   slug,
   sourceUrl,
   tagline,
@@ -91,6 +95,17 @@ export function BlockViewer({
           <LinkIcon className='text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100' />
         </a>
         <span className='text-muted-foreground text-sm'>{tagline}</span>
+        {kits.map((kit) => (
+          <a
+            key={kit}
+            className='bg-primary/10 text-primary hover:bg-primary/15 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-xs transition-colors'
+            href={`/registry#${kit}`}
+            title={`Built on the ${kit} kit — see the registry`}
+          >
+            <Package className='size-3' />
+            {kit}
+          </a>
+        ))}
 
         {/* Toolbar */}
         <div className='ml-auto flex items-center gap-1.5'>

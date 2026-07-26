@@ -1,9 +1,9 @@
 import type { ComponentType } from 'react';
 
+import { AllFiltersExample } from '@/components/examples/all-filters/all-filters-example';
 import { BasicExample } from '@/components/examples/basic/basic-example';
 import { DataTableExample } from '@/components/examples/data-table/data-table-example';
 import { FilterDrawerExample } from '@/components/examples/filter-drawer/filter-drawer-example';
-import { FilterMenuExample } from '@/components/examples/filter-menu/filter-menu-example';
 import { MarketplaceExample } from '@/components/examples/marketplace/marketplace-example';
 import { siteConfig } from '@/lib/metadata';
 
@@ -21,6 +21,8 @@ export interface ExampleMeta {
   files: { name: string; path: string }[];
   /** Preview iframe height in px — enough to show the example without inner scroll. */
   iframeHeight: number;
+  /** Registry kit names this example builds on (anchors on /registry). */
+  kits: string[];
   slug: string;
   tagline: string;
   title: string;
@@ -38,17 +40,24 @@ export const exampleSourceUrl = (example: ExampleMeta): string => {
 export const examples: ExampleMeta[] = [
   {
     slug: 'basic',
+    kits: ['filter-controls'],
     title: 'Search and status',
     tagline: 'The two-filter starting point',
     Component: BasicExample,
     iframeHeight: 620,
     files: [
       { name: 'basic-example.tsx', path: 'components/examples/basic/basic-example.tsx' },
+      { name: 'text-filter.tsx', path: 'components/filters/filter-controls/text-filter.tsx' },
+      {
+        name: 'multi-select-filter.tsx',
+        path: 'components/filters/filter-controls/multi-select-filter.tsx'
+      },
       { name: 'use-query.ts', path: 'components/examples/data/use-query.ts' }
     ]
   },
   {
     slug: 'data-table',
+    kits: ['filter-bar'],
     title: 'Data table',
     tagline: 'Faceted filters, sortable columns, shareable views',
     Component: DataTableExample,
@@ -58,16 +67,15 @@ export const examples: ExampleMeta[] = [
         name: 'data-table-example.tsx',
         path: 'components/examples/data-table/data-table-example.tsx'
       },
-      { name: 'faceted-filter.tsx', path: 'components/examples/data-table/faceted-filter.tsx' },
-      {
-        name: 'date-range-filter.tsx',
-        path: 'components/examples/data-table/date-range-filter.tsx'
-      },
+      { name: 'filter-bar.tsx', path: 'components/filters/filter-bar/filter-bar.tsx' },
+      { name: 'editors.tsx', path: 'components/filters/filter-bar/editors.tsx' },
+      { name: 'summarize.tsx', path: 'components/filters/filter-bar/summarize.tsx' },
       { name: 'use-query.ts', path: 'components/examples/data/use-query.ts' }
     ]
   },
   {
     slug: 'marketplace',
+    kits: ['facet-panel'],
     title: 'Marketplace',
     tagline: 'E-commerce faceted search',
     Component: MarketplaceExample,
@@ -76,11 +84,16 @@ export const examples: ExampleMeta[] = [
       {
         name: 'marketplace-example.tsx',
         path: 'components/examples/marketplace/marketplace-example.tsx'
-      }
+      },
+      { name: 'facet-panel.tsx', path: 'components/filters/facet-panel/facet-panel.tsx' },
+      { name: 'facet-chip-row.tsx', path: 'components/filters/facet-panel/facet-chip-row.tsx' },
+      { name: 'facet-drawer.tsx', path: 'components/filters/facet-panel/facet-drawer.tsx' },
+      { name: 'facet-editors.tsx', path: 'components/filters/facet-panel/facet-editors.tsx' }
     ]
   },
   {
     slug: 'filter-drawer',
+    kits: [],
     title: 'Filter drawer',
     tagline: 'The mobile pattern: one button, staged filters',
     Component: FilterDrawerExample,
@@ -95,18 +108,17 @@ export const examples: ExampleMeta[] = [
     ]
   },
   {
-    slug: 'filter-menu',
-    title: 'Filter menu',
-    tagline: 'One config-driven component for every filter type',
-    Component: FilterMenuExample,
+    slug: 'all-filters',
+    kits: ['filter-bar'],
+    title: 'Every filter type',
+    tagline: 'The full config on one filter bar',
+    Component: AllFiltersExample,
     iframeHeight: 700,
     files: [
       {
-        name: 'filter-menu-example.tsx',
-        path: 'components/examples/filter-menu/filter-menu-example.tsx'
+        name: 'all-filters-example.tsx',
+        path: 'components/examples/all-filters/all-filters-example.tsx'
       },
-      { name: 'filter-menu.tsx', path: 'components/examples/filter-menu/filter-menu.tsx' },
-      { name: 'filter-chips.tsx', path: 'components/examples/filter-menu/filter-chips.tsx' },
       { name: 'use-query.ts', path: 'components/examples/data/use-query.ts' }
     ]
   }

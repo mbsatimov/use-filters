@@ -99,6 +99,7 @@ export default async function ExamplesPage() {
             defaultViewport={example.defaultViewport}
             files={files}
             iframeHeight={example.iframeHeight}
+            kits={example.kits}
             slug={example.slug}
             sourceUrl={exampleSourceUrl(example)}
             tagline={example.tagline}

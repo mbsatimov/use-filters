@@ -9,6 +9,9 @@
     "filter-types",
     "guides",
     "api",
-    "changelog"
+    "changelog",
+    "---Resources---",
+    "[Examples](/examples)",
+    "[Registry](/registry)"
   ]
 }
