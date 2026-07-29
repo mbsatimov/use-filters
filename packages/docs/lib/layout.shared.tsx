@@ -30,6 +30,16 @@ export const baseOptions = (): BaseLayoutProps => ({
       text: 'Examples',
       url: '/examples',
       active: 'nested-url'
+    },
+    {
+      text: 'Registry',
+      url: '/registry',
+      active: 'nested-url'
+    },
+    {
+      text: 'Get started',
+      url: '/start',
+      active: 'nested-url'
     }
   ]
 });

@@ -1,7 +1,9 @@
 'use client';
 
+import type { ResolvedFilter, ResolvedFilterOf } from '@mbsatimov/use-filters';
+
 import { f, useFilters } from '@mbsatimov/use-filters';
-import { ArrowUpDown, SlidersHorizontal, Star, X } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import {
@@ -11,18 +13,12 @@ import {
   products,
   sortOptions
 } from '@/components/examples/data/products';
+import { FacetChipRow } from '@/components/filters/facet-panel/facet-chip-row';
+import { FacetDrawer } from '@/components/filters/facet-panel/facet-drawer';
+import { FacetPanel } from '@/components/filters/facet-panel/facet-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle
-} from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -30,63 +26,58 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
 
 /**
- * E-commerce faceted search, responsive the way storefronts actually are:
+ * E-commerce faceted search on the facet-panel kit:
  *
- * - Desktop: a facet sidebar next to the product grid, applying instantly.
- * - Mobile: a scrollable chip row; tapping a chip opens a bottom drawer for
- *   that facet. Edits inside the drawer are staged — the grid and the URL only
- *   change when "Show N results" applies them. Dismissing the drawer discards.
+ * - Desktop: `<FacetPanel>` renders a section per filter; with the facets on
+ *   `commit: 'manual'` an Apply/Cancel bar appears while edits are staged.
+ * - Mobile: `<FacetChipRow>` + `<FacetDrawer>` — tap a chip, edit that facet,
+ *   and "Show N results" applies. Dismissing the drawer discards the draft.
  *
- * One `useFilters` instance drives both. The facets use `commit: 'manual'`,
- * so the drawer's `onChange` stages a draft; the sidebar writes through
- * `setFilter`, which bypasses commit modes and applies immediately. The two
- * layouts can never disagree — they are two views of the same URL state.
+ * Both are views over the same `useFilters` instance, so they can never
+ * disagree. The price slider shows `renderEditor`: one override swaps the
+ * kit's default min/max inputs for a slider, everywhere the facet renders.
  */
-
-type FacetKey = 'brands' | 'category' | 'price' | 'sort';
-
 export function MarketplaceExample() {
-  const { apply, cancel, params, filterMap, isFiltered, reset, setFilter } = useFilters(
-    {
-      q: f.text({ label: 'Search', commit: { debounce: 300 } }),
-      category: f.select({
-        label: 'Category',
-        valueType: 'string',
-        options: categoryOptions,
-        commit: 'manual'
-      }),
-      brands: f.multiSelect({
-        label: 'Brands',
-        valueType: 'string',
-        options: brandOptions,
-        commit: 'manual'
-      }),
-      price: f.numberRange({ label: 'Price', commit: 'manual' }),
-      in_stock: f.boolean({ label: 'In stock' }),
-      sort: f.select({
-        label: 'Sort',
-        valueType: 'string',
-        options: sortOptions,
-        defaultValue: 'featured',
-        commit: 'manual'
-      })
-    },
-    { pagination: false }
-  );
+  const { apply, cancel, filters, filterMap, isDirty, isFiltered, params, instantReset } =
+    useFilters(
+      {
+        q: f.text({ label: 'Search', commit: { debounce: 300 } }),
+        category: f.select({
+          label: 'Category',
+          valueType: 'string',
+          options: categoryOptions,
+          commit: 'manual'
+        }),
+        brands: f.multiSelect({
+          label: 'Brand',
+          valueType: 'string',
+          options: brandOptions,
+          commit: 'manual'
+        }),
+        price: f.numberRange({ label: 'Price', commit: 'manual' }),
+        in_stock: f.boolean({ label: 'In stock', trueLabel: 'In stock only' }),
+        // Instant: re-sorting is cheap and never needs an Apply step.
+        sort: f.select({
+          label: 'Sort by',
+          valueType: 'string',
+          options: sortOptions,
+          defaultValue: 'featured'
+        })
+      },
+      { pagination: false }
+    );
 
   // Which facet's drawer is open on mobile; `null` means none.
-  const [openFacet, setOpenFacet] = useState<FacetKey | null>(null);
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
-  // The grid renders from `params` — the committed state — so staged drawer
-  // edits don't move products around mid-edit.
+  // The grid renders from `params` — the committed state — so staged edits
+  // don't move products around until they are applied.
   const results = useMemo(() => sortProducts(matchProducts(params), params.sort), [params]);
 
-  // The drawer's footer counts from the *draft* values (`filterMap.*.value`
+  // The drawer footer counts from the *draft* values (`filterMap.*.value`
   // shows the staged value for a manual filter), so "Show N results" is live.
   const draftCount = matchProducts({
     q: params.q,
@@ -96,18 +87,16 @@ export function MarketplaceExample() {
     in_stock: params.in_stock
   }).length;
 
-  const closeDrawer = (didApply: boolean) => {
-    if (didApply) apply();
-    else cancel(); // Dismissed: throw the staged edits away.
-    setOpenFacet(null);
-  };
+  // Search renders in the toolbar and sort in its own dropdown; the facets are
+  // everything else. Mobile adds sort back as the first chip.
+  const facets = filters.filter((filter) => !['q', 'sort'].includes(filter.key));
+  const mobileFacets = filters.filter((filter) => filter.key !== 'q');
 
-  const facetTitles: Record<FacetKey, string> = {
-    brands: 'Brands',
-    category: 'Category',
-    price: 'Price',
-    sort: 'Sort by'
-  };
+  // One override: the price facet edits with a slider instead of min/max inputs.
+  const renderEditor = (filter: ResolvedFilter) =>
+    filter.key === 'price' ? (
+      <PriceSlider filter={filter as ResolvedFilterOf<'numberRange'>} />
+    ) : undefined;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -123,100 +112,28 @@ export function MarketplaceExample() {
           <span className='text-muted-foreground text-sm whitespace-nowrap'>
             {results.length} {results.length === 1 ? 'result' : 'results'}
           </span>
-          <Select value={params.sort ?? 'featured'} onValueChange={(v) => setFilter('sort', v)}>
-            <SelectTrigger className='w-[180px]'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SortSelect filter={filterMap.sort} />
         </div>
       </div>
 
-      {/* Mobile: one chip per facet; tapping opens that facet's drawer. Chips
-          read committed params, so they only change when edits are applied. */}
-      <div className='-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] md:hidden'>
-        <FacetChip
-          active={(params.sort ?? 'featured') !== 'featured'}
-          icon={<ArrowUpDown className='size-3.5' />}
-          label='Sort'
-          onOpen={() => setOpenFacet('sort')}
-        />
-        <FacetChip
-          active={params.category != null}
-          label={categoryOptions.find((c) => c.value === params.category)?.label ?? 'Category'}
-          onClear={() => setFilter('category', null)}
-          onOpen={() => setOpenFacet('category')}
-        />
-        <FacetChip
-          label={
-            params.brands?.length
-              ? params.brands.length === 1
-                ? params.brands[0]
-                : `${params.brands.length} brands`
-              : 'Brand'
-          }
-          active={(params.brands?.length ?? 0) > 0}
-          onClear={() => setFilter('brands', null)}
-          onOpen={() => setOpenFacet('brands')}
-        />
-        <FacetChip
-          active={params.price != null}
-          label={params.price ? `$${params.price[0]}–$${params.price[1]}` : 'Price'}
-          onClear={() => setFilter('price', null)}
-          onOpen={() => setOpenFacet('price')}
-        />
-        {/* Boolean facets toggle in place — no drawer needed. */}
-        <FacetChip
-          active={params.in_stock === true}
-          label='In stock'
-          onOpen={() => setFilter('in_stock', params.in_stock === true ? null : true)}
-        />
-      </div>
+      {/* Mobile: one chip per facet; tapping opens that facet's drawer. */}
+      <FacetChipRow className='md:hidden' filters={mobileFacets} onOpenFacet={setOpenKey} />
 
-      <div className='grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]'>
-        {/* Desktop facet sidebar — writes through `setFilter`, so every click
-            applies (and hits the URL) immediately. */}
-        <aside className='hidden flex-col gap-5 md:flex'>
-          <div className='flex items-center gap-2'>
-            <SlidersHorizontal className='text-muted-foreground size-4' />
-            <span className='text-sm font-medium'>Filters</span>
-            {isFiltered && (
-              <Button className='ml-auto' size='sm' variant='ghost' onClick={reset}>
-                <X className='size-3' /> Clear
-              </Button>
-            )}
-          </div>
-
-          <Facet label='Category'>
-            <CategoryList value={params.category} onSelect={(v) => setFilter('category', v)} />
-          </Facet>
-          <Separator />
-          <Facet label='Brand'>
-            <BrandList value={params.brands} onSelect={(v) => setFilter('brands', v)} />
-          </Facet>
-          <Separator />
-          <Facet label='Price'>
-            <PriceRange value={params.price} onSelect={(v) => setFilter('price', v)} />
-          </Facet>
-          <Separator />
-          <label className='flex items-center gap-2 text-sm'>
-            <Checkbox
-              checked={params.in_stock === true}
-              onCheckedChange={(checked) => setFilter('in_stock', checked ? true : null)}
-            />
-            In stock only
-          </label>
-        </aside>
+      <div className='grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr] items-start'>
+        <FacetPanel
+          className='hidden md:flex'
+          filters={facets}
+          isDirty={isDirty}
+          isFiltered={isFiltered}
+          renderEditor={renderEditor}
+          onApply={apply}
+          onCancel={cancel}
+          onClearAll={instantReset}
+        />
 
         {/* Results */}
         {results.length > 0 ? (
-          <div className='grid grid-cols-2 content-start gap-4 lg:grid-cols-3'>
+          <div className='grid grid-cols-2 gap-4 lg:grid-cols-3'>
             {results.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
@@ -224,44 +141,21 @@ export function MarketplaceExample() {
         ) : (
           <div className='text-muted-foreground flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-sm'>
             No products match these filters.
-            <Button size='sm' variant='outline' onClick={reset}>
+            <Button size='sm' variant='outline' onClick={instantReset}>
               Clear filters
             </Button>
           </div>
         )}
       </div>
 
-      {/* Mobile facet drawer: edits stage against the manual-commit filters,
-          "Show N results" applies them, dismissing cancels them. */}
-      <Drawer open={openFacet !== null} onOpenChange={(open) => !open && closeDrawer(false)}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle>{openFacet ? facetTitles[openFacet] : ''}</DrawerTitle>
-          </DrawerHeader>
-          <div className='overflow-y-auto px-4 pb-2'>
-            {openFacet === 'sort' && (
-              <SortList value={filterMap.sort.value} onSelect={filterMap.sort.onChange} />
-            )}
-            {openFacet === 'category' && (
-              <CategoryList
-                value={filterMap.category.value}
-                onSelect={filterMap.category.onChange}
-              />
-            )}
-            {openFacet === 'brands' && (
-              <BrandList value={filterMap.brands.value} onSelect={filterMap.brands.onChange} />
-            )}
-            {openFacet === 'price' && (
-              <PriceRange value={filterMap.price.value} onSelect={filterMap.price.onChange} />
-            )}
-          </div>
-          <DrawerFooter>
-            <Button onClick={() => closeDrawer(true)}>
-              Show {draftCount} {draftCount === 1 ? 'result' : 'results'}
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+      <FacetDrawer
+        applyLabel={`Show ${draftCount} ${draftCount === 1 ? 'result' : 'results'}`}
+        filter={mobileFacets.find((filter) => filter.key === openKey) ?? null}
+        renderEditor={renderEditor}
+        onApply={apply}
+        onCancel={cancel}
+        onClose={() => setOpenKey(null)}
+      />
     </div>
   );
 }
@@ -298,76 +192,9 @@ function sortProducts(list: (typeof products)[number][], sort: string | null) {
   return list;
 }
 
-/* ---------------------------------------------------------------------------
- * Facet editors — plain value-in/value-out, so the sidebar can apply
- * instantly (`setFilter`) while the drawer stages (`onChange`).
- * ------------------------------------------------------------------------- */
-
-function CategoryList({
-  onSelect,
-  value
-}: {
-  onSelect: (value: string | null) => void;
-  value: string | null;
-}) {
-  return (
-    <div className='flex flex-col gap-1'>
-      {categoryOptions.map((c) => {
-        const active = value === c.value;
-        return (
-          <button
-            key={c.value}
-            className={cn(
-              'rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-              active
-                ? 'bg-primary/10 text-primary font-medium'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-            type='button'
-            onClick={() => onSelect(active ? null : c.value)}
-          >
-            {c.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function BrandList({
-  onSelect,
-  value
-}: {
-  onSelect: (value: string[] | null) => void;
-  value: string[] | null;
-}) {
-  const selected = value ?? [];
-  return (
-    <div className='flex flex-col gap-2.5'>
-      {brandOptions.map((b) => (
-        <label key={b.value} className='flex items-center gap-2 text-sm'>
-          <Checkbox
-            checked={selected.includes(b.value)}
-            onCheckedChange={(checked) => {
-              const next = checked ? [...selected, b.value] : selected.filter((x) => x !== b.value);
-              onSelect(next.length ? next : null);
-            }}
-          />
-          {b.label}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function PriceRange({
-  onSelect,
-  value
-}: {
-  onSelect: (value: [number, number] | null) => void;
-  value: [number, number] | null;
-}) {
-  const price = value ?? priceBounds;
+/** The `renderEditor` override: a slider over the catalog's price bounds. */
+function PriceSlider({ filter }: { filter: ResolvedFilterOf<'numberRange'> }) {
+  const price = filter.value ?? priceBounds;
   return (
     <div className='px-1 py-2'>
       <Slider
@@ -376,7 +203,7 @@ function PriceRange({
         step={10}
         value={price}
         onValueChange={([lo, hi]) =>
-          onSelect(
+          filter.onChange(
             lo === priceBounds[0] && hi === priceBounds[1] ? null : ([lo, hi] as [number, number])
           )
         }
@@ -389,84 +216,25 @@ function PriceRange({
   );
 }
 
-function SortList({
-  onSelect,
-  value
-}: {
-  onSelect: (value: string | null) => void;
-  value: string | null;
-}) {
-  const current = value ?? 'featured';
+function SortSelect({ filter }: { filter: ResolvedFilterOf<'select'> }) {
   return (
-    <div className='flex flex-col gap-1'>
-      {sortOptions.map((option) => (
-        <button
-          key={option.value}
-          className={cn(
-            'rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-            option.value === current
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-          )}
-          type='button'
-          onClick={() => onSelect(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** A pill in the mobile filter row. Active chips show their value and an ×. */
-function FacetChip({
-  active,
-  icon,
-  label,
-  onClear,
-  onOpen
-}: {
-  active: boolean;
-  icon?: React.ReactNode;
-  label: string;
-  onClear?: () => void;
-  onOpen: () => void;
-}) {
-  return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center overflow-hidden rounded-full border text-sm transition-colors',
-        active ? 'border-primary/40 bg-primary/10 text-primary' : 'text-foreground'
-      )}
+    <Select
+      value={String(filter.value ?? 'featured')}
+      onValueChange={(next) => filter.onChange(next)}
     >
-      <button
-        className={cn('flex items-center gap-1.5 py-1.5 pl-3', onClear && active ? 'pr-1' : 'pr-3')}
-        type='button'
-        onClick={onOpen}
-      >
-        {icon}
-        {label}
-      </button>
-      {onClear && active && (
-        <button
-          aria-label={`Clear ${label}`}
-          className='py-1.5 pr-2.5 pl-1'
-          type='button'
-          onClick={onClear}
-        >
-          <X className='size-3.5' />
-        </button>
-      )}
-    </span>
+      <SelectTrigger className='w-[180px]'>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {sortOptions.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
-
-const Facet = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div className='flex flex-col gap-2'>
-    <Label className='text-muted-foreground text-xs tracking-wide uppercase'>{label}</Label>
-    {children}
-  </div>
-);
 
 const ProductCard = ({ product: p }: { product: (typeof products)[number] }) => (
   <div className='group border-border bg-card flex flex-col overflow-hidden rounded-lg border'>

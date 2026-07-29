@@ -1,16 +1,17 @@
 'use client';
 
 import { f, useFilters } from '@mbsatimov/use-filters';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { parseAsInteger, useQueryState } from 'nuqs';
 
 import type { OrderStatus } from '@/components/examples/data/orders';
 
 import { fetchOrders, statusOptions } from '@/components/examples/data/orders';
 import { useQuery } from '@/components/examples/data/use-query';
+import { MultiSelectFilter } from '@/components/filters/filter-controls/multi-select-filter';
+import { TextFilter } from '@/components/filters/filter-controls/text-filter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -19,15 +20,16 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 
 /**
- * The starting point: a search box, a status filter, and a paginated table.
+ * The starting point: a search box, a status filter, and a paginated table,
+ * composed by hand from standalone filter controls.
  *
- * Two filters is all it takes to see the whole loop — the config produces
- * URL-synced state, `params` goes to the backend as-is, and `paramsStr` keys
- * the fetch so it re-runs exactly when a committed value changes.
+ * Each control takes one entry from `filterMap` and owns only itself — no
+ * orchestration, no auto-appearing reset. The config produces URL-synced
+ * state, `params` goes to the backend as-is, and `paramsStr` keys the fetch
+ * so it re-runs exactly when a committed value changes.
  */
 export function BasicExample() {
   const { filterMap, params, paramsStr, isFiltered, instantReset } = useFilters({
@@ -42,43 +44,14 @@ export function BasicExample() {
     fetchOrders(params, { signal })
   );
 
-  const selectedStatuses = filterMap.status.value ?? [];
   const count = data?.count ?? 0;
   const pageCount = Math.max(1, Math.ceil(count / params.per_page));
 
   return (
     <div className='flex flex-col gap-4'>
-      {/* Toolbar */}
       <div className='flex flex-wrap items-center gap-2'>
-        <div className='relative w-full sm:w-64'>
-          <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
-          <Input
-            className='pl-9'
-            placeholder='Search orders…'
-            value={filterMap.search.value ?? ''}
-            onChange={(e) => filterMap.search.onChange(e.target.value || null)}
-          />
-        </div>
-
-        <ToggleGroup
-          className='gap-1'
-          type='multiple'
-          value={selectedStatuses}
-          onValueChange={(values) =>
-            filterMap.status.onChange(values.length ? (values as OrderStatus[]) : null)
-          }
-        >
-          {statusOptions.map((option) => (
-            <ToggleGroupItem
-              key={option.value}
-              className='rounded-md border px-3 text-xs'
-              value={option.value}
-            >
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-
+        <TextFilter filter={filterMap.search} />
+        <MultiSelectFilter filter={filterMap.status} />
         {isFiltered && (
           <Button size='sm' variant='ghost' onClick={instantReset}>
             <X className='size-3.5' /> Clear
@@ -86,7 +59,6 @@ export function BasicExample() {
         )}
       </div>
 
-      {/* Results — dim during a refetch instead of unmounting, so nothing flashes. */}
       <div
         className={cn(
           'overflow-x-auto rounded-lg border transition-opacity',

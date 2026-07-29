@@ -1,14 +1,12 @@
 'use client';
 
 import { f, useFilters } from '@mbsatimov/use-filters';
-import { ArrowDown, ArrowUp, ChevronsUpDown, Search, Settings2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, Settings2 } from 'lucide-react';
 import { parseAsInteger, useQueryStates } from 'nuqs';
 import { useState } from 'react';
 
 import type { Order, OrderStatus } from '@/components/examples/data/orders';
 
-import { DateRangeFilter } from '@/components/examples/data-table/date-range-filter';
-import { FacetedFilter } from '@/components/examples/data-table/faceted-filter';
 import {
   fetchOrders,
   initials,
@@ -17,6 +15,7 @@ import {
   statusOptions
 } from '@/components/examples/data/orders';
 import { useQuery } from '@/components/examples/data/use-query';
+import { FilterBar } from '@/components/filters/filter-bar/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -46,12 +44,14 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * An admin data table where every piece of table state — search, facets, date
- * range, sort, page, page size — lives in the URL. Copy the current address and
- * a teammate opens the exact same view.
+ * An admin data table where every piece of table state — search, filters,
+ * sort, page, page size — lives in the URL. Copy the current address and a
+ * teammate opens the exact same view.
  *
- * Sorting is a hidden filter: it rides along in `params` without rendering a
- * control, and the column headers write it through `setFilter`.
+ * The whole toolbar is one `<FilterBar filters={filters}>`: search renders
+ * inline, everything else lives behind the add-filter index, and each active
+ * filter becomes an editable chip. Sorting is a hidden filter the column
+ * headers write through `setFilter`.
  */
 
 /** Columns the visibility menu can hide. Order matches the table. */
@@ -70,7 +70,7 @@ type ColumnId = (typeof columns)[number]['id'];
 const PER_PAGE_OPTIONS = [10, 25, 50];
 
 export function DataTableExample() {
-  const { filterMap, params, paramsStr, isFiltered, instantReset, setFilter } = useFilters({
+  const { filters, params, paramsStr, isFiltered, instantReset, setFilter } = useFilters({
     search: f.text({ label: 'Search', placeholder: 'Filter orders…', commit: { debounce: 300 } }),
     status: f.multiSelect({ label: 'Status', valueType: 'string', options: statusOptions }),
     method: f.multiSelect({ label: 'Method', valueType: 'string', options: methodOptions }),
@@ -106,30 +106,12 @@ export function DataTableExample() {
 
   return (
     <div className='flex flex-col gap-3'>
-      {/* Toolbar */}
-      <div className='flex flex-wrap items-center gap-2'>
-        <div className='relative w-full sm:w-56'>
-          <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2' />
-          <Input
-            className='h-7 pl-8 text-[0.8rem]'
-            placeholder='Filter orders…'
-            value={filterMap.search.value ?? ''}
-            onChange={(e) => filterMap.search.onChange(e.target.value || null)}
-          />
-        </div>
-        <FacetedFilter filter={filterMap.status} />
-        <FacetedFilter filter={filterMap.method} />
-        <FacetedFilter filter={filterMap.region} />
-        <DateRangeFilter filter={filterMap.date} />
-        {isFiltered && (
-          <Button size='sm' variant='ghost' onClick={instantReset}>
-            Reset <X className='size-3.5' />
-          </Button>
-        )}
-
+      {/* The whole toolbar: search inline, other filters behind the index,
+          active ones as editable chips. `children` is the right-side slot. */}
+      <FilterBar filters={filters} isFiltered={isFiltered} reset={instantReset}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className='ml-auto' size='sm' variant='outline'>
+            <Button variant='outline'>
               <Settings2 className='size-3.5' /> View
             </Button>
           </DropdownMenuTrigger>
@@ -154,7 +136,7 @@ export function DataTableExample() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <div

@@ -1,7 +1,7 @@
 'use client';
 
 import { f, useFilters } from '@mbsatimov/use-filters';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { parseAsInteger, useQueryState } from 'nuqs';
 
 import type { OrderStatus } from '@/components/examples/data/orders';
@@ -15,11 +15,9 @@ import {
   statusOptions
 } from '@/components/examples/data/orders';
 import { useQuery } from '@/components/examples/data/use-query';
-import { FilterChips } from '@/components/examples/filter-menu/filter-chips';
-import { FilterMenu } from '@/components/examples/filter-menu/filter-menu';
+import { FilterBar } from '@/components/filters/filter-bar/filter-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -38,16 +36,16 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * The config-driven pattern: the whole screen hangs off one `useFilters` call.
+ * Every filter type on one `<FilterBar>`.
  *
- * `<FilterMenu>` and `<FilterChips>` render from the `filters` array with a
- * `switch` on each filter's type — they don't know this is an orders screen.
- * Add a filter to the config below and it shows up in the menu, summarizes
- * itself as a chip, and lands in `params` for the fetch. That includes the
- * server-searched customer picker and the manual-commit ranges.
+ * The whole screen hangs off this config: the text filter renders inline, the
+ * rest live behind the add-filter index, and each active filter becomes an
+ * editable chip. That includes the server-searched customer picker and the
+ * manual-commit ranges — staged edits get an Apply/Cancel footer in their
+ * editor, and dismissing the popover discards them.
  */
-export function FilterMenuExample() {
-  const { filters, filterMap, params, paramsStr, instantReset, setFilter } = useFilters({
+export function AllFiltersExample() {
+  const { filters, params, paramsStr, isFiltered, instantReset, setFilter } = useFilters({
     search: f.text({
       label: 'Search',
       placeholder: 'Order, customer, email…',
@@ -66,14 +64,13 @@ export function FilterMenuExample() {
       loadOptions: (search, signal) => searchCustomers(search, signal)
     }),
 
-    // Manual commit: dragging a range around inside the menu stages a draft;
-    // the URL (and the fetch) only see it on Apply.
+    // Manual commit: edits stage inside the editor until its Apply button.
     amount: f.numberRange({ label: 'Amount', commit: 'manual' }),
     date: f.dateRange({ label: 'Date', commit: 'manual' }),
 
     min_items: f.number({ label: 'Min items', precision: 'int', placeholder: 'At least…' }),
 
-    // In `params`, out of the menu — the sort dropdown owns this one.
+    // In `params`, out of the bar — the sort dropdown owns this one.
     ordering: f.text({ label: 'Sort', hidden: true, defaultValue: '-date' })
   });
 
@@ -82,46 +79,28 @@ export function FilterMenuExample() {
     fetchOrders(params, { signal })
   );
 
-  // The search box renders inline; everything else lives behind the menu.
-  const menuFilters = filters.filter((filter) => filter.key !== 'search');
-
   const count = data?.count ?? 0;
   const pageCount = Math.max(1, Math.ceil(count / params.per_page));
 
   return (
     <div className='flex flex-col gap-3'>
-      {/* Toolbar */}
-      <div className='flex flex-wrap items-center gap-2'>
-        <div className='relative w-full sm:w-64'>
-          <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
-          <Input
-            className='pl-9'
-            placeholder='Order, customer, email…'
-            value={filterMap.search.value ?? ''}
-            onChange={(e) => filterMap.search.onChange(e.target.value || null)}
-          />
-        </div>
-        <FilterMenu filters={menuFilters} />
-        <div className='ml-auto'>
-          <Select
-            value={params.ordering ?? '-date'}
-            onValueChange={(value) => setFilter('ordering', value)}
-          >
-            <SelectTrigger className='w-44'>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <FilterChips filters={filters} onReset={instantReset} />
+      <FilterBar filters={filters} isFiltered={isFiltered} reset={instantReset}>
+        <Select
+          value={params.ordering ?? '-date'}
+          onValueChange={(value) => setFilter('ordering', value)}
+        >
+          <SelectTrigger className='w-44'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
       {/* Results */}
       <div
