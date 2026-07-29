@@ -3,7 +3,6 @@
 import { Check, Copy, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
-/** A copyable install one-liner, styled like a terminal prompt. */
 export function InstallCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 

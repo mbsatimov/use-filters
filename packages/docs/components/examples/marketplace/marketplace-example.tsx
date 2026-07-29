@@ -119,7 +119,7 @@ export function MarketplaceExample() {
       {/* Mobile: one chip per facet; tapping opens that facet's drawer. */}
       <FacetChipRow className='md:hidden' filters={mobileFacets} onOpenFacet={setOpenKey} />
 
-      <div className='grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr]'>
+      <div className='grid grid-cols-1 gap-6 md:grid-cols-[220px_1fr] items-start'>
         <FacetPanel
           className='hidden md:flex'
           filters={facets}
