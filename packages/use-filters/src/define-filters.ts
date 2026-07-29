@@ -29,7 +29,7 @@ export function makeDefineFilters<
    * non-null params defaulted) — and both the bound hook and loader return
    * `params` typed as exactly `P`. The strict contract is enforced at the
    * `configs` parameter, never as `T`'s bound (checker blowup — see
-   * `FiltersForBound` in types.ts).
+   * `FiltersForBound` in types/contract.ts).
    */
   return function defineFilters<
     P = never,

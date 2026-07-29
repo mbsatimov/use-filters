@@ -467,6 +467,79 @@ describe('type inference — non-null params when a defaultValue is set', () => 
   });
 });
 
+describe('ChoiceResult ↔ HasDefault tie', () => {
+  /** `true` only when `config` declares `defaultValue` as a *required* property. */
+  const declaresRequiredDefault = <C,>(_config: C) =>
+    ({}) as C extends { defaultValue: unknown } ? true : false;
+
+  const loadOptions = async () => [] as FilterOption<number>[];
+
+  it('a choice builder marks `defaultValue` required exactly when one was passed', () => {
+    // `ChoiceResult` (builders.ts) decides whether the returned config declares a
+    // *required* `defaultValue`; `HasDefault` (types/values.ts) reads that same
+    // presence to drop `| null` from `params`. They are two independent encodings
+    // of one predicate, so pin both halves on the same configs — these assertions
+    // are the "declares it" half, the `params` test below is the "reads it" half.
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.select({ label: 'Sort', valueType: 'string', options: statusOptions })
+      )
+    ).toEqualTypeOf<false>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.select({
+          label: 'Sort',
+          valueType: 'string',
+          options: statusOptions,
+          defaultValue: 'open'
+        })
+      )
+    ).toEqualTypeOf<true>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions })
+      )
+    ).toEqualTypeOf<false>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions, defaultValue: 7 })
+      )
+    ).toEqualTypeOf<true>();
+  });
+
+  it('`params` drops `| null` for the async kinds too', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          customer: f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions }),
+          customer_defaulted: f.asyncSelect({
+            label: 'Customer',
+            valueType: 'number',
+            loadOptions,
+            defaultValue: 7
+          }),
+          tags: f.asyncMultiSelect({
+            label: 'Tags',
+            valueType: 'string',
+            loadOptions: async () => []
+          }),
+          tags_defaulted: f.asyncMultiSelect({
+            label: 'Tags',
+            valueType: 'string',
+            loadOptions: async () => [],
+            defaultValue: ['a']
+          })
+        }),
+      { wrapper }
+    );
+    const { params } = result.current;
+    expectTypeOf(params.customer).toEqualTypeOf<number | null>();
+    expectTypeOf(params.customer_defaulted).toEqualTypeOf<number>();
+    expectTypeOf(params.tags).toEqualTypeOf<string[] | null>();
+    expectTypeOf(params.tags_defaulted).toEqualTypeOf<string[]>();
+  });
+});
+
 describe('ResolvedFilter ↔ ResolvedFilterBase tie', () => {
   it('every resolved variant carries the kind-independent base fields', () => {
     // Locks `ResolvedFilter` to the internal `ResolvedFilterBase` contract so a

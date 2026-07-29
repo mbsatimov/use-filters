@@ -2,6 +2,8 @@ import type {
   AsyncMultiSelectFilterConfig,
   AsyncSelectFilterConfig,
   BooleanFilterConfig,
+  ChoiceBase,
+  ChoiceToken,
   DateFilterConfig,
   DateRangeFilterConfig,
   MultiSelectFilterConfig,
@@ -14,28 +16,30 @@ import type {
   TimeRangeFilterConfig
 } from './types';
 
-/** The `valueType` token every choice builder takes. */
-type ChoiceToken = 'number' | 'string';
-
-/** The base primitive a `valueType` token declares; `options` are checked against it. */
-type ChoiceBase<VT extends ChoiceToken> = VT extends 'number' ? number : string;
-
 /**
  * The config a choice builder accepts: the kind's own config `C` with
- * `defaultValue` narrowed to the captured `D` and `valueType` to the captured
- * token `VT` (which drives the value type `V`). `type` is added by the builder.
+ * `defaultValue` narrowed to `Captured` (whatever the call site passed, or
+ * `undefined`) and `valueType` to the captured token `VT` (which drives the
+ * value type `V`). `type` is added by the builder, never by the caller.
  */
-type ChoiceInput<C, VT extends ChoiceToken, D> = Omit<C, 'defaultValue' | 'type' | 'valueType'> & {
-  defaultValue?: D;
+type ChoiceInput<C, VT extends ChoiceToken, Captured> = Omit<
+  C,
+  'defaultValue' | 'type' | 'valueType'
+> & {
+  defaultValue?: Captured;
   valueType: VT;
 };
 
 /**
  * What a choice builder returns: the kind's config `C`, plus a **required**
- * `defaultValue: DV` when one was given — that presence is what lets `params`
- * drop `| null` for defaulted filters.
+ * `defaultValue: Declared` when the call site actually passed one — that
+ * presence is what lets `params` drop `| null` for defaulted filters, so this
+ * must stay in lockstep with `HasDefault` in `types/values.ts` (pinned by the
+ * `ChoiceResult ↔ HasDefault tie` tests). `Captured` answers *whether* a default
+ * was given; `Declared` is the widened type the result advertises for it.
  */
-type ChoiceResult<C, D, DV> = C & ([D] extends [undefined] ? unknown : { defaultValue: DV });
+type ChoiceResult<C, Captured, Declared> = C &
+  ([Captured] extends [undefined] ? unknown : { defaultValue: Declared });
 
 /**
  * `f` — the filter builders. The map key becomes the URL query param; the

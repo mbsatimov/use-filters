@@ -1,8 +1,10 @@
-import type { SingleParserBuilder } from 'nuqs';
+import type { ParserMap, SingleParserBuilder } from 'nuqs';
 
 import { parseAsArrayOf, parseAsBoolean, parseAsFloat, parseAsInteger, parseAsString } from 'nuqs';
 
-import type { FilterConfig, FilterParserValue } from './types';
+import type { FilterConfig, FilterEntry, FilterParserValue } from './types';
+
+import { asyncKindOf, isLabelKey, LABEL_SUFFIX, labelKeyOf } from './filter-utils';
 
 /** Apply `defaultValue` (when provided) so an absent URL param resolves to it. */
 const withOptionalDefault = <T>(
@@ -88,3 +90,68 @@ export const fingerprintNuqsOptions = (options: object | undefined): string =>
     : JSON.stringify(options, (_key, value: unknown) =>
         typeof value === 'function' ? 'fn' : value
       );
+
+/**
+ * Structural fingerprint of everything {@link buildParserMap} reads off the
+ * configs. `useFilters` keys the parser map on this rather than on the entries'
+ * identity, so passing an inline config literal — a new object every render —
+ * doesn't rebuild the parsers and re-key the URL state.
+ */
+export const fingerprintFilterConfigs = (entries: FilterEntry[]): string =>
+  entries
+    .map(([key, config]) => {
+      const { precision = '', valueType = '' } = config as {
+        precision?: string;
+        valueType?: string;
+      };
+      const defaultValue = JSON.stringify(config.defaultValue ?? null);
+      return `${key}:${config.type}:${valueType}:${precision}:${defaultValue}:${fingerprintNuqsOptions(config.nuqs)}`;
+    })
+    .join('|');
+
+/** Pagination's own parsers; `null` when pagination is disabled for the call. */
+export interface PaginationParsers {
+  defaultPerPage: number;
+  firstPage: number;
+  pageKey: string;
+  perPageKey: string;
+}
+
+/**
+ * The full `key -> parser` map `useQueryStates` binds: one parser per filter,
+ * a `<key>_label` sidecar for each async filter, and the pagination pair.
+ * Per-filter `nuqs` options are applied to both a filter and its sidecar so the
+ * two always write under the same history/shallow settings.
+ */
+export const buildParserMap = (
+  entries: FilterEntry[],
+  arraySeparator: string,
+  pagination: PaginationParsers | null
+): ParserMap => {
+  // `ParserMap` is intentionally `any`-valued (nuqs); our typing is recovered via `params`.
+  const map: ParserMap = {};
+
+  for (const [key, config] of entries) {
+    if (process.env.NODE_ENV !== 'production' && isLabelKey(key)) {
+      console.warn(
+        `[useFilters] "${key}" ends with the reserved "${LABEL_SUFFIX}" suffix used by async filter label sidecars — rename it to avoid collisions.`
+      );
+    }
+    const parser = buildParser(config, arraySeparator);
+    map[key] = config.nuqs ? parser.withOptions(config.nuqs) : parser;
+
+    // Async filters carry a `<key>_label` sidecar (display-only, same separator).
+    const asyncKind = asyncKindOf(config);
+    if (asyncKind) {
+      const labelParser =
+        asyncKind === 'multi' ? parseAsArrayOf(parseAsString, arraySeparator) : parseAsString;
+      map[labelKeyOf(key)] = config.nuqs ? labelParser.withOptions(config.nuqs) : labelParser;
+    }
+  }
+
+  if (pagination) {
+    map[pagination.pageKey] = parseAsInteger.withDefault(pagination.firstPage);
+    map[pagination.perPageKey] = parseAsInteger.withDefault(pagination.defaultPerPage);
+  }
+  return map;
+};

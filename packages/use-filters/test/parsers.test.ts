@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import type { FilterEntry } from '../src/types';
+
 import { f } from '../src/builders';
-import { buildParser } from '../src/parsers';
+import { buildParser, buildParserMap, fingerprintFilterConfigs } from '../src/parsers';
 
 describe('buildParser — number precision', () => {
   it('keeps decimals by default (float)', () => {
@@ -63,6 +65,112 @@ describe('buildParser — tags', () => {
     const parser = buildParser(f.tags({ label: 'Tags' }));
     expect(parser.parse('alpha,beta')).toEqual(['alpha', 'beta']);
     expect(parser.serialize(['alpha', 'beta'] as never)).toBe('alpha,beta');
+  });
+});
+
+describe('fingerprintFilterConfigs', () => {
+  const fingerprint = (entries: FilterEntry[]) => fingerprintFilterConfigs(entries);
+
+  it('is stable across separate configs with identical content', () => {
+    // The whole point: an inline config literal is a new object every render.
+    expect(fingerprint([['search', f.text({ label: 'Search' })]])).toBe(
+      fingerprint([['search', f.text({ label: 'Search' })]])
+    );
+  });
+
+  it('ignores fields that do not affect parsing', () => {
+    expect(fingerprint([['search', f.text({ label: 'Search' })]])).toBe(
+      fingerprint([['search', f.text({ label: 'Qidiruv', placeholder: 'x', hidden: true })]])
+    );
+  });
+
+  it('changes when the default value changes', () => {
+    expect(fingerprint([['n', f.number({ label: 'N' })]])).not.toBe(
+      fingerprint([['n', f.number({ label: 'N', defaultValue: 1 })]])
+    );
+  });
+
+  it('changes when precision changes', () => {
+    expect(fingerprint([['n', f.number({ label: 'N' })]])).not.toBe(
+      fingerprint([['n', f.number({ label: 'N', precision: 'int' })]])
+    );
+  });
+
+  it('changes when a nuqs option changes', () => {
+    expect(fingerprint([['s', f.text({ label: 'S', nuqs: { history: 'replace' } })]])).not.toBe(
+      fingerprint([['s', f.text({ label: 'S', nuqs: { history: 'push' } })]])
+    );
+  });
+
+  it('changes when the key changes', () => {
+    expect(fingerprint([['a', f.text({ label: 'S' })]])).not.toBe(
+      fingerprint([['b', f.text({ label: 'S' })]])
+    );
+  });
+});
+
+describe('buildParserMap', () => {
+  const pagination = {
+    defaultPerPage: 10,
+    firstPage: 1,
+    pageKey: 'page',
+    perPageKey: 'per_page'
+  };
+
+  it('maps one parser per filter key', () => {
+    const map = buildParserMap([['search', f.text({ label: 'Search' })]], ',', null);
+    expect(Object.keys(map)).toEqual(['search']);
+  });
+
+  it('adds a label sidecar for async filters only', () => {
+    const map = buildParserMap(
+      [
+        ['search', f.text({ label: 'Search' })],
+        [
+          'customer',
+          f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions: async () => [] })
+        ]
+      ],
+      ',',
+      null
+    );
+    expect(Object.keys(map).sort()).toEqual(['customer', 'customer_label', 'search']);
+  });
+
+  it('adds the pagination pair when pagination is enabled', () => {
+    const map = buildParserMap([], ',', pagination);
+    expect(Object.keys(map).sort()).toEqual(['page', 'per_page']);
+    expect(map.page.defaultValue).toBe(1);
+    expect(map.per_page.defaultValue).toBe(10);
+  });
+
+  it('omits pagination entirely when it is disabled', () => {
+    expect(Object.keys(buildParserMap([], ',', null))).toEqual([]);
+  });
+
+  it('honours the array separator for array-shaped filters', () => {
+    const map = buildParserMap([['tags', f.tags({ label: 'Tags' })]], '|', null);
+    expect(map.tags.parse('a|b' as never)).toEqual(['a', 'b']);
+  });
+
+  it('applies a filter’s nuqs options to its label sidecar too', () => {
+    const map = buildParserMap(
+      [
+        [
+          'customer',
+          f.asyncSelect({
+            label: 'Customer',
+            valueType: 'number',
+            nuqs: { history: 'push' },
+            loadOptions: async () => []
+          })
+        ]
+      ],
+      ',',
+      null
+    );
+    expect(map.customer.history).toBe('push');
+    expect(map.customer_label.history).toBe('push');
   });
 });
 
