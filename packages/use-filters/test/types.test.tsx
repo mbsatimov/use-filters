@@ -84,6 +84,32 @@ describe('type inference — per-config `params` (no type argument)', () => {
     expectTypeOf(status.isDirty).toEqualTypeOf<boolean>();
     expectTypeOf(status.committedValue).toEqualTypeOf<'closed' | 'open' | null>();
   });
+
+  it('async builders: `valueType` drives the value type; a mistyped `loadOptions` errors at its own line', () => {
+    // `valueType: 'number'` pins the value to `number` — the server's option
+    // page is open-ended, so its values never narrow to literals.
+    const good = f.asyncSelect({
+      label: 'Customer',
+      valueType: 'number',
+      loadOptions: async () => [{ label: 'Acme', value: 42 }]
+    });
+    expectTypeOf(good.defaultValue).toEqualTypeOf<number | undefined>();
+
+    f.asyncSelect({
+      label: 'Customer',
+      valueType: 'number',
+      // @ts-expect-error resolving to `undefined` (optional chaining without a
+      // `?? []` fallback) must fail here — never silently widen `params`.
+      loadOptions: async (search: string) => (search ? [{ label: 'Acme', value: 42 }] : undefined)
+    });
+
+    f.asyncMultiSelect({
+      label: 'Customers',
+      valueType: 'number',
+      // @ts-expect-error string option values contradict `valueType: 'number'`.
+      loadOptions: async () => [{ label: 'Acme', value: 'acme' }]
+    });
+  });
 });
 
 describe('type checking — explicit `<P>` (API params type)', () => {
@@ -438,6 +464,79 @@ describe('type inference — non-null params when a defaultValue is set', () => 
     expectTypeOf(sort.committedValue).toEqualTypeOf<'closed' | 'open'>();
     // …but onChange still takes null, to reset back to the default.
     expectTypeOf(sort.onChange).parameter(0).toEqualTypeOf<'closed' | 'open' | null>();
+  });
+});
+
+describe('ChoiceResult ↔ HasDefault tie', () => {
+  /** `true` only when `config` declares `defaultValue` as a *required* property. */
+  const declaresRequiredDefault = <C,>(_config: C) =>
+    ({}) as C extends { defaultValue: unknown } ? true : false;
+
+  const loadOptions = async () => [] as FilterOption<number>[];
+
+  it('a choice builder marks `defaultValue` required exactly when one was passed', () => {
+    // `ChoiceResult` (builders.ts) decides whether the returned config declares a
+    // *required* `defaultValue`; `HasDefault` (types/values.ts) reads that same
+    // presence to drop `| null` from `params`. They are two independent encodings
+    // of one predicate, so pin both halves on the same configs — these assertions
+    // are the "declares it" half, the `params` test below is the "reads it" half.
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.select({ label: 'Sort', valueType: 'string', options: statusOptions })
+      )
+    ).toEqualTypeOf<false>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.select({
+          label: 'Sort',
+          valueType: 'string',
+          options: statusOptions,
+          defaultValue: 'open'
+        })
+      )
+    ).toEqualTypeOf<true>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions })
+      )
+    ).toEqualTypeOf<false>();
+    expectTypeOf(
+      declaresRequiredDefault(
+        f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions, defaultValue: 7 })
+      )
+    ).toEqualTypeOf<true>();
+  });
+
+  it('`params` drops `| null` for the async kinds too', () => {
+    const { result } = renderHook(
+      () =>
+        useFilters({
+          customer: f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions }),
+          customer_defaulted: f.asyncSelect({
+            label: 'Customer',
+            valueType: 'number',
+            loadOptions,
+            defaultValue: 7
+          }),
+          tags: f.asyncMultiSelect({
+            label: 'Tags',
+            valueType: 'string',
+            loadOptions: async () => []
+          }),
+          tags_defaulted: f.asyncMultiSelect({
+            label: 'Tags',
+            valueType: 'string',
+            loadOptions: async () => [],
+            defaultValue: ['a']
+          })
+        }),
+      { wrapper }
+    );
+    const { params } = result.current;
+    expectTypeOf(params.customer).toEqualTypeOf<number | null>();
+    expectTypeOf(params.customer_defaulted).toEqualTypeOf<number>();
+    expectTypeOf(params.tags).toEqualTypeOf<string[] | null>();
+    expectTypeOf(params.tags_defaulted).toEqualTypeOf<string[]>();
   });
 });
 

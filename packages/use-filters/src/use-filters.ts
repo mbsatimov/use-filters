@@ -1,17 +1,14 @@
-import type { ParserMap } from 'nuqs';
-
-import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'nuqs';
+import { useQueryStates } from 'nuqs';
 import * as React from 'react';
 
+import type { CommittedValue, DebouncedLoadOptionsCache } from './resolved-fields';
 import type {
   ArrayFormat,
   AsyncMultiSelectFilterConfig,
   AsyncSelectFilterConfig,
-  FilterCommitMode,
   FilterConfig,
+  FilterEntry,
   FilterMapOf,
-  FilterOption,
-  FilterPrimitive,
   FiltersFor,
   FiltersForBound,
   FiltersMeta,
@@ -21,156 +18,23 @@ import type {
   ResolvedFilter,
   ResolvedFilterBase,
   ResolvedFiltersConfig,
-  SelectedOption,
   UseFiltersOptions,
   UseFiltersReturn
 } from './types';
 
-import { debounceAsync, DEFAULT_ASYNC_DEBOUNCE_MS } from './debounce';
-import {
-  asyncKindOf,
-  formatArrayParams,
-  hasFilterValue,
-  isLabelKey,
-  LABEL_SUFFIX,
-  labelKeyOf,
-  valuesEqual
-} from './filter-utils';
+import { asyncKindOf, formatArrayParams, labelKeyOf } from './filter-utils';
 import { resolvePaginationOverride } from './pagination';
-import { buildParser, fingerprintNuqsOptions } from './parsers';
+import { buildParserMap, fingerprintFilterConfigs } from './parsers';
+import {
+  cachedDebouncedLoadOptions,
+  defaultValueOf,
+  differsFromDefault,
+  readCommitted,
+  resolveAsyncFields,
+  resolveStaticSelectFields
+} from './resolved-fields';
 import { serializeParamsKey } from './search';
-
-/** Read a filter's committed URL value + label sidecar, normalized to `null`. */
-const readCommitted = (
-  values: Record<string, unknown>,
-  key: string
-): { value: ParamValue; labels: string | string[] | null } => ({
-  value: (values[key] ?? null) as ParamValue,
-  labels: (values[labelKeyOf(key)] ?? null) as string | string[] | null
-});
-
-/**
- * A change held in local state while its `commit` mode delays the URL write.
- * `value`/`labels` are what the filter shows now; `commit()` is the deferred write.
- */
-interface PendingChange {
-  labels: string | string[] | null;
-  value: ParamValue;
-  commit: () => void;
-}
-
-/** Whether a value counts as "filtered": differs from `defaultValue`, or (no default) is non-empty. */
-const differsFromDefault = (config: FilterConfig, value: ParamValue): boolean =>
-  config.defaultValue !== undefined
-    ? !valuesEqual(value, config.defaultValue)
-    : hasFilterValue(value);
-
-/**
- * Dev-only guard: warn once per filter when `loadOptions` returns ids of a type
- * that contradicts `valueType` (URL values wouldn't round-trip). Pass-through in prod.
- */
-const withValueTypeCheck = (
-  key: string,
-  config: AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig,
-  warned: Set<string>
-): ((search: string, signal: AbortSignal) => Promise<FilterOption[]>) => {
-  if (process.env.NODE_ENV === 'production') return config.loadOptions;
-  return async (search, signal) => {
-    const options = await config.loadOptions(search, signal);
-    const expected = config.valueType;
-    const sample = options.find((option) => option.value != null);
-    const actual = typeof sample?.value === 'number' ? 'number' : 'string';
-    if (sample && actual !== expected && !warned.has(key)) {
-      warned.add(key);
-      console.warn(
-        `[useFilters] "${key}": loadOptions returned ${actual}-valued options, but its valueType is '${expected}' — URL values won't round-trip${
-          expected === 'number' ? ' (string ids parse back as null)' : ''
-        }. Set valueType: '${actual}' on this filter.`
-      );
-    }
-    return options;
-  };
-};
-
-/** Async filters' `selectedOption(s)` + option-aware setters (`onSelectOption`, `onToggleOption`, …). */
-const resolveAsyncFields = (
-  asyncKind: 'multi' | 'single',
-  key: string,
-  draftValue: ParamValue,
-  draftLabels: string | string[] | null,
-  mode: FilterCommitMode,
-  schedule: (
-    key: string,
-    value: ParamValue,
-    labels: string | string[] | null,
-    mode: FilterCommitMode,
-    cause: ParamsChangeCause
-  ) => void
-): Record<string, unknown> => {
-  if (asyncKind === 'single') {
-    const value = draftValue as FilterPrimitive | null;
-    const label = draftLabels as string | null;
-    return {
-      selectedOption: value === null ? null : ({ value, label } as SelectedOption),
-      onSelectOption: (option: FilterOption | null) => {
-        schedule(key, option?.value ?? null, option?.label ?? null, mode, 'change');
-      }
-    };
-  }
-  const selected = (draftValue ?? []) as FilterPrimitive[];
-  const labels = (draftLabels ?? []) as string[];
-  return {
-    selectedOptions: selected.map<SelectedOption>((value, index) => ({
-      value,
-      label: labels[index] ?? null
-    })),
-    onSetOptions: (options: FilterOption[]) => {
-      schedule(
-        key,
-        options.length ? (options.map((option) => option.value) as ParamValue) : null,
-        options.length ? options.map((option) => option.label) : null,
-        mode,
-        'change'
-      );
-    },
-    onToggleOption: (option: FilterOption) => {
-      const index = selected.indexOf(option.value);
-      const nextValues = [...selected];
-      const nextLabels = selected.map((value, i) => labels[i] ?? String(value));
-      if (index === -1) {
-        nextValues.push(option.value);
-        nextLabels.push(option.label);
-      } else {
-        nextValues.splice(index, 1);
-        nextLabels.splice(index, 1);
-      }
-      schedule(
-        key,
-        nextValues.length ? (nextValues as ParamValue) : null,
-        nextValues.length ? nextLabels : null,
-        mode,
-        'change'
-      );
-    }
-  };
-};
-
-/** Static choice filters' `selectedOption(s)` — the full option object(s) resolved from `options`. */
-const resolveStaticSelectFields = (
-  config: FilterConfig,
-  draftValue: ParamValue
-): Record<string, unknown> => {
-  if (config.type === 'select') {
-    return { selectedOption: config.options.find((option) => option.value === draftValue) ?? null };
-  }
-  if (config.type === 'multiSelect') {
-    const selected = (draftValue ?? []) as FilterPrimitive[];
-    return {
-      selectedOptions: config.options.filter((option) => selected.includes(option.value))
-    };
-  }
-  return {};
-};
+import { usePendingCommits } from './use-pending-commits';
 
 /**
  * Build a `useFilters` hook bound to a resolved per-project config —
@@ -231,76 +95,27 @@ export function makeUseFilters<
       resetPageOnFilterChange
     } = resolvePaginationOverride(pagination, cfg);
 
-    const entries = React.useMemo(
-      () => Object.entries(configs) as [string, FilterConfig][],
-      [configs]
-    );
+    const entries = React.useMemo(() => Object.entries(configs) as FilterEntry[], [configs]);
 
-    // Structural fingerprint of everything affecting parser construction. Keying
-    // `parsers` on this (not the `entries` reference) keeps URL state stable when
-    // consumers pass an inline config literal — a new object every render.
-    const parserSignature = React.useMemo(
+    const parserSignature = React.useMemo(() => fingerprintFilterConfigs(entries), [entries]);
+
+    const parsers = React.useMemo(
       () =>
-        entries
-          .map(([key, config]) => {
-            const valueFamily = (config as { valueType?: string }).valueType ?? '';
-            return `${key}:${config.type}:${valueFamily}:${
-              (config as { precision?: string }).precision ?? ''
-            }:${JSON.stringify(config.defaultValue ?? null)}:${fingerprintNuqsOptions(config.nuqs)}`;
-          })
-          .join('|'),
-      [entries]
-    );
-
-    const parsers = React.useMemo(() => {
-      // `ParserMap` is intentionally `any`-valued (nuqs); our typing is recovered via `params`.
-      const map: ParserMap = {};
-      for (const [key, config] of entries) {
-        if (process.env.NODE_ENV !== 'production' && isLabelKey(key)) {
-          console.warn(
-            `[useFilters] "${key}" ends with the reserved "${LABEL_SUFFIX}" suffix used by async filter label sidecars — rename it to avoid collisions.`
-          );
-        }
-        const parser = buildParser(config, arraySeparator);
-        map[key] = config.nuqs ? parser.withOptions(config.nuqs) : parser;
-
-        // Async filters carry a `<key>_label` sidecar (display-only, same separator).
-        const asyncKind = asyncKindOf(config);
-        if (asyncKind) {
-          const labelParser =
-            asyncKind === 'multi' ? parseAsArrayOf(parseAsString, arraySeparator) : parseAsString;
-          map[labelKeyOf(key)] = config.nuqs ? labelParser.withOptions(config.nuqs) : labelParser;
-        }
-      }
-      if (paginationEnabled) {
-        map[pageKey] = parseAsInteger.withDefault(firstPage);
-        map[perPageKey] = parseAsInteger.withDefault(defaultPerPage);
-      }
-      return map;
+        buildParserMap(
+          entries,
+          arraySeparator,
+          paginationEnabled ? { defaultPerPage, firstPage, pageKey, perPageKey } : null
+        ),
       // `entries` is read via the stable `parserSignature`; depending on it
       // directly would rebuild parsers (and re-key `useQueryStates`) every render.
       // eslint-disable-next-line react/exhaustive-deps
-    }, [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]);
+      [parserSignature, paginationEnabled, defaultPerPage, arraySeparator]
+    );
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
-    // Draft layer: non-`instant` changes land here until their `commit` mode
-    // fires. `instant` filters skip it and write straight to the URL.
-    const [pending, setPending] = React.useState<Record<string, PendingChange>>({});
-    const timersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-    // Debounced `loadOptions` wrappers cached per key, so the timer/queued callers
-    // persist across renders. Rebuilt only when `loadOptions`/`searchDebounceMs` change.
-    const debouncedLoadOptionsRef = React.useRef<
-      Record<
-        string,
-        {
-          debounceMs: number;
-          loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption[]>;
-          wrapped: (search: string, signal: AbortSignal) => Promise<FilterOption[]>;
-        }
-      >
-    >({});
+    // Backing store for `cachedDebouncedLoadOptions` — see it for the cache policy.
+    const debouncedLoadOptionsRef = React.useRef<DebouncedLoadOptionsCache>({});
 
     // Keys already warned about a loadOptions/valueType mismatch (once per filter).
     const warnedValueTypesRef = React.useRef<Set<string>>(new Set());
@@ -310,54 +125,6 @@ export function makeUseFilters<
     // Anything it doesn't set is an outside change — a back/forward, another URL
     // consumer — so it defaults back to 'external'.
     const causeRef = React.useRef<ParamsChangeCause>('external');
-
-    const clearTimer = React.useCallback((key: string) => {
-      const timer = timersRef.current[key];
-      if (timer !== undefined) {
-        clearTimeout(timer);
-        delete timersRef.current[key];
-      }
-    }, []);
-
-    const dropPending = React.useCallback((key: string) => {
-      setPending((current) => {
-        if (!(key in current)) return current;
-        const next = { ...current };
-        delete next[key];
-        return next;
-      });
-    }, []);
-
-    // Single-key apply/cancel — shared by the whole-set and per-filter versions.
-    const applyKey = React.useCallback(
-      (key: string) => {
-        const change = pending[key];
-        if (!change) return;
-        clearTimer(key);
-        // A staged change committing is still a value change.
-        causeRef.current = 'change';
-        change.commit();
-        dropPending(key);
-      },
-      [pending, clearTimer, dropPending]
-    );
-
-    const cancelKey = React.useCallback(
-      (key: string) => {
-        if (!(key in pending)) return;
-        clearTimer(key);
-        dropPending(key);
-      },
-      [pending, clearTimer, dropPending]
-    );
-
-    // Cancel in-flight timers on unmount so they can't write to a torn-down component.
-    React.useEffect(
-      () => () => {
-        for (const timer of Object.values(timersRef.current)) clearTimeout(timer);
-      },
-      []
-    );
 
     const configByKey = React.useMemo(() => new Map(entries), [entries]);
 
@@ -373,44 +140,11 @@ export function makeUseFilters<
       [setValues, paginationEnabled, resetPageOnFilterChange, configByKey]
     );
 
-    // Route a change through its filter's `commit` mode. `instant` writes to the
-    // URL immediately; `debounce` shows it right away but delays the write and
-    // resets the timer on each call; `manual` shows it and waits for `apply()`.
-    const schedule = React.useCallback(
-      (
-        key: string,
-        value: ParamValue,
-        labels: string | string[] | null,
-        mode: FilterCommitMode,
-        cause: ParamsChangeCause
-      ) => {
-        clearTimer(key);
-        const commit = () => setFilterValue(key, value, labels);
-        if (mode === 'instant') {
-          causeRef.current = cause;
-          dropPending(key);
-          commit();
-          return;
-        }
-        // No-op guard: a change matching the committed value drops the draft
-        // instead of going dirty (compares committed, not pending, so undoing clears isDirty).
-        const { value: committedValue, labels: committedLabels } = readCommitted(values, key);
-        if (valuesEqual(value, committedValue) && valuesEqual(labels, committedLabels)) {
-          dropPending(key);
-          return;
-        }
-        setPending((current) => ({ ...current, [key]: { commit, labels, value } }));
-        if (mode === 'manual') return;
-        timersRef.current[key] = setTimeout(() => {
-          // Set the cause at commit time (not when scheduled) so a debounced
-          // write reports its own cause even if other actions ran while it waited.
-          causeRef.current = cause;
-          delete timersRef.current[key];
-          dropPending(key);
-          commit();
-        }, mode.debounce);
-      },
-      [clearTimer, dropPending, setFilterValue, values]
+    // The draft layer (pending changes + debounce timers) lives here.
+    const { applyKey, cancelKey, commitNow, discardAll, pending, schedule } = usePendingCommits(
+      values,
+      setFilterValue,
+      causeRef
     );
 
     const resolveFilter = React.useCallback(
@@ -420,19 +154,15 @@ export function makeUseFilters<
         const isManual = mode === 'manual';
         const isDebounced = typeof mode === 'object';
 
-        // Draft overlay: show the pending value if one exists, else the committed URL value.
+        // Draft overlay: a pending change shadows the committed URL value. A
+        // `PendingChange` carries the same `value`/`labels` pair, so it stands in
+        // for the committed one directly.
         const change = pending[key];
-        const { value: committedValue, labels: committedLabels } = readCommitted(values, key);
-        const draftValue = change ? change.value : committedValue;
-        const draftLabels = change ? change.labels : committedLabels;
+        const committed = readCommitted(values, key);
+        const draft: CommittedValue = change ?? committed;
         const doReset = () =>
-          schedule(key, (config.defaultValue ?? null) as ParamValue, null, mode, 'reset');
-        const doInstantReset = () => {
-          clearTimer(key);
-          dropPending(key);
-          causeRef.current = 'reset';
-          setFilterValue(key, (config.defaultValue ?? null) as ParamValue);
-        };
+          schedule({ key, mode, value: defaultValueOf(config), cause: 'reset' });
+        const doInstantReset = () => commitNow(key, defaultValueOf(config), 'reset');
 
         // Typed against `ResolvedFilterBase` so the common fields are
         // compile-checked here; the `Record` half admits the config spread and
@@ -446,62 +176,37 @@ export function makeUseFilters<
           isManual,
           isDebounced,
           debounceMs: isDebounced ? (mode as { debounce: number }).debounce : null,
-          value: draftValue,
-          committedValue,
+          value: draft.value,
+          committedValue: committed.value,
           isDirty: change !== undefined,
           // Per-filter active state; `isFiltered` tracks the committed value, `isFilteredDraft` the draft.
-          isFiltered: differsFromDefault(config, committedValue),
-          isFilteredDraft: differsFromDefault(config, draftValue),
-          onChange: (value: ParamValue) => schedule(key, value ?? null, null, mode, 'change'),
+          isFiltered: differsFromDefault(config, committed.value),
+          isFilteredDraft: differsFromDefault(config, draft.value),
+          onChange: (value: ParamValue) => schedule({ key, mode, value: value ?? null }),
           reset: doReset,
           instantReset: doInstantReset,
           apply: () => applyKey(key),
           cancel: () => cancelKey(key)
         };
 
-        const asyncKind = asyncKindOf(config);
-        if (asyncKind) {
-          // Debounce `loadOptions`, cached per key so the timer/queued callers survive renders.
+        const kind = asyncKindOf(config);
+        if (kind) {
           const asyncConfig = config as AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig;
-          const debounceMs = asyncConfig.searchDebounceMs ?? DEFAULT_ASYNC_DEBOUNCE_MS;
-          const cached = debouncedLoadOptionsRef.current[key];
-          const wrapped =
-            cached &&
-            cached.loadOptions === asyncConfig.loadOptions &&
-            cached.debounceMs === debounceMs
-              ? cached.wrapped
-              : debounceAsync(
-                  withValueTypeCheck(key, asyncConfig, warnedValueTypesRef.current),
-                  debounceMs
-                );
-          debouncedLoadOptionsRef.current[key] = {
-            debounceMs,
-            loadOptions: asyncConfig.loadOptions,
-            wrapped
-          };
-          resolved.loadOptions = wrapped;
-          Object.assign(
-            resolved,
-            resolveAsyncFields(asyncKind, key, draftValue, draftLabels, mode, schedule)
+          resolved.loadOptions = cachedDebouncedLoadOptions(
+            debouncedLoadOptionsRef.current,
+            key,
+            asyncConfig,
+            warnedValueTypesRef.current
           );
+          Object.assign(resolved, resolveAsyncFields(kind, key, mode, draft, schedule));
         }
 
         // Static choice filters: expose the full selected option(s) from `options`.
-        Object.assign(resolved, resolveStaticSelectFields(config, draftValue));
+        Object.assign(resolved, resolveStaticSelectFields(config, draft.value));
 
         return resolved as unknown as ResolvedFilter;
       },
-      [
-        values,
-        pending,
-        schedule,
-        defaultCommit,
-        applyKey,
-        cancelKey,
-        clearTimer,
-        dropPending,
-        setFilterValue
-      ]
+      [values, pending, schedule, defaultCommit, applyKey, cancelKey, commitNow]
     );
 
     // Keyed lookup — includes hidden filters (a caller may reach one by key).
@@ -520,7 +225,7 @@ export function makeUseFilters<
           .filter(([, config]) => !config.hidden)
           // Read as `Record` (not `filterMap[key as keyof T]`): indexing by an
           // asserted `keyof T` re-touches the generic and blows up the checker
-          // (see `FilterMapOf` in types.ts). Same runtime result.
+          // (see `FilterMapOf` in types/resolved.ts). Same runtime result.
           .map(([key]) => (filterMap as Record<string, ResolvedFilter>)[key]),
       [entries, filterMap]
     );
@@ -528,6 +233,9 @@ export function makeUseFilters<
     // Raw params — array-shaped values kept as arrays, before `arrayFormat`.
     // `paramsStr` derives from this so the cache key is identical whether arrays
     // are emitted as arrays or as joined strings (`arrayFormat` never re-keys).
+    // `pageKey`/`perPageKey`/`firstPage` are absent from the deps on purpose:
+    // they're factory constants (fixed for the life of this hook), so they can
+    // never invalidate the memo. Same for `cfg.arrayFormat` in `params` below.
     const rawParams = React.useMemo(() => {
       const result: Record<string, unknown> = {};
       for (const [key] of entries) result[key] = values[key] ?? null;
@@ -570,13 +278,8 @@ export function makeUseFilters<
 
     // Imperative set: bypass the draft layer, land in the URL immediately.
     const setFilter = React.useCallback(
-      (key: string, value: ParamValue) => {
-        clearTimer(key);
-        dropPending(key);
-        causeRef.current = 'change';
-        setFilterValue(key, value);
-      },
-      [clearTimer, dropPending, setFilterValue]
+      (key: string, value: ParamValue) => commitNow(key, value, 'change'),
+      [commitNow]
     );
 
     // Reset every filter to its default, respecting each one's commit mode (the
@@ -584,31 +287,28 @@ export function makeUseFilters<
     // manual/debounced stage a draft. nuqs coalesces the same-tick writes.
     const reset = React.useCallback(() => {
       for (const [key, config] of entries) {
-        schedule(
+        schedule({
           key,
-          (config.defaultValue ?? null) as ParamValue,
-          null,
-          config.commit ?? defaultCommit,
-          'reset'
-        );
+          mode: config.commit ?? defaultCommit,
+          value: defaultValueOf(config),
+          cause: 'reset'
+        });
       }
     }, [entries, schedule, defaultCommit]);
 
     // Mode-bypassing counterpart to `reset`: wipe to defaults and commit in one
     // batched write, cancelling all pending drafts/timers.
     const instantReset = React.useCallback(() => {
-      for (const timer of Object.values(timersRef.current)) clearTimeout(timer);
-      timersRef.current = {};
-      setPending({});
+      discardAll();
       const cleared: Record<string, ParamValue> = {};
       for (const [key, config] of entries) {
-        cleared[key] = (config.defaultValue ?? null) as ParamValue;
+        cleared[key] = defaultValueOf(config);
         if (asyncKindOf(config)) cleared[labelKeyOf(key)] = null;
       }
       if (paginationEnabled && resetPageOnFilterChange) cleared[pageKey] = null;
       causeRef.current = 'reset';
       void setValues(cleared);
-    }, [paginationEnabled, resetPageOnFilterChange, setValues, entries]);
+    }, [paginationEnabled, resetPageOnFilterChange, setValues, entries, discardAll]);
 
     const result: UseFiltersReturn<P, PP, T, FAF> = {
       params,

@@ -2,9 +2,10 @@ import type {
   AsyncMultiSelectFilterConfig,
   AsyncSelectFilterConfig,
   BooleanFilterConfig,
+  ChoiceBase,
+  ChoiceToken,
   DateFilterConfig,
   DateRangeFilterConfig,
-  FilterPrimitive,
   MultiSelectFilterConfig,
   NumberFilterConfig,
   NumberRangeFilterConfig,
@@ -15,8 +16,30 @@ import type {
   TimeRangeFilterConfig
 } from './types';
 
-/** The base primitive a `valueType` token declares; `options` are checked against it. */
-type ChoiceBase<VT extends 'number' | 'string'> = VT extends 'number' ? number : string;
+/**
+ * The config a choice builder accepts: the kind's own config `C` with
+ * `defaultValue` narrowed to `Captured` (whatever the call site passed, or
+ * `undefined`) and `valueType` to the captured token `VT` (which drives the
+ * value type `V`). `type` is added by the builder, never by the caller.
+ */
+type ChoiceInput<C, VT extends ChoiceToken, Captured> = Omit<
+  C,
+  'defaultValue' | 'type' | 'valueType'
+> & {
+  defaultValue?: Captured;
+  valueType: VT;
+};
+
+/**
+ * What a choice builder returns: the kind's config `C`, plus a **required**
+ * `defaultValue: Declared` when the call site actually passed one — that
+ * presence is what lets `params` drop `| null` for defaulted filters, so this
+ * must stay in lockstep with `HasDefault` in `types/values.ts` (pinned by the
+ * `ChoiceResult ↔ HasDefault tie` tests). `Captured` answers *whether* a default
+ * was given; `Declared` is the widened type the result advertises for it.
+ */
+type ChoiceResult<C, Captured, Declared> = C &
+  ([Captured] extends [undefined] ? unknown : { defaultValue: Declared });
 
 /**
  * `f` — the filter builders. The map key becomes the URL query param; the
@@ -88,34 +111,29 @@ export const f = {
    * f.select({ label: 'Customer', valueType: 'number', options: [] }) // params -> number | null
    */
   select: <
-    VT extends 'number' | 'string',
+    VT extends ChoiceToken,
     const V extends ChoiceBase<VT> = ChoiceBase<VT>,
     const D extends V | undefined = undefined
   >(
-    config: Omit<SelectFilterConfig<V>, 'defaultValue' | 'type' | 'valueType'> & {
-      valueType: VT;
-      defaultValue?: D;
-    }
-    // `V` stays inferred from `valueType`/`options`; `D` records whether a default
+    // `V` is inferred from `valueType`/`options`; `D` records whether a default
     // was given so `params.<key>` drops `| null`. Cast bridges to the union member.
-  ): SelectFilterConfig<V> & ([D] extends [undefined] ? unknown : { defaultValue: V }) =>
-    ({ ...config, type: 'select' }) as SelectFilterConfig<V> &
-      ([D] extends [undefined] ? unknown : { defaultValue: V }),
+    config: ChoiceInput<SelectFilterConfig<V>, VT, D>
+  ): ChoiceResult<SelectFilterConfig<V>, D, V> =>
+    ({ ...config, type: 'select' }) as ChoiceResult<SelectFilterConfig<V>, D, V>,
 
   /** Multi-choice from a fixed `options` list; `valueType` required. `params.<key>` → `V[] | null` (non-null with a `defaultValue`). */
   multiSelect: <
-    VT extends 'number' | 'string',
+    VT extends ChoiceToken,
     const V extends ChoiceBase<VT> = ChoiceBase<VT>,
     const D extends readonly V[] | undefined = undefined
   >(
-    config: Omit<MultiSelectFilterConfig<V>, 'defaultValue' | 'type' | 'valueType'> & {
-      valueType: VT;
-      defaultValue?: D;
-    }
-  ): MultiSelectFilterConfig<V> &
-    ([D] extends [undefined] ? unknown : { defaultValue: readonly V[] }) =>
-    ({ ...config, type: 'multiSelect' }) as MultiSelectFilterConfig<V> &
-      ([D] extends [undefined] ? unknown : { defaultValue: readonly V[] }),
+    config: ChoiceInput<MultiSelectFilterConfig<V>, VT, D>
+  ): ChoiceResult<MultiSelectFilterConfig<V>, D, readonly V[]> =>
+    ({ ...config, type: 'multiSelect' }) as ChoiceResult<
+      MultiSelectFilterConfig<V>,
+      D,
+      readonly V[]
+    >,
 
   /** Freeform string list — no options, no lookup. `params.<key>` → `string[] | null` (non-null with a `defaultValue`). */
   tags: <C extends Omit<TagsFilterConfig, 'type'>>(config: C): C & { type: 'tags' } =>
@@ -124,8 +142,11 @@ export const f = {
   /**
    * Single choice from a **server-searched** list via `loadOptions`. The chosen
    * label is stored alongside the value (`<key>_label`) so it survives a
-   * refresh. `valueType` required (`'number'` for ids). `params.<key>` → `V | null`
-   * (`V` when a `defaultValue` is given).
+   * refresh. `valueType` is required and **drives the value type**:
+   * `'number'` → `params.<key>` is `number | null`, `'string'` → `string | null`
+   * (non-null with a `defaultValue`). A `loadOptions` that resolves to anything
+   * other than `FilterOption<V>[]` — including `undefined` from optional
+   * chaining — is an error at its own line, never a silently widened param.
    *
    * @example
    * f.asyncSelect({
@@ -135,20 +156,27 @@ export const f = {
    *     api.getAll({ params: { search }, signal }).then((l) => l.map((c) => ({ value: c.id, label: c.name })))
    * })
    */
-  asyncSelect: <V extends FilterPrimitive, const D extends V | undefined = undefined>(
-    config: Omit<AsyncSelectFilterConfig<V>, 'defaultValue' | 'type'> & { defaultValue?: D }
-  ): AsyncSelectFilterConfig<V> & ([D] extends [undefined] ? unknown : { defaultValue: V }) =>
-    ({ ...config, type: 'asyncSelect' }) as AsyncSelectFilterConfig<V> &
-      ([D] extends [undefined] ? unknown : { defaultValue: V }),
+  // Unlike `select`, `V` is exactly what `valueType` declares — a server-searched
+  // option page is open-ended, so its values must never narrow `V` to literals.
+  asyncSelect: <VT extends ChoiceToken, const D extends ChoiceBase<VT> | undefined = undefined>(
+    config: ChoiceInput<AsyncSelectFilterConfig<ChoiceBase<VT>>, VT, D>
+  ): ChoiceResult<AsyncSelectFilterConfig<ChoiceBase<VT>>, D, ChoiceBase<VT>> =>
+    ({ ...config, type: 'asyncSelect' }) as ChoiceResult<
+      AsyncSelectFilterConfig<ChoiceBase<VT>>,
+      D,
+      ChoiceBase<VT>
+    >,
 
-  /** Multi-choice variant of `asyncSelect`; values + labels paired in the URL. `params.<key>` → `V[] | null` (non-null with a `defaultValue`). */
+  /** Multi-choice variant of `asyncSelect`; values + labels paired in the URL. `valueType` drives the value type. `params.<key>` → `V[] | null` (non-null with a `defaultValue`). */
   asyncMultiSelect: <
-    V extends FilterPrimitive,
-    const D extends readonly V[] | undefined = undefined
+    VT extends ChoiceToken,
+    const D extends readonly ChoiceBase<VT>[] | undefined = undefined
   >(
-    config: Omit<AsyncMultiSelectFilterConfig<V>, 'defaultValue' | 'type'> & { defaultValue?: D }
-  ): AsyncMultiSelectFilterConfig<V> &
-    ([D] extends [undefined] ? unknown : { defaultValue: readonly V[] }) =>
-    ({ ...config, type: 'asyncMultiSelect' }) as AsyncMultiSelectFilterConfig<V> &
-      ([D] extends [undefined] ? unknown : { defaultValue: readonly V[] })
+    config: ChoiceInput<AsyncMultiSelectFilterConfig<ChoiceBase<VT>>, VT, D>
+  ): ChoiceResult<AsyncMultiSelectFilterConfig<ChoiceBase<VT>>, D, readonly ChoiceBase<VT>[]> =>
+    ({ ...config, type: 'asyncMultiSelect' }) as ChoiceResult<
+      AsyncMultiSelectFilterConfig<ChoiceBase<VT>>,
+      D,
+      readonly ChoiceBase<VT>[]
+    >
 };

@@ -21,7 +21,7 @@ const USERS = [
 ];
 
 // A stand-in for a server call: filters a static list after a short delay.
-const loadUsers = (search: string): Promise<FilterOption[]> =>
+const loadUsers = (search: string): Promise<FilterOption<number>[]> =>
   new Promise((resolve) => {
     setTimeout(() => {
       const q = search.trim().toLowerCase();
@@ -36,7 +36,7 @@ const Inner = () => {
   const assignee = filterMap.assignee;
 
   const [search, setSearch] = useState('');
-  const [results, setResults] = useState<FilterOption[]>([]);
+  const [results, setResults] = useState<FilterOption<number>[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();

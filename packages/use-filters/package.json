@@ -72,7 +72,7 @@
     {
       "name": "esm (whole package, min+gzip)",
       "path": "dist/index.js",
-      "limit": "4 kB"
+      "limit": "4.25 kB"
     }
   ],
   "peerDependencies": {
