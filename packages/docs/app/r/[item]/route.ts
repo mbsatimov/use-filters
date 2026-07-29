@@ -1,8 +1,6 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-
 import { baseUrl } from '@/lib/metadata';
 import { registryKits } from '@/lib/registry';
+import { readKitFiles } from '@/lib/registry-files';
 
 /**
  * The shadcn registry endpoints, statically generated at build time:
@@ -41,14 +39,7 @@ export async function GET(_request: Request, context: { params: Promise<{ item: 
   const kit = registryKits.find((candidate) => `${candidate.name}.json` === item);
   if (!kit) return new Response('Not found', { status: 404 });
 
-  const files = await Promise.all(
-    kit.files.map(async (file) => ({
-      path: `registry/${kit.name}/${file}`,
-      type: 'registry:component',
-      target: `${kit.dir}/${file}`,
-      content: await fs.readFile(path.join(process.cwd(), kit.dir, file), 'utf8')
-    }))
-  );
+  const files = await readKitFiles(kit);
 
   return Response.json({
     $schema: 'https://ui.shadcn.com/schema/registry-item.json',

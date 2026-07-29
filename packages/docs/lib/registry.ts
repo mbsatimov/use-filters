@@ -1,3 +1,5 @@
+import type { FilterType } from '@mbsatimov/use-filters';
+
 import { absoluteUrl, siteConfig } from '@/lib/metadata';
 
 /**
@@ -21,6 +23,11 @@ export interface RegistryKit {
   /** shadcn/ui primitives the CLI ensures exist. */
   registryDependencies: string[];
   title: string;
+  /**
+   * Filter types this kit ships no control for. The builder warns before
+   * generating a screen that would reference a control the kit does not have.
+   */
+  unsupported: FilterType[];
   /** Example slugs that build on this kit (anchors on /examples). */
   usedBy: string[];
 }
@@ -55,6 +62,7 @@ export const registryKits: RegistryKit[] = [
       'input-group',
       'popover'
     ],
+    unsupported: [],
     usedBy: ['data-table', 'all-filters']
   },
   {
@@ -75,6 +83,7 @@ export const registryKits: RegistryKit[] = [
     ],
     dependencies: ['@mbsatimov/use-filters', 'nuqs'],
     registryDependencies: ['button', 'checkbox', 'drawer', 'input', 'label', 'separator'],
+    unsupported: ['tags'],
     usedBy: ['marketplace']
   },
   {
@@ -111,6 +120,7 @@ export const registryKits: RegistryKit[] = [
       'input-group',
       'popover'
     ],
+    unsupported: ['tags', 'time', 'timeRange'],
     usedBy: ['basic']
   }
 ];
