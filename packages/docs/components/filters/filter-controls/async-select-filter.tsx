@@ -20,12 +20,10 @@ export const AsyncSelectFilter = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const { isPending, options } = useAsyncOptions(
-    filter.key,
-    filter.loadOptions,
+  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+    filter,
     search,
-    open,
-    filter.searchDebounceMs
+    open
   );
   const selected = filter.selectedOption;
 
@@ -41,11 +39,14 @@ export const AsyncSelectFilter = ({
       </PopoverTrigger>
       <PopoverContent align='start' className='w-56 p-0'>
         <OptionList
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
           isPending={isPending}
           options={options}
           placeholder={filter.placeholder ?? filter.label}
           selected={(option) => selected?.value === option.value}
           serverSearch={{ value: search, onChange: setSearch }}
+          onLoadMore={loadMore}
           onSelect={(option) => {
             filter.onSelectOption(selected?.value === option.value ? null : option);
             setOpen(false);

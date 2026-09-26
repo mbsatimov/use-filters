@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ScheduledChange } from '../src/resolved-fields';
-import type { FilterOption } from '../src/types';
+import type { FilterOption, LoadOptions, OptionsCursor } from '../src/types';
 
 import { f } from '../src/builders';
 import {
-  cachedDebouncedLoadOptions,
+  cachedLoadOptions,
   defaultValueOf,
   differsFromDefault,
   readCommitted,
@@ -196,70 +196,83 @@ describe('resolveAsyncFields — multi', () => {
   });
 });
 
-describe('cachedDebouncedLoadOptions', () => {
-  const configWith = (
-    loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<number>[]>,
-    searchDebounceMs?: number
-  ) => f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions, searchDebounceMs });
+describe('cachedLoadOptions', () => {
+  const configWith = (loadOptions: LoadOptions<number>) =>
+    f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions });
+  const context = (cursor: OptionsCursor | null = null) => ({
+    search: 'a',
+    signal: new AbortController().signal,
+    cursor
+  });
 
-  it('returns the same wrapper while loadOptions and the delay are unchanged', () => {
+  it('returns the same wrapper while loadOptions is unchanged', () => {
     const cache = {};
-    const config = configWith(async () => []);
-    const first = cachedDebouncedLoadOptions(cache, 'customer', config, new Set());
-    const second = cachedDebouncedLoadOptions(cache, 'customer', config, new Set());
+    const config = configWith(async () => ({ options: [] }));
+    const first = cachedLoadOptions(cache, 'customer', config, new Set());
+    const second = cachedLoadOptions(cache, 'customer', config, new Set());
     expect(second).toBe(first);
   });
 
-  it('rebuilds when loadOptions identity changes', () => {
+  it('stays the same when loadOptions identity changes, and calls the latest one', async () => {
     const cache = {};
-    const first = cachedDebouncedLoadOptions(
-      cache,
-      'customer',
-      configWith(async () => []),
-      new Set()
-    );
-    const second = cachedDebouncedLoadOptions(
-      cache,
-      'customer',
-      configWith(async () => []),
-      new Set()
-    );
-    expect(second).not.toBe(first);
-  });
+    const oldLoader = vi.fn(async () => ({ options: [] }));
+    const newLoader = vi.fn(async () => ({ options: [] }));
+    const first = cachedLoadOptions(cache, 'customer', configWith(oldLoader), new Set());
+    const second = cachedLoadOptions(cache, 'customer', configWith(newLoader), new Set());
+    expect(second).toBe(first);
 
-  it('rebuilds when searchDebounceMs changes', () => {
-    const cache = {};
-    const loadOptions = async () => [];
-    const first = cachedDebouncedLoadOptions(cache, 'c', configWith(loadOptions, 100), new Set());
-    const second = cachedDebouncedLoadOptions(cache, 'c', configWith(loadOptions, 200), new Set());
-    expect(second).not.toBe(first);
+    await first(context());
+    expect(oldLoader).not.toHaveBeenCalled();
+    expect(newLoader).toHaveBeenCalledOnce();
   });
 
   it('keys the cache per filter', () => {
     const cache = {};
-    const loadOptions = async () => [];
-    const a = cachedDebouncedLoadOptions(cache, 'a', configWith(loadOptions), new Set());
-    const b = cachedDebouncedLoadOptions(cache, 'b', configWith(loadOptions), new Set());
+    const loadOptions = async () => ({ options: [] });
+    const a = cachedLoadOptions(cache, 'a', configWith(loadOptions), new Set());
+    const b = cachedLoadOptions(cache, 'b', configWith(loadOptions), new Set());
     expect(b).not.toBe(a);
   });
 
-  it('debounces: rapid calls collapse into one call to loadOptions', async () => {
-    vi.useFakeTimers();
-    const loadOptions = vi.fn(async () => [{ label: 'Ada', value: 1 }]);
-    const wrapped = cachedDebouncedLoadOptions(
+  it('calls loadOptions right away with the context, and returns its page untouched', async () => {
+    const page = { options: [{ label: 'Ada', value: 1 }], nextCursor: 2 };
+    const loadOptions = vi.fn(async () => page);
+    const wrapped = cachedLoadOptions({}, 'customer', configWith(loadOptions), new Set());
+    const ctx = context(1);
+
+    await expect(wrapped(ctx)).resolves.toBe(page);
+    expect(loadOptions).toHaveBeenCalledOnce();
+    expect(loadOptions).toHaveBeenCalledWith(ctx);
+  });
+
+  it('never merges calls: each cursor gets its own request', async () => {
+    const loadOptions = vi.fn(async ({ cursor }: { cursor: OptionsCursor | null }) => ({
+      options: [{ label: `page ${cursor ?? 1}`, value: Number(cursor ?? 1) }]
+    }));
+    const wrapped = cachedLoadOptions({}, 'customer', configWith(loadOptions), new Set());
+
+    const [first, second] = await Promise.all([wrapped(context()), wrapped(context(2))]);
+
+    expect(loadOptions).toHaveBeenCalledTimes(2);
+    expect(first.options[0].label).toBe('page 1');
+    expect(second.options[0].label).toBe('page 2');
+  });
+
+  it('warns once when a page contradicts valueType', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const loadOptions = async () => ({ options: [{ label: 'Acme', value: 'acme' }] });
+    const wrapped = cachedLoadOptions(
       {},
       'customer',
-      configWith(loadOptions, 50),
+      configWith(loadOptions as unknown as LoadOptions<number>),
       new Set()
     );
-    const signal = new AbortController().signal;
 
-    const results = Promise.all([wrapped('a', signal), wrapped('ab', signal)]);
-    await vi.advanceTimersByTimeAsync(60);
-    await results;
+    await wrapped(context());
+    await wrapped(context(2));
 
-    expect(loadOptions).toHaveBeenCalledOnce();
-    expect(loadOptions).toHaveBeenCalledWith('ab', signal);
-    vi.useRealTimers();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toContain("valueType is 'number'");
+    warn.mockRestore();
   });
 });

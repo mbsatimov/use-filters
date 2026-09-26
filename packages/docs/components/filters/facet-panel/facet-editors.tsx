@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -153,12 +154,10 @@ function AsyncList({
   filter: ResolvedFilterOf<'asyncMultiSelect'> | ResolvedFilterOf<'asyncSelect'>;
 }) {
   const [search, setSearch] = useState('');
-  const { isPending, options } = useAsyncOptions(
-    filter.key,
-    filter.loadOptions,
+  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+    filter,
     search,
-    true,
-    filter.searchDebounceMs
+    true
   );
   const selectedValues = new Set(
     (filter.type === 'asyncSelect'
@@ -197,6 +196,17 @@ function AsyncList({
             </label>
           );
         })
+      )}
+      {!isPending && hasMore && (
+        <Button
+          className='self-start px-0'
+          disabled={isLoadingMore}
+          size='sm'
+          variant='link'
+          onClick={loadMore}
+        >
+          {isLoadingMore ? 'Loading…' : 'Load more'}
+        </Button>
       )}
     </div>
   );

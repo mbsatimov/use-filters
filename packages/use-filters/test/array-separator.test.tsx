@@ -117,7 +117,7 @@ describe('arraySeparator — async multiSelect label sidecar matches the value s
           owners: f.asyncMultiSelect({
             label: 'Owners',
             valueType: 'string',
-            loadOptions: async () => []
+            loadOptions: async () => ({ options: [] })
           })
         }),
       { wrapper }

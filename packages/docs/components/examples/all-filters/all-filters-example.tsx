@@ -61,7 +61,15 @@ export function AllFiltersExample() {
       label: 'Customer',
       valueType: 'string',
       searchDebounceMs: 250,
-      loadOptions: (search, signal) => searchCustomers(search, signal)
+      // One page per call: the cursor is the next page number.
+      loadOptions: async ({ search, signal, cursor }) => {
+        const page = Number(cursor ?? 1);
+        const res = await searchCustomers({ search, page, per_page: 6 }, { signal });
+        return {
+          options: res.results,
+          nextCursor: page * res.per_page < res.count ? page + 1 : null
+        };
+      }
     }),
 
     // Manual commit: edits stage inside the editor until its Apply button.

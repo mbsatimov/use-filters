@@ -128,7 +128,11 @@ describe('buildParserMap', () => {
         ['search', f.text({ label: 'Search' })],
         [
           'customer',
-          f.asyncSelect({ label: 'Customer', valueType: 'number', loadOptions: async () => [] })
+          f.asyncSelect({
+            label: 'Customer',
+            valueType: 'number',
+            loadOptions: async () => ({ options: [] })
+          })
         ]
       ],
       ',',
@@ -162,7 +166,7 @@ describe('buildParserMap', () => {
             label: 'Customer',
             valueType: 'number',
             nuqs: { history: 'push' },
-            loadOptions: async () => []
+            loadOptions: async () => ({ options: [] })
           })
         ]
       ],

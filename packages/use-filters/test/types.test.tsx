@@ -43,7 +43,7 @@ describe('type inference — per-config `params` (no type argument)', () => {
           customer_id: f.asyncSelect({
             label: 'Customer',
             valueType: 'number',
-            loadOptions: async () => [{ label: 'Acme', value: 42 }]
+            loadOptions: async () => ({ options: [{ label: 'Acme', value: 42 }] })
           })
         }),
       { wrapper }
@@ -91,23 +91,47 @@ describe('type inference — per-config `params` (no type argument)', () => {
     const good = f.asyncSelect({
       label: 'Customer',
       valueType: 'number',
-      loadOptions: async () => [{ label: 'Acme', value: 42 }]
+      loadOptions: async () => ({ options: [{ label: 'Acme', value: 42 }] })
     });
     expectTypeOf(good.defaultValue).toEqualTypeOf<number | undefined>();
+
+    // A paginated loader: the context is typed, and a number or string cursor round-trips.
+    f.asyncSelect({
+      label: 'Customer',
+      valueType: 'number',
+      loadOptions: async ({ cursor, search, signal }) => {
+        expectTypeOf(search).toEqualTypeOf<string>();
+        expectTypeOf(signal).toEqualTypeOf<AbortSignal>();
+        expectTypeOf(cursor).toEqualTypeOf<number | string | null>();
+        const page = Number(cursor ?? 1);
+        return {
+          options: [{ label: 'Acme', value: page }],
+          nextCursor: page < 3 ? page + 1 : null
+        };
+      }
+    });
+    f.asyncMultiSelect({
+      label: 'Customers',
+      valueType: 'string',
+      loadOptions: async () => ({
+        options: [{ label: 'Acme', value: 'acme' }],
+        nextCursor: 'abc123'
+      })
+    });
 
     f.asyncSelect({
       label: 'Customer',
       valueType: 'number',
       // @ts-expect-error resolving to `undefined` (optional chaining without a
-      // `?? []` fallback) must fail here — never silently widen `params`.
-      loadOptions: async (search: string) => (search ? [{ label: 'Acme', value: 42 }] : undefined)
+      // fallback) must fail here — never silently widen `params`.
+      loadOptions: async ({ search }) => (search ? { options: [] } : undefined)
     });
 
     f.asyncMultiSelect({
       label: 'Customers',
       valueType: 'number',
       // @ts-expect-error string option values contradict `valueType: 'number'`.
-      loadOptions: async () => [{ label: 'Acme', value: 'acme' }]
+      loadOptions: async () => ({ options: [{ label: 'Acme', value: 'acme' }] })
     });
   });
 });
@@ -472,7 +496,7 @@ describe('ChoiceResult ↔ HasDefault tie', () => {
   const declaresRequiredDefault = <C,>(_config: C) =>
     ({}) as C extends { defaultValue: unknown } ? true : false;
 
-  const loadOptions = async () => [] as FilterOption<number>[];
+  const loadOptions = async () => ({ options: [] as FilterOption<number>[] });
 
   it('a choice builder marks `defaultValue` required exactly when one was passed', () => {
     // `ChoiceResult` (builders.ts) decides whether the returned config declares a
@@ -521,12 +545,12 @@ describe('ChoiceResult ↔ HasDefault tie', () => {
           tags: f.asyncMultiSelect({
             label: 'Tags',
             valueType: 'string',
-            loadOptions: async () => []
+            loadOptions: async () => ({ options: [] })
           }),
           tags_defaulted: f.asyncMultiSelect({
             label: 'Tags',
             valueType: 'string',
-            loadOptions: async () => [],
+            loadOptions: async () => ({ options: [] }),
             defaultValue: ['a']
           })
         }),
@@ -587,7 +611,11 @@ describe('AnyUseFiltersReturn — pass-through component prop', () => {
           valueType: 'number',
           options: [{ label: 'One', value: 1 }]
         }),
-        owner: f.asyncSelect({ label: 'Owner', valueType: 'number', loadOptions: async () => [] }),
+        owner: f.asyncSelect({
+          label: 'Owner',
+          valueType: 'number',
+          loadOptions: async () => ({ options: [] })
+        }),
         amount: f.number({ label: 'Amount' })
       });
     const check = (r: ReturnType<typeof useConfigured>) => takesAny(r);

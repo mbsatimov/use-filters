@@ -5,12 +5,12 @@ import type {
   FilterConfig,
   FilterOption,
   FilterPrimitive,
+  LoadOptions,
   ParamsChangeCause,
   ParamValue,
   SelectedOption
 } from './types';
 
-import { debounceAsync, DEFAULT_ASYNC_DEBOUNCE_MS } from './debounce';
 import { hasFilterValue, labelKeyOf, valuesEqual } from './filter-utils';
 
 /**
@@ -56,20 +56,23 @@ export const differsFromDefault = (config: FilterConfig, value: ParamValue): boo
     ? !valuesEqual(value, config.defaultValue)
     : hasFilterValue(value);
 
+type AsyncConfig = AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig;
+
 /**
  * Dev-only guard: warn once per filter when `loadOptions` returns ids of a type
- * that contradicts `valueType` (URL values wouldn't round-trip). Pass-through in prod.
+ * that contradicts `valueType` (URL values wouldn't round-trip). Plain call in prod.
  */
-const withValueTypeCheck = (
+const checkedLoadOptions = (
   key: string,
-  config: AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig,
+  getConfig: () => AsyncConfig,
   warned: Set<string>
-): ((search: string, signal: AbortSignal) => Promise<FilterOption[]>) => {
-  if (process.env.NODE_ENV === 'production') return config.loadOptions;
-  return async (search, signal) => {
-    const options = await config.loadOptions(search, signal);
+): LoadOptions => {
+  if (process.env.NODE_ENV === 'production') return (context) => getConfig().loadOptions(context);
+  return async (context) => {
+    const config = getConfig();
+    const page = await config.loadOptions(context);
     const expected = config.valueType;
-    const sample = options.find((option) => option.value != null);
+    const sample = page.options.find((option) => option.value != null);
     const actual = typeof sample?.value === 'number' ? 'number' : 'string';
     if (sample && actual !== expected && !warned.has(key)) {
       warned.add(key);
@@ -79,41 +82,41 @@ const withValueTypeCheck = (
         }. Set valueType: '${actual}' on this filter.`
       );
     }
-    return options;
+    return page;
   };
 };
 
-/** A filter's debounced `loadOptions`, kept alongside the inputs it was built from. */
-interface DebouncedLoadOptions {
-  debounceMs: number;
-  loadOptions: LoadOptions;
+/** A filter's stable `loadOptions`, plus the latest config it forwards to. */
+interface StableLoadOptions {
+  config: AsyncConfig;
   wrapped: LoadOptions;
 }
 
-type LoadOptions = (search: string, signal: AbortSignal) => Promise<FilterOption[]>;
-
-/** Per-key store of {@link cachedDebouncedLoadOptions} entries, owned by the hook. */
-export type DebouncedLoadOptionsCache = Record<string, DebouncedLoadOptions>;
+/** Per-key store of {@link cachedLoadOptions} entries, owned by the hook. */
+export type LoadOptionsCache = Record<string, StableLoadOptions>;
 
 /**
- * One async filter's debounced `loadOptions`, memoized in `cache` by key so the
- * pending timer and its queued callers survive a re-render. Rebuilt only when
- * the filter's own `loadOptions` identity or `searchDebounceMs` changes.
+ * One async filter's resolved `loadOptions`: created once per key, then always
+ * forwarding to the *latest* config's loader. Configs are usually written
+ * inline, so the user's `loadOptions` is a new function every render — keeping
+ * the resolved one stable means UIs can depend on it without refetching (and
+ * resetting a paginated list) on every parent re-render.
  */
-export const cachedDebouncedLoadOptions = (
-  cache: DebouncedLoadOptionsCache,
+export const cachedLoadOptions = (
+  cache: LoadOptionsCache,
   key: string,
-  config: AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig,
+  config: AsyncConfig,
   warned: Set<string>
 ): LoadOptions => {
-  const debounceMs = config.searchDebounceMs ?? DEFAULT_ASYNC_DEBOUNCE_MS;
   const cached = cache[key];
-  if (cached && cached.loadOptions === config.loadOptions && cached.debounceMs === debounceMs) {
+  if (cached) {
+    cached.config = config;
     return cached.wrapped;
   }
-  const wrapped = debounceAsync(withValueTypeCheck(key, config, warned), debounceMs);
-  cache[key] = { debounceMs, loadOptions: config.loadOptions, wrapped };
-  return wrapped;
+  const entry = { config } as StableLoadOptions;
+  entry.wrapped = checkedLoadOptions(key, () => entry.config, warned);
+  cache[key] = entry;
+  return entry.wrapped;
 };
 
 /** The extra fields an `asyncSelect` filter exposes. */

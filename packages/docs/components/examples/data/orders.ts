@@ -91,7 +91,7 @@ const methods: PaymentMethod[] = ['card', 'paypal', 'card', 'transfer', 'crypto'
 const regions: Region[] = ['na', 'eu', 'apac', 'latam', 'eu', 'na'];
 
 /** Deterministic dataset (no randomness — SSR and client stay identical). */
-export const orders: Order[] = Array.from({ length: 60 }, (_, i) => {
+export const orders: Order[] = Array.from({ length: 100 }, (_, i) => {
   const customer = customers[i % customers.length];
   // Spread the orders across 2026 so every row has a distinct date — an evenly
   // stepped offset from a fixed start, with a small stagger so it isn't uniform.
@@ -211,23 +211,23 @@ export interface CustomerOption {
 }
 
 /**
- * A server-searched customer list, for `f.asyncSelect` / `f.asyncMultiSelect`.
- * Mirrors a typeahead endpoint: it takes the query the user typed and returns a
- * short, ranked page of matches.
+ * A server-searched, paginated customer list, for `f.asyncSelect` /
+ * `f.asyncMultiSelect`. Mirrors a typeahead endpoint: it takes the query the
+ * user typed plus a page number and returns one page of ranked matches.
  */
 export async function searchCustomers(
-  search: string,
-  signal?: AbortSignal
-): Promise<CustomerOption[]> {
-  await delay(LATENCY_MS, signal);
+  params: { page: number; per_page: number; search: string },
+  options: { signal?: AbortSignal } = {}
+): Promise<Paginated<CustomerOption>> {
+  await delay(LATENCY_MS, options.signal);
 
-  const needle = search.trim().toLowerCase();
+  const needle = params.search.trim().toLowerCase();
   const names = [...new Set(orders.map((order) => order.customer))].sort((a, b) =>
     a.localeCompare(b)
   );
-
-  return names
+  const matched = names
     .filter((name) => !needle || name.toLowerCase().includes(needle))
-    .slice(0, 8)
     .map((name) => ({ value: name, label: name }));
+
+  return paginate(matched, params.page, params.per_page);
 }
