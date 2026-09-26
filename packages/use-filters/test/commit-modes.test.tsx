@@ -160,7 +160,7 @@ describe('commit: manual + async multiSelect', () => {
         label: 'Tags',
         commit: 'manual',
         valueType: 'string',
-        loadOptions: async () => []
+        loadOptions: async () => ({ options: [] })
       })
     });
 
@@ -266,7 +266,7 @@ describe('commit: no-op changes never mark the filter dirty', () => {
         label: 'Tags',
         commit: 'manual',
         valueType: 'string',
-        loadOptions: async () => []
+        loadOptions: async () => ({ options: [] })
       })
     });
 

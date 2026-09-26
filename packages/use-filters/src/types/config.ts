@@ -48,6 +48,35 @@ export interface FilterOption<V extends FilterPrimitive = FilterPrimitive> {
   value: V;
 }
 
+/**
+ * Where the next page of async options starts — a page number, an offset, or
+ * an opaque token from your API. `useFilters` never reads it: it hands back
+ * whatever the previous page returned as `nextCursor`.
+ */
+export type OptionsCursor = number | string;
+
+/** What an async filter's `loadOptions` is called with. */
+export interface LoadOptionsContext {
+  /** `null` for the first page, then the previous page's `nextCursor`. */
+  cursor: OptionsCursor | null;
+  /** The search text (`''` when empty). A new search starts again at `cursor: null`. */
+  search: string;
+  /** Aborted when the request is superseded (new search, closed picker). */
+  signal: AbortSignal;
+}
+
+/** One page of async options, as returned by `loadOptions`. */
+export interface OptionsPage<V extends FilterPrimitive = FilterPrimitive> {
+  /** The cursor for the next page — `null` or omitted when this is the last page. */
+  nextCursor?: OptionsCursor | null;
+  options: FilterOption<V>[];
+}
+
+/** An async filter's server-side option loader. */
+export type LoadOptions<V extends FilterPrimitive = FilterPrimitive> = (
+  context: LoadOptionsContext
+) => Promise<OptionsPage<V>>;
+
 /** Every supported filter kind — derived from the config union, never maintained by hand. */
 export type FilterType = FilterConfig['type'];
 
@@ -186,9 +215,19 @@ export interface AsyncSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
   defaultValue?: NoInfer<V>;
+  /**
+   * Server-side search, one page at a time. Called with `cursor: null` for the
+   * first page and with the previous page's `nextCursor` for each next one;
+   * return `nextCursor: null` (or omit it) on the last page. `signal` aborts
+   * stale requests. Not cached or debounced — pair with your data layer.
+   */
+  loadOptions: LoadOptions<V>;
   /** UI hints — see {@link AsyncSelectFilterMeta}. */
   meta?: AsyncSelectFilterMeta;
-  /** Debounce for the search input, in ms. Defaults to `300`. */
+  /**
+   * Recommended debounce for the search input, in ms — a hint for your UI
+   * (`useFilters` doesn't debounce `loadOptions` itself).
+   */
   searchDebounceMs?: number;
   type: 'asyncSelect';
   /**
@@ -199,29 +238,21 @@ export interface AsyncSelectFilterConfig<
    * dev-only runtime warning instead.
    */
   valueType: ChoiceToken;
-  /**
-   * Server-side search; debounced calls collapse into one, `signal` aborts
-   * stale ones. Return a small page. Not cached — pair with your data layer.
-   */
-  loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
 
 export interface AsyncMultiSelectFilterConfig<
   V extends FilterPrimitive = FilterPrimitive
 > extends FilterBase {
   defaultValue?: readonly NoInfer<V>[];
+  /** Server-side search, one page at a time — see {@link AsyncSelectFilterConfig.loadOptions}. */
+  loadOptions: LoadOptions<V>;
   /** UI hints — see {@link AsyncMultiSelectFilterMeta}. */
   meta?: AsyncMultiSelectFilterMeta;
-  /** Debounce for the search input, in ms. Defaults to `300`. */
+  /** Recommended search-input debounce — see {@link AsyncSelectFilterConfig.searchDebounceMs}. */
   searchDebounceMs?: number;
   type: 'asyncMultiSelect';
   /** How values round-trip through the URL — see {@link AsyncSelectFilterConfig.valueType}. */
   valueType: ChoiceToken;
-  /**
-   * Server-side search; debounced calls collapse into one, `signal` aborts
-   * stale ones. Return a small page. Not cached — pair with your data layer.
-   */
-  loadOptions: (search: string, signal: AbortSignal) => Promise<FilterOption<V>[]>;
 }
 
 export interface MultiSelectFilterConfig<

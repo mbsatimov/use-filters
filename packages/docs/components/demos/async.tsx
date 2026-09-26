@@ -1,10 +1,10 @@
 'use client';
 
-import type { FilterOption } from '@mbsatimov/use-filters';
+import type { FilterOption, OptionsCursor, OptionsPage } from '@mbsatimov/use-filters';
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DemoWindow } from '@/components/demo-window';
 import { JsonPreview } from '@/components/json-preview';
@@ -20,12 +20,27 @@ const USERS = [
   { value: 5, label: 'Edsger Dijkstra' }
 ];
 
-// A stand-in for a server call: filters a static list after a short delay.
-const loadUsers = (search: string): Promise<FilterOption<number>[]> =>
+const PAGE_SIZE = 2;
+
+// A stand-in for a paginated server call: filters a static list after a short
+// delay and returns one page. The cursor is simply the next page number.
+const loadUsers = ({
+  cursor,
+  search
+}: {
+  cursor: OptionsCursor | null;
+  search: string;
+}): Promise<OptionsPage<number>> =>
   new Promise((resolve) => {
     setTimeout(() => {
       const q = search.trim().toLowerCase();
-      resolve(USERS.filter((u) => u.label.toLowerCase().includes(q)));
+      const matched = USERS.filter((u) => u.label.toLowerCase().includes(q));
+      const page = Number(cursor ?? 1);
+      const start = (page - 1) * PAGE_SIZE;
+      resolve({
+        options: matched.slice(start, start + PAGE_SIZE),
+        nextCursor: start + PAGE_SIZE < matched.length ? page + 1 : null
+      });
     }, 250);
   });
 
@@ -34,18 +49,44 @@ const Inner = () => {
     assignee: f.asyncSelect({ label: 'Assignee', valueType: 'number', loadOptions: loadUsers })
   });
   const assignee = filterMap.assignee;
+  // Stable across renders, so it's safe as an effect dependency.
+  const { loadOptions } = assignee;
 
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<FilterOption<number>[]>([]);
+  const [nextCursor, setNextCursor] = useState<OptionsCursor | null>(null);
+  // The in-flight next-page request: blocks double-fires, aborted by a new search.
+  const moreRef = useRef<AbortController | null>(null);
 
+  // First page: a new search replaces the results.
   useEffect(() => {
     const controller = new AbortController();
-    assignee
-      .loadOptions?.(search, controller.signal)
-      .then(setResults)
+    moreRef.current?.abort();
+    loadOptions({ search, signal: controller.signal, cursor: null })
+      .then((page) => {
+        setResults(page.options);
+        setNextCursor(page.nextCursor ?? null);
+      })
       .catch(() => {});
     return () => controller.abort();
-  }, [search, assignee.loadOptions]);
+  }, [search, loadOptions]);
+
+  // Next page: pass back the cursor the last page returned, and append.
+  const loadMore = () => {
+    if (nextCursor === null || moreRef.current) return;
+    const controller = new AbortController();
+    moreRef.current = controller;
+    loadOptions({ search, signal: controller.signal, cursor: nextCursor })
+      .then((page) => {
+        if (controller.signal.aborted) return;
+        setResults((prev) => [...prev, ...page.options]);
+        setNextCursor(page.nextCursor ?? null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (moreRef.current === controller) moreRef.current = null;
+      });
+  };
 
   return (
     <div className='grid gap-4 sm:grid-cols-2'>
@@ -88,6 +129,11 @@ const Inner = () => {
                 {o.label}
               </Button>
             ))}
+            {nextCursor !== null && (
+              <Button size='sm' variant='ghost' onClick={loadMore}>
+                Load more…
+              </Button>
+            )}
           </div>
         )}
       </div>

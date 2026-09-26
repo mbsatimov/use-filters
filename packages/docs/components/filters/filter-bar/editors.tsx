@@ -61,21 +61,23 @@ const AsyncSelectEditor = ({
   filter: ResolvedFilterOf<'asyncSelect'>;
 }) => {
   const [search, setSearch] = React.useState('');
-  const { isPending, options } = useAsyncOptions(
-    filter.key,
-    filter.loadOptions,
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
+    filter,
     search,
-    true,
-    filter.searchDebounceMs
+    true
   );
   const selected = filter.selectedOption;
   return (
     <OptionList
+      hasMore={hasMore}
+      isLoadingMore={isLoadingMore}
       isPending={isPending}
+      loadMoreFailed={loadMoreFailed}
       options={options}
       placeholder={filter.placeholder ?? filter.label}
       selected={(option) => selected?.value === option.value}
       serverSearch={{ value: search, onChange: setSearch }}
+      onLoadMore={loadMore}
       onSelect={(option) => {
         filter.onSelectOption(selected?.value === option.value ? null : option);
         close();
@@ -86,21 +88,23 @@ const AsyncSelectEditor = ({
 
 const AsyncMultiSelectEditor = ({ filter }: { filter: ResolvedFilterOf<'asyncMultiSelect'> }) => {
   const [search, setSearch] = React.useState('');
-  const { isPending, options } = useAsyncOptions(
-    filter.key,
-    filter.loadOptions,
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
+    filter,
     search,
-    true,
-    filter.searchDebounceMs
+    true
   );
   const selectedValues = new Set(filter.selectedOptions.map((option) => option.value));
   return (
     <OptionList
+      hasMore={hasMore}
+      isLoadingMore={isLoadingMore}
       isPending={isPending}
+      loadMoreFailed={loadMoreFailed}
       options={options}
       placeholder={filter.placeholder ?? filter.label}
       selected={(option) => selectedValues.has(option.value)}
       serverSearch={{ value: search, onChange: setSearch }}
+      onLoadMore={loadMore}
       onSelect={(option) => filter.onToggleOption(option)}
     />
   );

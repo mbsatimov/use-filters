@@ -1,7 +1,7 @@
 import { useQueryStates } from 'nuqs';
 import * as React from 'react';
 
-import type { CommittedValue, DebouncedLoadOptionsCache } from './resolved-fields';
+import type { CommittedValue, LoadOptionsCache } from './resolved-fields';
 import type {
   ArrayFormat,
   AsyncMultiSelectFilterConfig,
@@ -26,7 +26,7 @@ import { asyncKindOf, formatArrayParams, labelKeyOf } from './filter-utils';
 import { resolvePaginationOverride } from './pagination';
 import { buildParserMap, fingerprintFilterConfigs } from './parsers';
 import {
-  cachedDebouncedLoadOptions,
+  cachedLoadOptions,
   defaultValueOf,
   differsFromDefault,
   readCommitted,
@@ -114,8 +114,8 @@ export function makeUseFilters<
 
     const [values, setValues] = useQueryStates(parsers, { history, shallow, clearOnDefault });
 
-    // Backing store for `cachedDebouncedLoadOptions` — see it for the cache policy.
-    const debouncedLoadOptionsRef = React.useRef<DebouncedLoadOptionsCache>({});
+    // Backing store for `cachedLoadOptions` — see it for the cache policy.
+    const loadOptionsRef = React.useRef<LoadOptionsCache>({});
 
     // Keys already warned about a loadOptions/valueType mismatch (once per filter).
     const warnedValueTypesRef = React.useRef<Set<string>>(new Set());
@@ -192,8 +192,8 @@ export function makeUseFilters<
         const kind = asyncKindOf(config);
         if (kind) {
           const asyncConfig = config as AsyncMultiSelectFilterConfig | AsyncSelectFilterConfig;
-          resolved.loadOptions = cachedDebouncedLoadOptions(
-            debouncedLoadOptionsRef.current,
+          resolved.loadOptions = cachedLoadOptions(
+            loadOptionsRef.current,
             key,
             asyncConfig,
             warnedValueTypesRef.current

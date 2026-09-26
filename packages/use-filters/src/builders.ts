@@ -144,16 +144,23 @@ export const f = {
    * label is stored alongside the value (`<key>_label`) so it survives a
    * refresh. `valueType` is required and **drives the value type**:
    * `'number'` → `params.<key>` is `number | null`, `'string'` → `string | null`
-   * (non-null with a `defaultValue`). A `loadOptions` that resolves to anything
+   * (non-null with a `defaultValue`). A `loadOptions` whose page holds anything
    * other than `FilterOption<V>[]` — including `undefined` from optional
    * chaining — is an error at its own line, never a silently widened param.
+   * Options load a page at a time: return `nextCursor` to allow "load more".
    *
    * @example
    * f.asyncSelect({
    *   label: 'Customer',
    *   valueType: 'number',
-   *   loadOptions: (search, signal) =>
-   *     api.getAll({ params: { search }, signal }).then((l) => l.map((c) => ({ value: c.id, label: c.name })))
+   *   loadOptions: async ({ search, signal, cursor }) => {
+   *     const page = Number(cursor ?? 1);
+   *     const res = await api.getAll({ params: { search, page }, signal });
+   *     return {
+   *       options: res.results.map((c) => ({ value: c.id, label: c.name })),
+   *       nextCursor: res.hasNext ? page + 1 : null
+   *     };
+   *   }
    * })
    */
   // Unlike `select`, `V` is exactly what `valueType` declares — a server-searched

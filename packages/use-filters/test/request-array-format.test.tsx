@@ -109,7 +109,7 @@ describe("request.arrayFormat: 'string' — createFilters auto-serializes params
           owners: f.asyncMultiSelect({
             label: 'Owners',
             valueType: 'string',
-            loadOptions: async () => []
+            loadOptions: async () => ({ options: [] })
           })
         }),
       { wrapper }

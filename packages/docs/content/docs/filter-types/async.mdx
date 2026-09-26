@@ -7,33 +7,98 @@ import { AsyncDemo } from '@/components/demos/async';
 
 Use these when the choices live on the server and are too many to load up front —
 "pick a customer" out of thousands. Options are fetched via `loadOptions` as the
-user types (start typing in the demo):
+user types, one page at a time (start typing in the demo, or load more):
 
 <AsyncDemo />
 
 ## `f.asyncSelect`
 
-`loadOptions(search, signal)` runs your server search and returns a page of options.
-The `signal` lets you abort stale requests:
+`loadOptions({ search, signal, cursor })` runs your server search and returns one
+page: `{ options, nextCursor? }`. The `signal` lets you abort stale requests:
 
 ```ts
 assignee: f.asyncSelect({
   label: 'Assignee',
   valueType: 'number',
-  loadOptions: (search, signal) =>
-    userApi
-      .search({ q: search, limit: 20 }, { signal })
-      .then((users) => users.map((u) => ({ value: u.id, label: u.name })))
+  loadOptions: async ({ search, signal }) => {
+    const users = await userApi.search({ q: search, limit: 20 }, { signal });
+    return { options: users.map((u) => ({ value: u.id, label: u.name })) };
+  }
 });
 ```
 
-The resolved filter gives you `loadOptions` (wrapped and debounced), `selectedOption`,
-and `onSelectOption(option | null)` to set or clear the choice.
+No `nextCursor` means "this is everything" — see [Pagination](#pagination) to
+load more.
+
+The resolved filter gives you `loadOptions`, `selectedOption`, and
+`onSelectOption(option | null)` to set or clear the choice.
 
 ## `f.asyncMultiSelect`
 
 The multiple-choice variant. It exposes `selectedOptions`, `onToggleOption(option)`,
 and `onSetOptions(list)`.
+
+## Pagination
+
+To let the user load more options, return a `nextCursor` with each page. The
+**cursor** is a bookmark: a value that tells _your_ loader where the next page
+starts. `useFilters` never looks inside it — it only hands it back:
+
+1. The picker opens → `loadOptions` is called with `cursor: null` (first page).
+2. You return `{ options, nextCursor: 2 }`.
+3. The user scrolls to the bottom → `loadOptions` is called with `cursor: 2`.
+4. On the last page you return `nextCursor: null` — there's nothing more to load.
+5. A new search starts over at `cursor: null`.
+
+For a page-number API, the cursor is just the next page:
+
+```ts
+customer: f.asyncSelect({
+  label: 'Customer',
+  valueType: 'number',
+  loadOptions: async ({ search, signal, cursor }) => {
+    const page = Number(cursor ?? 1);
+    const res = await api.customers({ q: search, page, per_page: 20 }, { signal });
+    return {
+      options: res.results.map((c) => ({ value: c.id, label: c.name })),
+      nextCursor: page * 20 < res.count ? page + 1 : null
+    };
+  }
+});
+```
+
+For a cursor API (Stripe's `starting_after`, GraphQL's `after`, …), return the
+token it gives you:
+
+```ts
+loadOptions: async ({ search, signal, cursor }) => {
+  const res = await api.customers({ q: search, after: cursor ?? undefined }, { signal });
+  return {
+    options: res.items.map((c) => ({ value: c.id, label: c.name })),
+    nextCursor: res.next // e.g. "abc123", or null on the last page
+  };
+};
+```
+
+A cursor is a `number | string`. The registry kits' `useAsyncOptions` hook
+tracks the cursor for you and loads the next page when the list is scrolled to
+the bottom (or "Load more" is picked with the keyboard). With TanStack Query,
+the same loader drops straight into `useInfiniteQuery`:
+
+```ts
+useInfiniteQuery({
+  queryKey: ['customers', search],
+  initialPageParam: null as OptionsCursor | null,
+  queryFn: ({ pageParam, signal }) => filter.loadOptions({ search, signal, cursor: pageParam }),
+  getNextPageParam: (page) => page.nextCursor ?? undefined
+});
+```
+
+<Callout>
+  `loadOptions` isn't debounced by `useFilters` — debounce the **search input** in your UI
+  (`searchDebounceMs` is the per-filter hint for how long; the registry hook defaults to 300 ms).
+  That way a "load more" request is never delayed or merged with a search.
+</Callout>
 
 ## The label sidecar
 

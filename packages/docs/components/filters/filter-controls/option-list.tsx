@@ -4,6 +4,7 @@ import type { FilterOption } from '@mbsatimov/use-filters';
 import type * as React from 'react';
 
 import { Loader2Icon } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -18,8 +19,17 @@ import {
 interface OptionListProps {
   /** Text shown when there are no options. */
   emptyText?: string;
+  /** More options exist on the server — render the "load more" row. */
+  hasMore?: boolean;
+  /** A next-page fetch is in flight — the "load more" row shows a spinner. */
+  isLoadingMore?: boolean;
   /** Show a spinner instead of the list (async fetch in flight). */
   isPending?: boolean;
+  /**
+   * The last next-page fetch failed — the row turns into a click-only "Retry"
+   * and stops loading on scroll, so a broken endpoint is never hammered.
+   */
+  loadMoreFailed?: boolean;
   options: readonly FilterOption[];
   placeholder?: string;
   /** Show the search box with client-side filtering. Ignored when `serverSearch` is set. */
@@ -29,6 +39,11 @@ interface OptionListProps {
    * filtering locally and the parent fetches per keystroke.
    */
   serverSearch?: { onChange: (value: string) => void; value: string };
+  /**
+   * Fetch the next page. Called when the "load more" row scrolls into view or
+   * is picked with the keyboard.
+   */
+  onLoadMore?: () => void;
   /** Toggle an option. */
   onSelect: (option: FilterOption) => void;
   /**
@@ -53,7 +68,11 @@ interface OptionListProps {
  */
 export const OptionList = ({
   emptyText = 'No results.',
+  hasMore,
+  isLoadingMore,
   isPending,
+  loadMoreFailed,
+  onLoadMore,
   onSelect,
   options,
   placeholder = 'Search…',
@@ -105,10 +124,70 @@ export const OptionList = ({
                   {right(option)}
                 </CommandItem>
               ))}
+              {hasMore && onLoadMore && (
+                <LoadMoreItem
+                  failed={loadMoreFailed}
+                  isLoading={isLoadingMore}
+                  onLoadMore={onLoadMore}
+                />
+              )}
             </CommandGroup>
           </>
         )}
       </CommandList>
     </Command>
+  );
+};
+
+/**
+ * The last row of a paginated list: loads the next page as soon as it scrolls
+ * into view (infinite scroll), and doubles as a keyboard-selectable "Load more"
+ * item for users who never scroll.
+ */
+const LoadMoreItem = ({
+  failed,
+  isLoading,
+  onLoadMore
+}: {
+  failed?: boolean;
+  isLoading?: boolean;
+  onLoadMore: () => void;
+}) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  // Read through a ref so the observer isn't torn down on every render.
+  const onLoadMoreRef = useRef(onLoadMore);
+  onLoadMoreRef.current = onLoadMore;
+
+  // Re-armed after each page lands: a fresh observer reports the row's current
+  // visibility, so a page too short to scroll immediately fetches the next one.
+  // Never after a failure — that would retry in a loop while the row is visible.
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || isLoading || failed) return;
+    // A viewport root still accounts for clipping by the scrolling list.
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) onLoadMoreRef.current();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isLoading, failed]);
+
+  return (
+    <CommandItem
+      className='text-muted-foreground justify-center'
+      showCheckIcon={false}
+      value='__load-more__'
+      onSelect={onLoadMore}
+    >
+      <span ref={ref} className='flex items-center gap-2'>
+        {isLoading ? (
+          <Loader2Icon className='size-4 animate-spin' />
+        ) : failed ? (
+          "Couldn't load more — retry"
+        ) : (
+          'Load more'
+        )}
+      </span>
+    </CommandItem>
   );
 };

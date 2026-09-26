@@ -50,6 +50,28 @@ interface FilterOption<V = FilterPrimitive> {
 }
 ```
 
+## `LoadOptions`
+
+An async filter's loader — one page of options per call. See
+[Async › pagination](/docs/filter-types/async#pagination).
+
+```ts
+type OptionsCursor = number | string;
+
+type LoadOptions<V = FilterPrimitive> = (context: LoadOptionsContext) => Promise<OptionsPage<V>>;
+
+interface LoadOptionsContext {
+  search: string;
+  signal: AbortSignal;
+  cursor: OptionsCursor | null; // null → first page
+}
+
+interface OptionsPage<V = FilterPrimitive> {
+  options: FilterOption<V>[];
+  nextCursor?: OptionsCursor | null; // null / omitted → last page
+}
+```
+
 ## Other exports
 
 | Type                                                                | Use                                                                                                                                                                                                                                |

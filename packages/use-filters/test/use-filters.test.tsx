@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { withNuqsTestingAdapter } from 'nuqs/adapters/testing';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createFilters } from '../src/create-filters';
 import { toDateTimeValue } from '../src/dates';
-import { f, renderFilters, useFilters } from './helpers';
+import { f, renderFilters, useFilters, wrapper } from './helpers';
 
 describe('useFilters — params', () => {
   it('starts with null filter values and default pagination', () => {
@@ -182,7 +182,7 @@ describe('useFilters — async label sidecar', () => {
       customer_id: f.asyncSelect({
         label: 'Customer',
         valueType: 'number',
-        loadOptions: async () => []
+        loadOptions: async () => ({ options: [] })
       })
     });
 
@@ -203,7 +203,7 @@ describe('useFilters — async label sidecar', () => {
       tags: f.asyncMultiSelect({
         label: 'Tags',
         valueType: 'string',
-        loadOptions: async () => []
+        loadOptions: async () => ({ options: [] })
       })
     });
 
@@ -227,48 +227,50 @@ describe('useFilters — async label sidecar', () => {
   });
 });
 
-describe('useFilters — async loadOptions debouncing', () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
-
-  it('collapses rapid loadOptions calls into a single underlying call', async () => {
+describe('useFilters — async loadOptions', () => {
+  it('passes the context straight through, without debouncing', async () => {
     // valueType 'string' matches the string-valued options, so the dev-mode
     // loadOptions/valueType mismatch warning stays quiet.
-    const loadOptions = vi.fn(async (search: string) => [{ label: search, value: search }]);
+    const loadOptions = vi.fn(async ({ search }: { search: string }) => ({
+      options: [{ label: search, value: search }],
+      nextCursor: 'next'
+    }));
     const { result } = renderFilters({
       customer_id: f.asyncSelect({ label: 'Customer', valueType: 'string', loadOptions })
     });
+    const context = { search: 'acm', signal: new AbortController().signal, cursor: null };
 
-    void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);
-    void result.current.filterMap.customer_id.loadOptions?.('ac', new AbortController().signal);
-    const last = result.current.filterMap.customer_id.loadOptions?.(
-      'acm',
-      new AbortController().signal
-    );
+    const page = await result.current.filterMap.customer_id.loadOptions(context);
 
-    expect(loadOptions).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(300);
-
-    expect(loadOptions).toHaveBeenCalledTimes(1);
-    expect(loadOptions).toHaveBeenCalledWith('acm', expect.any(AbortSignal));
-    await expect(last).resolves.toEqual([{ label: 'acm', value: 'acm' }]);
+    expect(loadOptions).toHaveBeenCalledOnce();
+    expect(loadOptions).toHaveBeenCalledWith(context);
+    expect(page).toEqual({ options: [{ label: 'acm', value: 'acm' }], nextCursor: 'next' });
   });
 
-  it('honors a per-filter searchDebounceMs override', async () => {
-    const loadOptions = vi.fn(async () => []);
-    const { result } = renderFilters({
-      customer_id: f.asyncSelect({
-        label: 'Customer',
-        valueType: 'number',
-        loadOptions,
-        searchDebounceMs: 50
-      })
-    });
+  it('keeps a stable loadOptions identity across renders, even for an inline loader', async () => {
+    // The config is rebuilt every render (as when written inline in a
+    // component), so each render passes a brand-new `loadOptions`.
+    let calls = 0;
+    const { rerender, result } = renderHook(
+      () =>
+        useFilters({
+          customer_id: f.asyncSelect({
+            label: 'Customer',
+            valueType: 'number',
+            loadOptions: async () => {
+              calls += 1;
+              return { options: [] };
+            }
+          })
+        }),
+      { wrapper }
+    );
+    const first = result.current.filterMap.customer_id.loadOptions;
+    rerender();
+    expect(result.current.filterMap.customer_id.loadOptions).toBe(first);
 
-    void result.current.filterMap.customer_id.loadOptions?.('a', new AbortController().signal);
-    await vi.advanceTimersByTimeAsync(50);
-
-    expect(loadOptions).toHaveBeenCalledTimes(1);
+    await first({ search: '', signal: new AbortController().signal, cursor: null });
+    expect(calls).toBe(1);
   });
 });
 
