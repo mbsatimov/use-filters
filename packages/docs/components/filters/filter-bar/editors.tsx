@@ -61,7 +61,7 @@ const AsyncSelectEditor = ({
   filter: ResolvedFilterOf<'asyncSelect'>;
 }) => {
   const [search, setSearch] = React.useState('');
-  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
     filter,
     search,
     true
@@ -72,6 +72,7 @@ const AsyncSelectEditor = ({
       hasMore={hasMore}
       isLoadingMore={isLoadingMore}
       isPending={isPending}
+      loadMoreFailed={loadMoreFailed}
       options={options}
       placeholder={filter.placeholder ?? filter.label}
       selected={(option) => selected?.value === option.value}
@@ -87,7 +88,7 @@ const AsyncSelectEditor = ({
 
 const AsyncMultiSelectEditor = ({ filter }: { filter: ResolvedFilterOf<'asyncMultiSelect'> }) => {
   const [search, setSearch] = React.useState('');
-  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
     filter,
     search,
     true
@@ -98,6 +99,7 @@ const AsyncMultiSelectEditor = ({ filter }: { filter: ResolvedFilterOf<'asyncMul
       hasMore={hasMore}
       isLoadingMore={isLoadingMore}
       isPending={isPending}
+      loadMoreFailed={loadMoreFailed}
       options={options}
       placeholder={filter.placeholder ?? filter.label}
       selected={(option) => selectedValues.has(option.value)}

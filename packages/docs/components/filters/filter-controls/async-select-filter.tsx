@@ -20,7 +20,7 @@ export const AsyncSelectFilter = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
     filter,
     search,
     open
@@ -42,6 +42,7 @@ export const AsyncSelectFilter = ({
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}
           isPending={isPending}
+          loadMoreFailed={loadMoreFailed}
           options={options}
           placeholder={filter.placeholder ?? filter.label}
           selected={(option) => selected?.value === option.value}

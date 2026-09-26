@@ -41,6 +41,10 @@ export function useAsyncOptions<V extends FilterPrimitive>(
   const [nextCursor, setNextCursor] = useState<OptionsCursor | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // The last "load more" failed. UIs must not auto-retry while this is set
+  // (a still-visible row would loop against a broken endpoint) — only on an
+  // explicit user action, which calls `loadMore()` again.
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   // The in-flight "load more" request — also the guard against overlapping ones.
   const moreRef = useRef<AbortController | null>(null);
   // Always call the latest loader, but never refetch because its identity
@@ -53,10 +57,9 @@ export function useAsyncOptions<V extends FilterPrimitive>(
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
-    // A page for the previous search must never land in this one's list.
+    // A page for the previous search must never land in this one's list; its
+    // own `finally` clears the in-flight guard and the loading flag.
     moreRef.current?.abort();
-    moreRef.current = null;
-    setIsLoadingMore(false);
     setIsPending(true);
     loadOptionsRef
       .current({ search: debouncedSearch, signal: controller.signal, cursor: null })
@@ -64,6 +67,7 @@ export function useAsyncOptions<V extends FilterPrimitive>(
         if (controller.signal.aborted) return;
         setOptions(page.options);
         setNextCursor(page.nextCursor ?? null);
+        setLoadMoreFailed(false);
         setIsPending(false);
       })
       .catch(() => {
@@ -83,14 +87,18 @@ export function useAsyncOptions<V extends FilterPrimitive>(
     const controller = new AbortController();
     moreRef.current = controller;
     setIsLoadingMore(true);
+    setLoadMoreFailed(false);
     loadOptionsRef
       .current({ search: debouncedSearch, signal: controller.signal, cursor: nextCursor })
       .then((page) => {
         if (controller.signal.aborted) return;
-        setOptions((prev) => [...prev, ...page.options]);
+        setOptions((prev) => appendUnique(prev, page.options));
         setNextCursor(page.nextCursor ?? null);
       })
-      .catch(() => {})
+      .catch(() => {
+        // An abort means a new search took over; anything else is a real failure.
+        if (!controller.signal.aborted) setLoadMoreFailed(true);
+      })
       .finally(() => {
         if (moreRef.current !== controller) return;
         moreRef.current = null;
@@ -98,7 +106,27 @@ export function useAsyncOptions<V extends FilterPrimitive>(
       });
   }, [debouncedSearch, nextCursor, isPending]);
 
-  return { options, isPending, isLoadingMore, hasMore: nextCursor !== null, loadMore };
+  return {
+    options,
+    isPending,
+    isLoadingMore,
+    loadMoreFailed,
+    hasMore: nextCursor !== null,
+    loadMore
+  };
+}
+
+/**
+ * `next` appended to `prev`, skipping values already listed — cursor APIs can
+ * return overlapping pages when rows are inserted between requests, and a
+ * repeated `value` would render a duplicate row (and a duplicate React key).
+ */
+function appendUnique<V extends FilterPrimitive>(
+  prev: FilterOption<V>[],
+  next: FilterOption<V>[]
+): FilterOption<V>[] {
+  const seen = new Set(prev.map((option) => option.value));
+  return [...prev, ...next.filter((option) => !seen.has(option.value))];
 }
 
 /** `value`, trailing-debounced by `delayMs`. */

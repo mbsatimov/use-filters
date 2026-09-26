@@ -4,7 +4,7 @@ import type { FilterOption, OptionsCursor, OptionsPage } from '@mbsatimov/use-fi
 
 import { f, useFilters } from '@mbsatimov/use-filters';
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DemoWindow } from '@/components/demo-window';
 import { JsonPreview } from '@/components/json-preview';
@@ -49,31 +49,42 @@ const Inner = () => {
     assignee: f.asyncSelect({ label: 'Assignee', valueType: 'number', loadOptions: loadUsers })
   });
   const assignee = filterMap.assignee;
+  // Stable across renders, so it's safe as an effect dependency.
+  const { loadOptions } = assignee;
 
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<FilterOption<number>[]>([]);
   const [nextCursor, setNextCursor] = useState<OptionsCursor | null>(null);
+  // The in-flight next-page request: blocks double-fires, aborted by a new search.
+  const moreRef = useRef<AbortController | null>(null);
 
   // First page: a new search replaces the results.
   useEffect(() => {
     const controller = new AbortController();
-    assignee
-      .loadOptions({ search, signal: controller.signal, cursor: null })
+    moreRef.current?.abort();
+    loadOptions({ search, signal: controller.signal, cursor: null })
       .then((page) => {
         setResults(page.options);
         setNextCursor(page.nextCursor ?? null);
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [search, assignee.loadOptions]);
+  }, [search, loadOptions]);
 
   // Next page: pass back the cursor the last page returned, and append.
   const loadMore = () => {
-    void assignee
-      .loadOptions({ search, signal: new AbortController().signal, cursor: nextCursor })
+    if (nextCursor === null || moreRef.current) return;
+    const controller = new AbortController();
+    moreRef.current = controller;
+    loadOptions({ search, signal: controller.signal, cursor: nextCursor })
       .then((page) => {
+        if (controller.signal.aborted) return;
         setResults((prev) => [...prev, ...page.options]);
         setNextCursor(page.nextCursor ?? null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (moreRef.current === controller) moreRef.current = null;
       });
   };
 

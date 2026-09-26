@@ -154,7 +154,7 @@ function AsyncList({
   filter: ResolvedFilterOf<'asyncMultiSelect'> | ResolvedFilterOf<'asyncSelect'>;
 }) {
   const [search, setSearch] = useState('');
-  const { hasMore, isLoadingMore, isPending, loadMore, options } = useAsyncOptions(
+  const { hasMore, isLoadingMore, isPending, loadMore, loadMoreFailed, options } = useAsyncOptions(
     filter,
     search,
     true
@@ -205,7 +205,7 @@ function AsyncList({
           variant='link'
           onClick={loadMore}
         >
-          {isLoadingMore ? 'Loading…' : 'Load more'}
+          {isLoadingMore ? 'Loading…' : loadMoreFailed ? "Couldn't load more — retry" : 'Load more'}
         </Button>
       )}
     </div>
