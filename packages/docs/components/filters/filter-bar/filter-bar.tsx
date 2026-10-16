@@ -35,7 +35,6 @@ import { cn } from '@/lib/utils';
 
 import { FilterEditor, NumberEditor } from './editors';
 import { FilterShell } from './filter-shell';
-import { hasFilterValue } from './lib';
 import { summarize } from './summarize';
 import { TextFilter } from './text-filter';
 
@@ -138,7 +137,7 @@ const FilterEditorPane = ({
         <ChevronLeftIcon />
       </Button>
       <span className='min-w-0 flex-1 truncate text-sm font-medium'>{filter.label}</span>
-      {hasFilterValue(filter.value) && (
+      {filter.isFilteredDraft && (
         <Button
           className='text-muted-foreground h-7 px-2 text-xs'
           size='sm'
@@ -246,7 +245,10 @@ const ActiveFilterChip = ({ filter }: { filter: ResolvedFilter }) => {
 export const FilterBar = ({ children, className, filters, isFiltered, reset }: FilterBarProps) => {
   const inlineFilters = filters.filter((filter) => filter.type === 'text');
   const menuFilters = filters.filter((filter) => filter.type !== 'text');
-  const activeFilters = menuFilters.filter((filter) => hasFilterValue(filter.value));
+  // `isFiltered` is "differs from its default", which is what a chip means. A
+  // plain non-empty check would give every filter with a `defaultValue` a
+  // permanent chip whose × appears to do nothing.
+  const activeFilters = menuFilters.filter((filter) => filter.isFiltered);
 
   const [open, setOpen] = React.useState(false);
   const [activeKey, setActiveKey] = React.useState<string | null>(null);
