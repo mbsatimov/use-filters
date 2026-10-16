@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+### Patch Changes
+
+- 2ee6588: `resolveFilterParams` now accepts a full URL or path such as `request.url`. Previously a string was always read as a bare query string, so `https://site/products?status=open&page=2` folded `status` into a key named `https://site/products?status` and that filter was silently dropped.
+
 ## 2.0.0
 
 ### Major Changes

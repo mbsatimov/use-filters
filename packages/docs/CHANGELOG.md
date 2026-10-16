@@ -1,5 +1,12 @@
 # @use-filters/docs
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [2ee6588]
+  - @mbsatimov/use-filters@2.0.1
+
 ## 0.0.4
 
 ### Patch Changes
