@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   const generated = generateFiles(config).map((file) => ({
     content: file.content,
     path: `registry/init/${file.name}`,
-    target: file.target,
+    target: file.registryTarget,
     type: file.registryType
   }));
 
