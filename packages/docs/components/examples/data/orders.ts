@@ -15,14 +15,22 @@ export type Region = 'apac' | 'eu' | 'latam' | 'na';
 
 export interface Order {
   amount: number;
+  /** Support rep handling the order — the async multi-select's source. */
+  assignee: string;
   customer: string;
   date: string; // yyyy-MM-dd
+  /** Delivery deadline, for the single-date filter. */
+  due: string; // yyyy-MM-dd
   email: string;
+  expedited: boolean;
   id: string;
   items: number;
   method: PaymentMethod;
+  /** Time of day the order came in, for the time filters. */
+  placedAt: string; // HH:mm
   region: Region;
   status: OrderStatus;
+  tags: string[];
 }
 
 export const statusOptions: { label: string; value: OrderStatus }[] = [
@@ -88,6 +96,8 @@ const statuses: OrderStatus[] = [
   'pending'
 ];
 const methods: PaymentMethod[] = ['card', 'paypal', 'card', 'transfer', 'crypto', 'card'];
+const reps = ['Dana Scully', 'Fox Mulder', 'Walter Skinner', 'Monica Reyes', 'John Doggett'];
+const tagPool = ['vip', 'gift', 'fragile', 'reorder', 'wholesale'];
 const regions: Region[] = ['na', 'eu', 'apac', 'latam', 'eu', 'na'];
 
 /** Deterministic dataset (no randomness — SSR and client stay identical). */
@@ -105,6 +115,16 @@ export const orders: Order[] = Array.from({ length: 100 }, (_, i) => {
     region: regions[i % regions.length],
     items: ((i * 3) % 7) + 1,
     date: date.toISOString().slice(0, 10),
+    // Due a stepped number of days after the order, so the two dates differ.
+    due: new Date(date.getTime() + (3 + (i % 9)) * 86_400_000).toISOString().slice(0, 10),
+    placedAt: `${String(7 + ((i * 5) % 12)).padStart(2, '0')}:${String((i * 13) % 60).padStart(2, '0')}`,
+    assignee: reps[i % reps.length],
+    expedited: i % 4 === 0,
+    // One or two tags, cycling so every tag is reachable.
+    tags:
+      i % 3 === 0
+        ? [tagPool[i % tagPool.length]]
+        : [tagPool[i % tagPool.length], tagPool[(i + 2) % tagPool.length]],
     amount: 40 + ((i * 137) % 4960)
   };
 });
@@ -201,6 +221,20 @@ export async function fetchOrders(
 ): Promise<Paginated<Order>> {
   await delay(LATENCY_MS, options.signal);
   const matched = applyOrdering(applyFilters(orders, params), params.ordering);
+  return paginate(matched, params.page, params.per_page);
+}
+
+/** A server-searched, paginated rep list, for `f.asyncMultiSelect`. */
+export async function searchReps(
+  params: { page: number; per_page: number; search: string },
+  options: { signal?: AbortSignal } = {}
+): Promise<Paginated<CustomerOption>> {
+  await delay(LATENCY_MS, options.signal);
+  const needle = params.search.trim().toLowerCase();
+  const matched = [...reps]
+    .sort((a, b) => a.localeCompare(b))
+    .filter((name) => !needle || name.toLowerCase().includes(needle))
+    .map((name) => ({ value: name, label: name }));
   return paginate(matched, params.page, params.per_page);
 }
 

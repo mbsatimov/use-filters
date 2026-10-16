@@ -10,6 +10,8 @@ import {
   methodOptions,
   orders,
   regionOptions,
+  searchCustomers,
+  searchReps,
   sortOptions,
   statusOptions
 } from '@/components/examples/data/orders';
@@ -32,6 +34,38 @@ const filterConfig = {
   // doesn't rewrite the URL (or refetch) on every keystroke.
   amount: f.numberRange({ label: 'Amount', commit: 'manual' }),
   period: f.dateRange({ label: 'Date', commit: 'manual' }),
+  min_items: f.number({ label: 'Min items', precision: 'int', placeholder: 'At least…' }),
+  due: f.date({ label: 'Due by' }),
+  placed_after: f.time({ label: 'Placed after' }),
+  placed_between: f.timeRange({ label: 'Placed between', commit: 'manual' }),
+  tags: f.tags({ label: 'Tags', placeholder: 'vip, gift…' }),
+  expedited: f.boolean({ label: 'Expedited', trueLabel: 'Expedited', falseLabel: 'Standard' }),
+  // Server-searched: the chosen label rides along in the URL, so the chip still
+  // reads correctly after a refresh without refetching.
+  customer: f.asyncSelect({
+    label: 'Customer',
+    valueType: 'string',
+    loadOptions: async ({ cursor, search, signal }) => {
+      const page = Number(cursor ?? 1);
+      const res = await searchCustomers({ search, page, per_page: 6 }, { signal });
+      return {
+        options: res.results,
+        nextCursor: page * res.per_page < res.count ? page + 1 : null
+      };
+    }
+  }),
+  assignees: f.asyncMultiSelect({
+    label: 'Assigned to',
+    valueType: 'string',
+    loadOptions: async ({ cursor, search, signal }) => {
+      const page = Number(cursor ?? 1);
+      const res = await searchReps({ search, page, per_page: 6 }, { signal });
+      return {
+        options: res.results,
+        nextCursor: page * res.per_page < res.count ? page + 1 : null
+      };
+    }
+  }),
   sort: f.select({
     label: 'Sort',
     valueType: 'string',
@@ -58,6 +92,18 @@ function applyFilters(list: Order[], params: OrderParams) {
     if (max != null && order.amount > max) return false;
     if (from && order.date < from) return false;
     if (to && order.date > to) return false;
+    if (params.min_items != null && order.items < params.min_items) return false;
+    if (params.due && order.due > params.due) return false;
+    if (params.placed_after && order.placedAt < params.placed_after) return false;
+    if (params.placed_between) {
+      const [open, close] = params.placed_between;
+      if (open && order.placedAt < open) return false;
+      if (close && order.placedAt > close) return false;
+    }
+    if (params.tags?.length && !params.tags.some((tag) => order.tags.includes(tag))) return false;
+    if (params.expedited != null && order.expedited !== params.expedited) return false;
+    if (params.customer && order.customer !== params.customer) return false;
+    if (params.assignees?.length && !params.assignees.includes(order.assignee)) return false;
     return true;
   });
 }

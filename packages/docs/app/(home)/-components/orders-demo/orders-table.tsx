@@ -1,7 +1,7 @@
 'use client';
 
 import { format, parseISO } from 'date-fns';
-import { SearchX } from 'lucide-react';
+import { SearchX, Zap } from 'lucide-react';
 
 import type { Order, OrderStatus } from '@/components/examples/data/orders';
 
@@ -31,6 +31,8 @@ const columns = [
   { key: 'status', header: 'Status' },
   { key: 'method', header: 'Method', className: 'hidden md:table-cell' },
   { key: 'region', header: 'Region', className: 'hidden lg:table-cell' },
+  { key: 'assignee', header: 'Assignee', className: 'hidden xl:table-cell' },
+  { key: 'items', header: 'Items', className: 'hidden xl:table-cell text-right' },
   { key: 'date', header: 'Date', className: 'hidden sm:table-cell' },
   { key: 'amount', header: 'Amount', className: 'text-right' }
 ];
@@ -80,8 +82,19 @@ const OrderRow = ({ order }: { order: Order }) => (
           {initials(order.customer)}
         </span>
         <div className='flex min-w-0 flex-col'>
-          <span className='truncate font-medium'>{order.customer}</span>
-          <span className='text-muted-foreground truncate text-xs'>{order.email}</span>
+          <span className='flex items-center gap-1.5'>
+            <span className='truncate font-medium'>{order.customer}</span>
+            {order.expedited && (
+              <Zap aria-label='Expedited' className='size-3 shrink-0 text-amber-500' />
+            )}
+          </span>
+          <span className='text-muted-foreground flex items-center gap-1 text-xs'>
+            {order.tags.map((tag) => (
+              <span key={tag} className='bg-muted rounded px-1 py-px font-mono text-[0.65rem]'>
+                {tag}
+              </span>
+            ))}
+          </span>
         </div>
       </div>
     </TableCell>
@@ -101,9 +114,22 @@ const OrderRow = ({ order }: { order: Order }) => (
       {order.region}
     </TableCell>
 
+    <TableCell className='text-muted-foreground hidden truncate xl:table-cell'>
+      {order.assignee}
+    </TableCell>
+
+    <TableCell className='text-muted-foreground hidden text-right tabular-nums xl:table-cell'>
+      {order.items}
+    </TableCell>
+
     <TableCell className='text-muted-foreground hidden tabular-nums sm:table-cell'>
       {/* `parseISO` reads the date as local, so the day doesn't shift west of UTC. */}
-      {format(parseISO(order.date), 'MMM dd, yyyy')}
+      <div className='flex flex-col'>
+        {format(parseISO(order.date), 'MMM dd, yyyy')}
+        <span className='text-muted-foreground/70 text-xs'>
+          {order.placedAt} · due {format(parseISO(order.due), 'MMM dd')}
+        </span>
+      </div>
     </TableCell>
 
     <TableCell className='text-right font-medium tabular-nums'>
