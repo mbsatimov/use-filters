@@ -73,6 +73,22 @@ describe('resolveFilterParams — raw search shapes', () => {
     expect(resolveFilterParams(configs, 'search=acme&customer_id=5&tags=a,b')).toEqual(expected);
   });
 
+  it('reads only the query part of a full URL, so the first param is not lost', () => {
+    const expected = { search: 'acme', customer_id: 5, tags: null, page: 3, per_page: 10 };
+    expect(
+      resolveFilterParams(configs, 'https://x.test/loans?search=acme&customer_id=5&page=3')
+    ).toEqual(expected);
+    expect(resolveFilterParams(configs, '/loans?search=acme&customer_id=5&page=3#top')).toEqual(
+      expected
+    );
+  });
+
+  it('treats a URL or path with no query as empty', () => {
+    const empty = { search: null, customer_id: null, tags: null, page: 1, per_page: 10 };
+    expect(resolveFilterParams(configs, 'https://x.test/loans')).toEqual(empty);
+    expect(resolveFilterParams(configs, '/loans')).toEqual(empty);
+  });
+
   it('produces the identical object for every shape (queryKey parity)', () => {
     const fromObject = resolveFilterParams(configs, { search: 'acme', customer_id: '5' });
     const fromString = resolveFilterParams(configs, '?search=acme&customer_id=5');
