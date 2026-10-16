@@ -10,8 +10,9 @@ plain object; the hook keeps their state in the URL query string and hands back
 a typed `params` object for fetching data plus ready-to-render filter state. It
 ships **no UI** — you render your own controls against your own design system.
 
-**📖 [Full documentation](https://use-filters.vercel.app/docs)** — concepts, every
-filter type, guides, and the API reference, with live interactive examples.
+**📖 [use-filters.vercel.app](https://use-filters.vercel.app)** — live demos, a
+guided setup that generates your config, and the full docs: concepts, every
+filter type, guides, and the API reference.
 
 ```ts
 const { params, filters, isFiltered, reset } = useFilters({

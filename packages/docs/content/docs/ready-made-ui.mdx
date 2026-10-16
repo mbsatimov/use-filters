@@ -1,0 +1,55 @@
+---
+title: Ready-made UI
+description: Install a complete filter toolbar with the shadcn CLI instead of building one.
+---
+
+The library itself ships no components. If you would rather not build the
+toolbar yourself, there are three UI kits you can copy into your project with the
+[shadcn CLI](https://ui.shadcn.com/docs/cli). They are built on shadcn/ui and
+cover every filter type.
+
+The files land in your codebase as plain source. There is no package to update
+and no props API to work around: edit them like any other component.
+
+## Pick a kit
+
+<Cards>
+  <Card title='Filter Bar' href='/registry#filter-bar'>
+    A search box, a "Filters" menu, and a chip for each active filter. The toolbar renders itself
+    from the `filters` array.
+  </Card>
+  <Card title='Facet Panel' href='/registry#facet-panel'>
+    A sidebar of checkbox sections on desktop and a chip row with bottom drawers on mobile. The
+    usual shop layout.
+  </Card>
+  <Card title='Filter Controls' href='/registry#filter-controls'>
+    One standalone component per filter type. You decide where each one goes.
+  </Card>
+</Cards>
+
+Each one installs with a single command, for example:
+
+```bash
+npx shadcn@latest add https://use-filters.vercel.app/r/filter-bar.json
+```
+
+Then pass it the output of `useFilters`:
+
+```tsx
+import { FilterBar } from '@/components/filters/filter-bar/filter-bar';
+
+const { filters, isFiltered, instantReset } = useFilters(configs);
+
+<FilterBar filters={filters} isFiltered={isFiltered} reset={instantReset} />;
+```
+
+Files go wherever your `components.json` aliases point, so a project that keeps
+components in `@/shared/ui` gets them there.
+
+## Or set up the whole project
+
+[Get started](/start) asks a few questions about your API (what the pagination
+params are called, how arrays and dates should be sent) and gives you one command
+that installs a kit together with a matching `createFilters` setup.
+
+To see the kits running first, every [example](/examples) is built on one of them.

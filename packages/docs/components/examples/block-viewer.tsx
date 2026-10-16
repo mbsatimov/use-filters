@@ -12,6 +12,7 @@ import {
   Monitor,
   Package,
   RotateCw,
+  Settings2,
   Smartphone,
   Tablet
 } from 'lucide-react';
@@ -75,6 +76,9 @@ export function BlockViewer({
   const [copied, setCopied] = useState(false);
 
   const previewUrl = `/examples/preview/${slug}`;
+  // Opens the setup flow on this example's kit; examples that build their own
+  // UI start headless.
+  const setupUrl = `/start?kit=${kits[0] ?? 'none'}`;
   const activeFile = files[fileIndex];
 
   const copy = async () => {
@@ -106,6 +110,11 @@ export function BlockViewer({
             {kit}
           </a>
         ))}
+        <Button asChild size='sm' variant='outline'>
+          <a href={setupUrl}>
+            <Settings2 className='size-3.5' /> Start with this setup
+          </a>
+        </Button>
 
         {/* Toolbar */}
         <div className='ml-auto flex items-center gap-1.5'>

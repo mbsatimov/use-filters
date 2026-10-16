@@ -1,28 +1,37 @@
 ---
-title: Project-specific UI hints (meta)
-description: Attach your own typed metadata to filters and options without changing the core.
+title: UI metadata (meta)
+description: Attach your own typed hints to filters, options and the whole set, and read them back when rendering.
 ---
 
-Your UI often needs extra per-filter information that the library has no opinion
-about — a layout variant, a group, an icon, a step size. Attach it via `meta`. The
-core never reads `meta`; it only carries it through to `filters` / `filterMap` for
-your UI to branch on. Because the shapes are yours, they're **fully typed** — you
-declare them once by augmenting the library's interfaces:
+Your UI often needs information the library doesn't care about: a layout
+variant, a group, an icon, a unit like `$`. Put it in `meta`. The library never
+reads `meta`. It passes it through to `filters` and `filterMap` so your render
+code can use it.
+
+There are no built-in `meta` fields. Every `meta` interface starts empty, and you
+add the fields your project needs by augmenting the module. That way they are
+typed, and a typo in a config is a compile error.
+
+## Declaring fields
+
+Augment the interfaces in a `.d.ts` file anywhere in your project:
 
 ```ts
-// e.g. src/types/filters.d.ts
+// types/filters.d.ts
+import '@mbsatimov/use-filters';
+
 declare module '@mbsatimov/use-filters' {
   interface FilterMeta {
-    variant?: 'inline' | 'stacked'; // available on EVERY filter kind
+    variant?: 'inline' | 'stacked'; // every filter
   }
   interface SelectFilterMeta {
-    group?: 'primary' | 'advanced'; // only on select filters
+    group?: 'primary' | 'advanced'; // select filters only
   }
   interface NumberFilterMeta {
-    unit?: string; // only on number filters, e.g. '$'
+    unit?: string; // number filters only, e.g. '$'
   }
   interface FilterOptionMeta {
-    icon?: React.ComponentType; // on every option
+    icon?: React.ComponentType; // every option
   }
   interface FiltersMeta {
     layout?: 'toolbar' | 'sidebar'; // the whole set
@@ -30,36 +39,87 @@ declare module '@mbsatimov/use-filters' {
 }
 ```
 
-Now pass `meta` where it's relevant, checked against the shape you declared:
+The `import` line matters: it turns the file into a module, so the `declare` adds
+to the library's types instead of replacing them.
+
+## Every interface you can augment
+
+| Interface                    | Where the field appears                                    |
+| ---------------------------- | ---------------------------------------------------------- |
+| `FilterMeta`                 | every filter (all the interfaces below extend it)          |
+| `TextFilterMeta`             | `f.text`                                                   |
+| `NumberFilterMeta`           | `f.number`                                                 |
+| `NumberRangeFilterMeta`      | `f.numberRange`                                            |
+| `BooleanFilterMeta`          | `f.boolean`                                                |
+| `DateFilterMeta`             | `f.date`                                                   |
+| `DateRangeFilterMeta`        | `f.dateRange`                                              |
+| `TimeFilterMeta`             | `f.time`                                                   |
+| `TimeRangeFilterMeta`        | `f.timeRange`                                              |
+| `SelectFilterMeta`           | `f.select`                                                 |
+| `MultiSelectFilterMeta`      | `f.multiSelect`                                            |
+| `TagsFilterMeta`             | `f.tags`                                                   |
+| `AsyncSelectFilterMeta`      | `f.asyncSelect`                                            |
+| `AsyncMultiSelectFilterMeta` | `f.asyncMultiSelect`                                       |
+| `FilterOptionMeta`           | each option's `meta`, including options from `loadOptions` |
+| `FiltersMeta`                | `useFilters(configs, { meta })`, returned as `meta`        |
+
+Use `FilterMeta` for a field every filter can have, and a per-kind interface when
+it only makes sense for one kind. A `unit` on a boolean filter would be
+meaningless, so it goes on `NumberFilterMeta`.
+
+## Passing it
+
+Each `meta` is checked against what you declared:
 
 ```ts
-status: f.select({
-  label: 'Status',
-  valueType: 'string',
-  options: [{ label: 'Open', value: 'open', meta: { icon: OpenIcon } }],
-  meta: { group: 'primary' }
-});
-
-min_price: f.number({ label: 'Min price', meta: { unit: '$' } });
-
-useFilters(configs, { meta: { layout: 'sidebar' } });
-```
-
-And read it back when rendering:
-
-```tsx
-filters.map((filter) =>
-  filter.meta.group === 'advanced' ? <AdvancedSlot filter={filter} /> : <Control filter={filter} />
+const { filters, meta } = useFilters(
+  {
+    status: f.select({
+      label: 'Status',
+      valueType: 'string',
+      options: [{ label: 'Open', value: 'open', meta: { icon: OpenIcon } }],
+      meta: { group: 'primary', variant: 'inline' }
+    }),
+    min_price: f.number({ label: 'Min price', meta: { unit: '$' } })
+  },
+  { meta: { layout: 'sidebar' } }
 );
 ```
 
-There's a per-kind interface (`SelectFilterMeta`, `NumberFilterMeta`, …) so a hint
-can be specific to one kind, a shared `FilterMeta` for hints that apply to all, a
-`FilterOptionMeta` for options, and a `FiltersMeta` for the whole set.
+## Reading it back
 
-<Callout>
-  The old `FilterOption.icon` / `leftSlot` / `rightSlot`, the per-filter `className`, and `f.number`
-  / `f.numberRange`'s `unit` were removed in 1.0 — rendering concerns don't belong on a headless
-  core. Declare what you need on `FilterOptionMeta` / `FilterMeta` / `NumberFilterMeta` and pass it
-  via `meta` instead (same data, typed by you).
+A filter's `meta` is optional, so it is `undefined` on any filter you didn't give
+one. Read it with `?.`:
+
+```tsx
+filters.map((filter) =>
+  filter.meta?.variant === 'stacked' ? (
+    <StackedControl key={filter.key} filter={filter} />
+  ) : (
+    <InlineControl key={filter.key} filter={filter} />
+  )
+);
+```
+
+A per-kind field only exists on that kind, so check `type` first. TypeScript then
+knows which interface applies:
+
+```tsx
+if (filter.type === 'select' && filter.meta?.group === 'advanced') {
+  return <AdvancedSlot filter={filter} />;
+}
+
+if (filter.type === 'number') {
+  return <NumberInput filter={filter} unit={filter.meta?.unit} />;
+}
+```
+
+The hook-level `meta` is different: it is always an object (`{}` if you passed
+nothing), so `meta.layout` needs no `?.`.
+
+<Callout title='Coming from 0.x?'>
+  `FilterOption.icon`, `leftSlot` and `rightSlot`, the per-filter `className`, and the `unit` option
+  on `f.number` / `f.numberRange` were removed in 1.0, since how things look isn't the hook's
+  business. Declare the same fields on `FilterOptionMeta`, `FilterMeta` or `NumberFilterMeta` and
+  pass them through `meta`.
 </Callout>

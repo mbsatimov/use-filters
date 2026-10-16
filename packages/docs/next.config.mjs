@@ -11,7 +11,20 @@ const config = {
   // without this the route deploys fine and then 500s on the first install.
   outputFileTracingIncludes: {
     '/r/init.json': ['./components/filters/**/*']
-  }
+  },
+  // Guides merged into /docs/guides/project-setup; keep old links working.
+  redirects: async () => [
+    {
+      source: '/docs/guides/shared-setup',
+      destination: '/docs/guides/project-setup',
+      permanent: true
+    },
+    {
+      source: '/docs/guides/route-loaders',
+      destination: '/docs/guides/project-setup#3-route-loaders-with-resolvefilterparams',
+      permanent: true
+    }
+  ]
 };
 
 export default withMDX(config);

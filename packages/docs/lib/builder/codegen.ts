@@ -19,8 +19,15 @@ export interface GeneratedFile {
   content: string;
   /** Tab label. */
   name: string;
+  /**
+   * The install target, spelled with the CLI's `@components/` / `@lib/`
+   * placeholders so it resolves against the consumer's `components.json` — a
+   * project aliased to `@/shared/ui` gets the file there, not under a literal
+   * `components/` directory.
+   */
+  registryTarget: string;
   registryType: 'registry:component' | 'registry:lib';
-  /** Path written to, relative to the project root. */
+  /** Where the file lands in a default layout — shown in the review UI. */
   target: string;
 }
 
@@ -102,12 +109,21 @@ const configFile = (config: ProjectConfig): GeneratedFile => {
       ''
     ].join('\n'),
     name: 'filters.ts',
+    registryTarget: '@lib/filters.ts',
     registryType: 'registry:lib',
     target: 'lib/filters.ts'
   };
 };
 
-/** How the starter screen renders its filters, per kit. */
+/**
+ * How the starter screen renders its filters, per kit.
+ *
+ * Kit imports are **relative**: the starter is served under the same registry
+ * folder as the kit's files, so wherever the consumer's aliases put them —
+ * nested in a default layout, flat in an aliased one — the two stay siblings
+ * and `./filter-bar` resolves. An alias-deep import could not do that: the CLI
+ * collapses `@/components/a/b/c` to the components alias plus `c`.
+ */
 const kitUsage: Record<string, { body: string[]; hook: string; imports: string[] }> = {
   'facet-panel': {
     body: [
@@ -122,12 +138,12 @@ const kitUsage: Record<string, { body: string[]; hook: string; imports: string[]
       '/>'
     ],
     hook: 'apply, cancel, filters, instantReset, isDirty, isFiltered, params',
-    imports: ["import { FacetPanel } from '@/components/filters/facet-panel/facet-panel';"]
+    imports: ["import { FacetPanel } from './facet-panel';"]
   },
   'filter-bar': {
     body: ['<FilterBar filters={filters} isFiltered={isFiltered} reset={instantReset} />'],
     hook: 'filters, instantReset, isFiltered, params',
-    imports: ["import { FilterBar } from '@/components/filters/filter-bar/filter-bar';"]
+    imports: ["import { FilterBar } from './filter-bar';"]
   },
   'filter-controls': {
     body: [
@@ -138,7 +154,8 @@ const kitUsage: Record<string, { body: string[]; hook: string; imports: string[]
     ],
     hook: 'filterMap, params',
     imports: [
-      "import { MultiSelectFilter, TextFilter } from '@/components/filters/filter-controls';"
+      "import { MultiSelectFilter } from './multi-select-filter';",
+      "import { TextFilter } from './text-filter';"
     ]
   },
   none: {
@@ -161,6 +178,11 @@ const kitUsage: Record<string, { body: string[]; hook: string; imports: string[]
  */
 const starterFile = (config: ProjectConfig): GeneratedFile => {
   const { body, hook, imports } = kitUsage[config.kit];
+
+  // Placed in the kit's own folder so the relative kit imports resolve
+  // wherever the consumer's aliases put that folder; headless has no kit to
+  // sit beside and lands at the components root.
+  const targetDir = config.kit === 'none' ? '' : `filters/${config.kit}/`;
 
   return {
     content: [
@@ -202,8 +224,9 @@ const starterFile = (config: ProjectConfig): GeneratedFile => {
       ''
     ].join('\n'),
     name: 'filters-example.tsx',
+    registryTarget: `@components/${targetDir}filters-example.tsx`,
     registryType: 'registry:component',
-    target: 'components/filters-example.tsx'
+    target: `components/${targetDir}filters-example.tsx`
   };
 };
 

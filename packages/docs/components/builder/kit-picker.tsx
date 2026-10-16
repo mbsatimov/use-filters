@@ -212,7 +212,8 @@ const entries: KitEntry[] = [
     title: kit.title
   })),
   {
-    approach: 'Just the hook. Render your own controls from the filters array.',
+    approach:
+      'From scratch: nothing is copied in — the hook hands you `filters`, you build the UI.',
     name: 'none',
     title: 'Headless'
   }

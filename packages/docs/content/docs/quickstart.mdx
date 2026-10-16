@@ -1,24 +1,26 @@
 ---
 title: Quickstart
-description: Build a working, URL-synced filtered list in a few lines.
+description: Build a filtered list that keeps its state in the URL.
 ---
 
 import { BasicFiltersDemo } from '@/components/demos/basic-filters';
 
-This page builds a small filtered list end to end. Make sure you've
-[mounted the nuqs adapter](/docs/installation#mount-the-nuqs-adapter) first.
+This page builds a small filtered list from start to finish. You need the nuqs
+adapter [mounted](/docs/installation#mount-the-nuqs-adapter) before any of it
+works.
 
 ## Try it
 
-The demo below is the real hook. Type in the box and pick a status — the **URL bar**
-and the **`params`** object update together, because both are derived from the URL:
+This is the real hook. Type in the box or pick a status, and watch the address
+bar and the `params` object change together. They are both read from the URL.
 
 <BasicFiltersDemo />
 
 ## Declare your filters
 
-Call `useFilters` with a map of `key → f.*()`. Each key becomes a URL query param
-and a key in `params`; the `f.*` builder decides how the value is parsed.
+Pass `useFilters` an object of `key: f.*()` pairs. Each key becomes a query param
+and a key on `params`. The builder (`f.text`, `f.select`, …) decides how the value
+is parsed.
 
 ```tsx
 import { f, useFilters } from '@mbsatimov/use-filters';
@@ -40,8 +42,8 @@ function ProductsPage() {
 
 ## Fetch with `params`
 
-`params` is `{ search, status, page, per_page }`. Hand it to your fetcher, and use
-it as the query key so results refetch and cache correctly when a filter changes:
+`params` here is `{ search, status, page, per_page }`. Send it to your API and use
+it as the query key, so a filter change refetches:
 
 ```tsx
 const { data } = useQuery({
@@ -51,18 +53,20 @@ const { data } = useQuery({
 ```
 
 <Callout>
-  `params` changes exactly when the URL does, so it's a correct cache key for React Query, SWR, or
-  any fetcher — no extra dependency arrays to manage.
+  `params` only changes when the URL does, so it works as a cache key for React Query, SWR or a
+  plain `fetch` without any extra dependency array.
 </Callout>
 
 ## Render your filters
 
-`filters` is an array of **resolved filters** — each one your config plus a live
-`value` and an `onChange`. Render them however you like:
+`filters` is an array with one entry per filter: your config plus the current
+`value` and an `onChange`. Render it however you like. With plain HTML controls:
 
 ```tsx
-{
-  filters.map((filter) => {
+import type { ResolvedFilter } from '@mbsatimov/use-filters';
+
+function Toolbar({ filters }: { filters: ResolvedFilter[] }) {
+  return filters.map((filter) => {
     if (filter.type === 'text') {
       return (
         <input
@@ -73,6 +77,7 @@ const { data } = useQuery({
         />
       );
     }
+
     if (filter.type === 'select') {
       return (
         <select
@@ -81,25 +86,33 @@ const { data } = useQuery({
           onChange={(e) => filter.onChange(e.target.value || null)}
         >
           <option value=''>{filter.label}</option>
-          {filter.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {filter.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
       );
     }
+
     return null;
   });
 }
 ```
 
-That's the whole loop: **declare → fetch with `params` → render `filters`.**
+That covers the basics: declare the filters, fetch with `params`, render `filters`.
 
-## Where to next
+<Callout title="Don't want to build the controls?">
+  A finished toolbar, with an add-filter menu, chips and an editor for every filter type, installs
+  with one command. See [Ready-made UI](/docs/ready-made-ui), or answer a few questions on [Get
+  started](/start) to set up the whole project at once.
+</Callout>
 
-- **[How it works](/docs/concepts/how-it-works)** — the mental model behind these
-  two outputs. Read this next.
-- **[Filter types](/docs/filter-types/overview)** — every `f.*` builder, with a live
-  example each.
-- **[Building a toolbar](/docs/guides/building-a-toolbar)** — a complete render layer.
+## Next
+
+- [How it works](/docs/concepts/how-it-works) explains why there are two outputs
+  and when `value` and `params` differ. Read it before going further.
+- [Filter types](/docs/filter-types/overview) lists every builder, each with a
+  live example.
+- [Building a toolbar](/docs/guides/building-a-toolbar) takes the render code
+  above further.

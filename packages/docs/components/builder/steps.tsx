@@ -82,7 +82,7 @@ const kitOptions: StepOption[] = [
     value: kit.name
   })),
   {
-    hint: 'Just the hook and your own components. Nothing is copied in.',
+    hint: 'Nothing is copied in — you build the filter UI from scratch.',
     label: 'None — headless',
     patch: { kit: 'none' },
     selected: (config) => config.kit === 'none',
@@ -117,7 +117,7 @@ export const steps: Step[] = [
     renderOptions: (config, set) => <KitPicker config={config} set={set} />,
     summary: (config) =>
       config.kit === 'none'
-        ? 'Headless — no components copied'
+        ? 'Headless — you build the UI from scratch'
         : (registryKits.find((kit) => kit.name === config.kit)?.title ?? config.kit),
     title: 'Filter UI'
   },

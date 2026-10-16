@@ -1,13 +1,15 @@
 {
   "title": "Guides",
   "pages": [
+    "---Essentials---",
     "fetching-data",
     "building-a-toolbar",
-    "shared-setup",
-    "typed-params",
-    "route-loaders",
     "search-sort-and-placement",
     "apply-panel",
+    "---Project architecture---",
+    "project-setup",
+    "typed-params",
+    "---Advanced---",
     "dynamic-filters",
     "listeners",
     "ui-metadata",

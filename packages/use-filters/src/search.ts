@@ -5,13 +5,26 @@ import { buildParser, DEFAULT_ARRAY_SEPARATOR } from './parsers';
 /**
  * The raw-search shapes `resolveFilterParams` accepts, whatever your router
  * hands you: a parsed object (TanStack Router), a `URLSearchParams` (React
- * Router loaders), or the raw query string (leading `?` optional).
+ * Router loaders), a query string (leading `?` optional), or a whole URL or
+ * path such as `request.url`.
  */
 export type RawSearchParams = string | Record<string, unknown> | URLSearchParams;
 
+/**
+ * The query part of a string. Without this, `new URLSearchParams` reads a full
+ * URL as a query string and folds everything before the first `=` into one key,
+ * silently losing the first param.
+ */
+const toQueryString = (raw: string): string => {
+  if (/^[a-z][\w+.-]*:\/\//i.test(raw)) return new URL(raw).search;
+  if (!raw.startsWith('/')) return raw;
+  const query = raw.indexOf('?');
+  return query === -1 ? '' : raw.slice(query).split('#')[0];
+};
+
 /** Normalize any accepted raw-search shape into a plain object (last value wins for repeated keys). */
 export const normalizeRawSearch = (raw: RawSearchParams): Record<string, unknown> => {
-  if (typeof raw === 'string') return Object.fromEntries(new URLSearchParams(raw));
+  if (typeof raw === 'string') return Object.fromEntries(new URLSearchParams(toQueryString(raw)));
   if (raw instanceof URLSearchParams) return Object.fromEntries(raw);
   return raw;
 };

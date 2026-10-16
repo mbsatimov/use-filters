@@ -236,10 +236,17 @@ const Review = ({
         {copied ? 'Copied' : 'Copy command'}
       </Button>
 
+      <p className='text-muted-foreground text-xs leading-relaxed'>
+        Paths follow your <code className='text-foreground'>components.json</code> aliases — a
+        project with <code className='text-foreground'>components: &quot;@/shared/ui&quot;</code>{' '}
+        gets the files there. In a monorepo, run the command with{' '}
+        <code className='text-foreground'>-c path/to/your-app</code>.
+      </p>
+
       <div className='flex flex-col gap-2'>
         <p className='text-muted-foreground text-sm'>
           It writes {files.map((file) => file.target).join(' and ')}
-          {kit ? `, plus the ${kit.title} components.` : '.'}
+          {kit ? `, plus the ${kit.title} components — shown here in the default layout.` : '.'}
         </p>
         {files.map((file) => (
           <div key={file.target} className='overflow-hidden rounded-lg border'>

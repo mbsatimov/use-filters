@@ -135,7 +135,7 @@ doesn't match the declared `valueType`.
 This same requirement applies to static `select` / `multiSelect`. Since a
 choice filter's `options` are often **fetched at runtime**, the same config may
 also be used somewhere the options aren't loaded — a
-[route loader](/docs/guides/route-loaders) calling `resolveFilterParams`. Making
+[route loader](/docs/guides/project-setup#3-route-loaders-with-resolvefilterparams) calling `resolveFilterParams`. Making
 `valueType` required (rather than inferring it from `options`) means the hook
 and the loader always agree on the URL's value type, whether or not `options`
 happen to be loaded at that call site:

@@ -47,8 +47,7 @@ export const registryKits: RegistryKit[] = [
       'filter-shell.tsx',
       'summarize.tsx',
       'text-filter.tsx',
-      'use-async-options.ts',
-      'lib.ts'
+      'use-async-options.ts'
     ],
     dependencies: ['@mbsatimov/use-filters', 'nuqs', 'date-fns'],
     registryDependencies: [
