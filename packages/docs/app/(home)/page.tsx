@@ -33,12 +33,12 @@ export default function HomePage() {
           Declare your filters once as a plain object. Get a typed <code>params</code> object for
           fetching, ready-to-render filter state, and nuqs-backed URL sync — bring your own UI.
         </p>
-        <div className='grid grid-cols-2 items-center justify-center gap-3'>
+        <div className='flex flex-wrap items-center justify-center gap-3'>
           <Button asChild size='lg'>
-            <Link href='/docs'>Get started</Link>
+            <Link href='/start'>Get started</Link>
           </Button>
           <Button asChild size='lg' variant='secondary'>
-            <Link href='https://github.com/mbsatimov/use-filters'>GitHub</Link>
+            <Link href='/docs'>Documentation</Link>
           </Button>
         </div>
         <code className='mt-1 rounded-md border bg-fd-card px-3 py-1.5 font-mono text-xs text-fd-muted-foreground'>
