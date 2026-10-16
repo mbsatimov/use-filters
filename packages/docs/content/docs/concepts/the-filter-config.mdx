@@ -3,9 +3,9 @@ title: The filter config
 description: 'A config is plain data built with f.*: value types, defaults, and hidden filters.'
 ---
 
-The object you pass to `useFilters` is just **data**. Each entry is built with an
-`f.*` helper that records the filter's kind and options. Nothing is rendered, and
-nothing runs until the hook resolves it.
+The object you pass to `useFilters` is plain data. Each entry comes from an `f.*`
+builder that records the filter's kind and options. Nothing renders and nothing
+runs until the hook reads it.
 
 ```ts
 const configs = {
@@ -15,14 +15,14 @@ const configs = {
 };
 ```
 
-Because it's plain data, a config can be shared (exported from a module),
-[built at runtime](/docs/guides/dynamic-filters) from a backend response, or handed
-to a [route loader](/docs/guides/route-loaders). The same object drives the hook
-and its loader twin.
+Since it's plain data, you can export it from a module,
+[build it at runtime](/docs/guides/dynamic-filters) from an API response, or pass it
+to a [route loader](/docs/guides/project-setup#3-route-loaders-with-resolvefilterparams).
+The hook and the loader read the same object.
 
 ## Value types
 
-The builder you pick determines the type of that filter's value in `params`:
+The builder decides the type of the filter's value in `params`:
 
 ```ts
 f.text(...)         // string | null
@@ -32,23 +32,23 @@ f.select(...)       // V | null       (V driven by valueType, checked against op
 f.multiSelect(...)  // V[] | null
 ```
 
-For a `select` or `multiSelect`, `V` is driven by the **required** `valueType`
-(`'number' | 'string'`). Numeric options give `number | null`, a string union
-gives `'open' | 'closed' | null`, and `options` are checked against it (a
-mismatched option is a compile error). See [Filter types](/docs/filter-types/overview)
+For `select` and `multiSelect`, `V` comes from the required `valueType`
+(`'number'` or `'string'`). Numeric options give `number | null`, a union of
+strings gives `'open' | 'closed' | null`, and an option that doesn't match the
+`valueType` is a compile error. See [Filter types](/docs/filter-types/overview)
 for the full list.
 
 <Callout>
-  `valueType` is required, rather than inferred from `options`, so a route loader calling
-  `resolveFilterParams` (which never sees `options`) always parses the same type the hook does. See
-  [Async filters](/docs/filter-types/async#value-types).
+  `valueType` is required instead of being inferred from `options` because a route loader calling
+  `resolveFilterParams` never sees `options`. Declaring it means the loader and the hook parse the
+  value the same way. See [Async filters](/docs/filter-types/async#value-types).
 </Callout>
 
 ## Defaults
 
-`defaultValue` sets the value used when the URL has no param for that filter. A
-filter sitting at its default counts as **inactive**: it's excluded from
-`isFiltered` and, with `clearOnDefault` (the default), kept out of the URL entirely:
+`defaultValue` is the value used when the URL has no param for the filter. A
+filter at its default counts as inactive: `isFiltered` ignores it, and with
+`clearOnDefault` (on by default) it isn't written to the URL at all:
 
 ```ts
 status: f.select({
@@ -60,24 +60,27 @@ status: f.select({
 // No `?status` in the URL → params.status is 'open', and isFiltered ignores it.
 ```
 
-Because a defaulted filter falls back to its default when unset (and again when
-cleared), it can **never** be `null`, so its value type drops the `| null`:
+A filter with a default falls back to it when unset and when cleared, so it can't
+be `null`, and its type drops the `| null`:
 
 ```ts
-f.select({ label: 'Status', valueType: 'string', options }); //                   'open' | 'closed' | null
-f.select({ label: 'Status', valueType: 'string', options, defaultValue: 'open' }); // 'open' | 'closed'  (never null)
+f.select({ label: 'Status', valueType: 'string', options });
+// params.status: 'open' | 'closed' | null
+
+f.select({ label: 'Status', valueType: 'string', options, defaultValue: 'open' });
+// params.status: 'open' | 'closed'
 ```
 
-This holds for every kind, and everywhere `params` is derived: the hook and
-[`resolveFilterParams`](/docs/api/resolve-filter-params) alike. A defaulted
-filter is still clearable in the UI: clearing (or `onChange(null)`) resets it to
-its default.
+That's true for every kind, in the hook and in
+[`resolveFilterParams`](/docs/api/resolve-filter-params). You can still clear a
+filter that has a default: clearing it, or calling `onChange(null)`, sets it back
+to the default.
 
 ## Hidden filters
 
-`hidden: true` keeps a filter's value in `params` (and `filterMap`) but leaves it
-out of the `filters` array. Use it for a value you manage somewhere other than the
-main toolbar: a search box in the header, or a fixed value you set imperatively:
+`hidden: true` keeps a filter in `params` and `filterMap` but leaves it out of the
+`filters` array. Use it for a value you render somewhere other than the toolbar,
+such as a search box in the header, or one you only set from code:
 
 ```ts
 const { params, filters, filterMap } = useFilters({
@@ -86,12 +89,12 @@ const { params, filters, filterMap } = useFilters({
 });
 ```
 
-More on placing filters in different parts of your UI in
-[Search, sort & placement](/docs/guides/search-sort-and-placement).
+[Search, sort & placement](/docs/guides/search-sort-and-placement) covers putting
+filters in different parts of the page.
 
 ## Shared per-filter options
 
-Every kind accepts these, regardless of type:
+Every kind accepts these:
 
 | Option         | Purpose                                                                                   |
 | -------------- | ----------------------------------------------------------------------------------------- |

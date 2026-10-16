@@ -1,0 +1,149 @@
+---
+title: Project setup
+description: Bind your API's conventions once with createFilters, then share a screen's config between the hook and a route loader.
+---
+
+You don't need any of this for a single filtered table. The default `useFilters`
+from the package works on its own. This page is for when you have several
+screens, a backend with its own pagination naming, or a route loader that
+prefetches data.
+
+It goes in three steps, and each one builds on the last:
+
+1. `createFilters` writes down the constants your whole app shares.
+2. `defineFilters` binds one screen's config, so the hook and the loader can't drift.
+3. `resolveFilterParams` computes the same `params` in a loader as the hook does
+   on the client.
+
+## 1. Project constants with `createFilters`
+
+Pagination key names, the default page size and the date format are usually the
+same across an app. Set them once and export the result:
+
+```ts
+// lib/filters.ts
+import { createFilters } from '@mbsatimov/use-filters';
+
+export const { defineFilters, f, resolveFilterParams, useFilters } = createFilters({
+  pagination: { perPageKey: 'page_size', defaultPerPage: 25 }
+});
+```
+
+Every screen then imports from this file instead of the package:
+
+```ts
+import { f, useFilters } from '@/lib/filters';
+```
+
+<Callout type='warn' title='Import from your module, not the package'>
+  The package root also exports `useFilters`, `defineFilters` and `f`. That is a separate instance
+  with the default settings, for apps that never call `createFilters`. Both imports compile, but
+  only yours knows about `page_size`. One stray `from '@mbsatimov/use-filters'` quietly gives that
+  screen the defaults, so export everything you use from `lib/filters.ts`.
+</Callout>
+
+This is a factory rather than a React provider because the same constants have to
+reach `resolveFilterParams`, which runs in loaders outside React and can't read
+context.
+
+The [`createFilters` reference](/docs/api/create-filters) lists every option:
+pagination keys, `firstPage`, date formats, `arraySeparator`, `request.arrayFormat`
+and `defaultCommit`.
+
+### More than one backend
+
+Pagination keys can't be overridden per call, on purpose: a hook and its loader
+must agree on them. If two backends paginate differently, make one factory for
+each and rename the exports:
+
+```ts
+export const { useFilters: useCrmFilters, resolveFilterParams: resolveCrmParams } = createFilters({
+  pagination: { perPageKey: 'per_page' }
+});
+
+export const { useFilters: useBillingFilters, resolveFilterParams: resolveBillingParams } =
+  createFilters({ pagination: { perPageKey: 'page_size', firstPage: 0 } });
+```
+
+## 2. One screen with `defineFilters`
+
+Besides the config, the hook and the loader share two options, `arraySeparator`
+and `pagination`. It's easy to set one on the hook and forget it in the loader.
+`defineFilters` binds the config and those options together and gives you a hook
+and a loader helper that use them:
+
+```ts
+// features/products/filters.ts
+import { defineFilters, f } from '@/lib/filters';
+
+export const productFilters = defineFilters(
+  {
+    search: f.text({ label: 'Search' }),
+    brand: f.select({ label: 'Brand', valueType: 'string', options: brandOptions })
+  },
+  { arraySeparator: '|' }
+);
+```
+
+```tsx
+// in the component
+const { params, filters } = productFilters.useFilters();
+```
+
+Options that only affect the hook (`defaultCommit`, `meta`, `history`, `shallow`,
+`clearOnDefault`) can still be passed per call, since they can't change what the
+loader computes:
+
+```tsx
+const { params, filters } = productFilters.useFilters({ defaultCommit: 'manual' });
+```
+
+## 3. Route loaders with `resolveFilterParams`
+
+If you prefetch in a loader, it has to build exactly the `params` the hook will
+build on mount. Otherwise the prefetched data sits under a different cache key and
+the page fetches again. `resolveFilterParams` does the hook's work without React:
+the same defaults, the same pagination keys, the same parsing (`?customer_id=5`
+gives the number `5`, not `'5'`).
+
+With a `defineFilters` screen, call the bound version. It takes whatever your
+router hands you:
+
+```ts
+// React Router: the search params from the request
+export async function loader({ request }: LoaderFunctionArgs) {
+  const params = productFilters.resolveFilterParams(new URL(request.url).searchParams);
+  return queryClient.ensureQueryData(productQueryOptions(params));
+}
+```
+
+```ts
+// TanStack Router: search is already parsed into an object
+loader: ({ context: { queryClient }, location: { search } }) =>
+  queryClient.ensureQueryData(productQueryOptions(productFilters.resolveFilterParams(search)));
+```
+
+It also accepts a raw query string such as `location.search`.
+
+Without `defineFilters` you pass the config yourself, and keeping the options in
+step is up to you:
+
+```ts
+// drift: the separator is set on the hook but not in the loader
+useFilters(productConfigs, { arraySeparator: '|' });
+resolveFilterParams(productConfigs, new URL(request.url).searchParams);
+```
+
+That mismatch is the reason step 2 exists. Use `defineFilters` whenever a screen
+has a loader.
+
+## Checking against your API type
+
+`defineFilters` is also the natural place to check the config against your
+endpoint's params type, since both the hook and the loader read from it:
+
+```ts
+export const productFilters = defineFilters<ProductListParams>(configs);
+```
+
+See [Typed params](/docs/guides/typed-params) for what that checks.

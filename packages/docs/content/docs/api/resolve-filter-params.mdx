@@ -5,48 +5,57 @@ description: Compute the hook's params object outside React, for route loaders.
 
 ```ts
 resolveFilterParams(configs, rawSearch, options?) => params
-resolveFilterParams<P>(configs, rawSearch, options?) => params // validate against an API type
+resolveFilterParams<P>(configs, rawSearch, options?) => params // checked against an API type
 ```
 
-The framework-agnostic twin of the hook's `params` derivation. Runs anywhere
-(route loaders, server code) and produces the **identical** object `useFilters`
-computes on mount, so a prefetch hits the same cache key. See
-[Route loaders](/docs/guides/route-loaders).
+Builds the same `params` object that `useFilters` builds on mount, without React.
+Use it in route loaders and server code so a prefetch lands under the same cache
+key. The [Project setup](/docs/guides/project-setup#3-route-loaders-with-resolvefilterparams)
+guide shows it in context.
 
-- **`configs`** — the same config map you pass to the hook.
-- **`rawSearch`** — the request's search params, in any of these shapes:
-  - a parsed object (`{ status: 'open' }`),
-  - a `URLSearchParams` (`new URL(request.url).searchParams`),
-  - the raw query string (`'?status=open'` or `location.search`).
-- **`options`** — `{ arraySeparator, pagination }`. These **must match** the hook's
-  for the query keys to align; [`defineFilters`](/docs/api/define-filters) binds them
-  once to remove that risk.
+## Arguments
 
-## Behavior
+- `configs`: the same config map you pass to the hook.
+- `rawSearch`: the request's query, in whichever form your router gives you:
+  - a parsed object, e.g. `{ status: 'open' }` (TanStack Router's `search`)
+  - a `URLSearchParams`, e.g. `new URL(request.url).searchParams`
+  - a query string, with or without the leading `?`, e.g. `location.search`
+  - a full URL or path, e.g. `request.url` (2.0.1 and later)
+- `options`: `{ arraySeparator, pagination }`. These must match what the hook uses,
+  or the two produce different keys. [`defineFilters`](/docs/api/define-filters)
+  sets them in one place.
 
-- Applies each filter's `defaultValue` (or `null`) exactly like the hook.
-- Coerces values to the same types (`?status=5` → the number `5`, not `'5'`).
-- Mirrors the pagination keys into the result under the configured names.
-- Drops extras such as async `_label` sidecars.
+## What it does
+
+- Applies each filter's `defaultValue`, or `null`, the same way the hook does.
+- Parses values to the same types: `?customer_id=5` gives the number `5`, not `'5'`.
+- Adds the pagination params under your configured key names.
+- Drops anything the hook wouldn't put in `params`, such as the `_label` params
+  that async filters store.
 
 ```ts
 const params = resolveFilterParams(productConfigs, new URL(request.url).searchParams);
-// => { search, status, page, per_page } — same shape as useFilters' params
+// { search, status, page, per_page }, the same shape as the hook's params
 ```
 
-Passing `<P>` validates `configs` against your API's params type and types the
-result as exactly `P` — the same
-[contract `useFilters<P>` enforces](/docs/guides/typed-params) (required keys
-declared, non-null params defaulted):
+## Checking against an API type
+
+Passing `<P>` checks `configs` against your endpoint's params type and types the
+result as `P`. The rules are the same as for
+[`useFilters<P>`](/docs/guides/typed-params): required keys need a filter, and
+non-null params need a `defaultValue`.
 
 ```ts
-const params = resolveFilterParams<ProductListParams>(productConfigs, request.url);
-// params: ProductListParams — soundly
+const params = resolveFilterParams<ProductListParams>(
+  productConfigs,
+  new URL(request.url).searchParams
+);
+// params: ProductListParams
 ```
 
 <Callout>
-  Choice filters (`select` / `multiSelect`) require
-  [`valueType`](/docs/filter-types/async#value-types) for exactly this reason — the loader never
-  sees `options`, so a value type inferred from them would risk disagreeing with the hook.
-  `valueType` is a static declaration both sides read the same way.
+  This is why `select` and `multiSelect` require a
+  [`valueType`](/docs/filter-types/select-and-tags). The loader never sees the `options`, so it
+  can't infer the value type from them. Declaring it means the hook and the loader parse the value
+  the same way.
 </Callout>

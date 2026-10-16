@@ -1,12 +1,12 @@
 ---
 title: Installation
-description: Install the package and mount the nuqs adapter — the one required step.
+description: Install the package and mount the nuqs adapter.
 ---
 
 ## Install
 
-Install the package alongside its two peer dependencies, `react` (18 or 19) and
-[`nuqs`](https://nuqs.dev) (2+):
+Install the package with its two peer dependencies, `react` (18 or 19) and
+[`nuqs`](https://nuqs.dev) (2 or later):
 
 ```bash
 npm install @mbsatimov/use-filters nuqs
@@ -15,9 +15,9 @@ npm install @mbsatimov/use-filters nuqs
 
 ## Mount the nuqs adapter
 
-State is stored in the URL through nuqs, which needs its **adapter mounted once**
-at your app's root. This is the only required setup — without it, `useFilters`
-throws. Pick the adapter that matches your router:
+The state lives in the URL through nuqs, and nuqs needs its adapter mounted once
+at the root of your app. That's the only setup. Without it, `useFilters` throws.
+Use the adapter for your router:
 
 <Tabs items={['Next.js (App)', 'Next.js (Pages)', 'React Router', 'Remix', 'Plain React']}>
 
@@ -75,11 +75,11 @@ import { NuqsAdapter } from 'nuqs/adapters/react';
 
 </Tabs>
 
-TanStack Router and others are supported too — see the full list in the
+nuqs also has adapters for TanStack Router and others; see the
 [nuqs adapter docs](https://nuqs.dev/docs/adapters).
 
 ## Next
 
-You're set up. Either follow the [Quickstart](/docs/quickstart) to build a working
-filtered list, or read [How it works](/docs/concepts/how-it-works) to understand
-the model first.
+That's it. Build a filtered list in the [Quickstart](/docs/quickstart), or read
+[How it works](/docs/concepts/how-it-works) first if you prefer the model before
+the code.

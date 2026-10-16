@@ -15,7 +15,7 @@ defineFilters<P>(configs, options?) // validate against an API type
 Binds one screen's `configs` and the shared call option `{ arraySeparator, pagination }`
 so `useFilters` and `resolveFilterParams` can't drift. Available on every
 [`createFilters`](/docs/api/create-filters) instance and the default export. See
-[Sharing setup](/docs/guides/shared-setup#definefilters).
+[Project setup](/docs/guides/project-setup#2-one-screen-with-definefilters).
 
 - **`configs`** — a map of `key → f.*()`.
 - **`options`** — the shared, drift-prone options only: `arraySeparator`,
@@ -73,5 +73,5 @@ values first; unlike `defineFilters<P>`, the bare type doesn't know them.
 <Callout title="It returns a bundle, not the config map">
   `defineFilters` hands back `{ configs, useFilters, resolveFilterParams }`. Passing its result
   straight into another `useFilters(...)` is a type error — reach for `.configs`, or call the
-  returned `useFilters()` / `resolveFilterParams(search)`, which already have the config applied.
+  returned `useFilters()` / `resolveFilterParams(…)`, which already have the config applied.
 </Callout>

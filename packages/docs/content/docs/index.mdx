@@ -1,22 +1,21 @@
 ---
 title: Introduction
-description: Headless, URL-synced filter state for React. What it is and when to use it.
+description: Headless, URL-synced filter state for React. What it does and when to use it.
 ---
 
-**One config object in; URL-synced state and a typed `params` object out.** That is
-the whole library in a sentence.
+use-filters is a React hook for list and table screens. You describe your filters
+in one object; it keeps their state in the URL and gives you a typed `params`
+object to fetch with.
 
-Most list and table screens need the same things: a set of filters, kept in the URL
-so the view survives refreshes and can be shared, wired into data fetching so
-results stay in sync. Building that by hand means a `useState` per filter, manual
-URL serialization, and remembering to reset the page whenever a filter changes. It
-is repetitive and easy to get subtly wrong.
+Doing this by hand usually means a `useState` per filter, your own URL parsing
+and serializing, and remembering to go back to page 1 whenever a filter changes.
+None of it is hard, but it is easy to get slightly wrong, and every screen ends up
+with its own copy.
 
-**use-filters** does that part for you. You describe your filters once; the hook
-keeps their state in the URL and hands back everything you need to fetch data and
-render controls. It ships **no UI**: you build the controls, it owns the state.
+The library handles the state. It ships no components, so the controls are up to
+you.
 
-## The idea in one example
+## A first look
 
 ```ts
 const { params, filters } = useFilters({
@@ -25,49 +24,51 @@ const { params, filters } = useFilters({
 });
 ```
 
-One `useFilters` call gives you **two** outputs, used in two different places:
+The hook returns two things, and you use them in different places:
 
-- **`params`** is a plain object of the current values plus pagination
-  (`{ status, search, page, per_page }`). Pass it to your API, and use it as your
-  cache key.
-- **`filters`** is the same set resolved with a live `value` and change handlers,
-  ready to render as whatever controls you like.
+- `params` holds the current values plus pagination, e.g.
+  `{ status, search, page, per_page }`. Send it to your API and use it as the cache
+  key.
+- `filters` is the same set of filters with a current `value` and an `onChange`
+  on each, ready to render as whatever controls you like.
 
-Both derive from the **URL query string**, the single source of truth. Change a
-filter and the URL changes; load a URL and the filters restore. The
-[How it works](/docs/concepts/how-it-works) page walks through that model in full,
-and it's worth reading before the rest.
+Both come from the URL query string. Change a filter and the URL changes; open a
+URL and the filters are restored. [How it works](/docs/concepts/how-it-works)
+covers this properly. Read it early.
 
-## What it is (and isn't)
+## What it covers
 
-**It is** a state manager for filters, built on [nuqs](https://nuqs.dev) for the URL
-layer. It handles serialization, typing, pagination, debounced and deferred commits,
-and a matching helper for route loaders.
+It manages filter state, using [nuqs](https://nuqs.dev) for the URL. That
+includes parsing, types, pagination, debounced and manual commits, and a helper
+that computes the same `params` in a route loader.
 
-**It is not** a data-fetching library or a component kit. You bring your own fetcher
-(React Query, SWR, `fetch`) and your own controls (plain inputs, a design system,
-shadcn/ui). That keeps it tiny, with zero runtime dependencies beyond the `react`
-and `nuqs` peers, and unopinionated about how your app looks.
+It does not fetch data or render anything. Use whatever fetcher you already have
+(React Query, SWR, `fetch`) and whatever controls you like. The only runtime
+dependencies are the `react` and `nuqs` peers.
 
-## When to reach for it
+If you want the UI as well, there are [ready-made kits](/docs/ready-made-ui)
+built on shadcn/ui that you copy into your project.
 
-A good fit when you have a filtered list or table and want:
+## When to use it
 
-- filters that live in the URL (shareable, refresh-safe, back-button friendly),
-- one typed object to drive fetching and caching,
-- consistent handling of pagination, debounced search, and "Apply" panels,
-- the same values computed in a route loader for SSR prefetching.
+It fits when you have a filtered list or table and want some of these:
 
-If you only have one or two throwaway filters and don't care about the URL, plain
-`useState` is fine. Everywhere else, this removes the boilerplate.
+- filters in the URL, so links can be shared and refreshes and the back button work
+- one typed object to drive fetching and caching
+- pagination, debounced search and "Apply" panels handled the same way everywhere
+- the same values computed in a route loader for server rendering
+
+For one or two filters that don't need to be in the URL, plain `useState` is
+simpler.
 
 ## Where to go next
 
 | If you want to…            | Read                                                                    |
 | -------------------------- | ----------------------------------------------------------------------- |
 | get something running      | [Installation](/docs/installation), then [Quickstart](/docs/quickstart) |
+| skip building the controls | [Ready-made UI](/docs/ready-made-ui)                                    |
 | understand the model       | [How it works](/docs/concepts/how-it-works)                             |
-| see every filter kind      | [Filter types](/docs/filter-types/overview)                             |
-| wire it up to your API     | [Fetching data](/docs/guides/fetching-data)                             |
-| share setup across screens | [Sharing setup](/docs/guides/shared-setup)                              |
+| see every filter type      | [Filter types](/docs/filter-types/overview)                             |
+| connect it to your API     | [Fetching data](/docs/guides/fetching-data)                             |
+| share setup across screens | [Project setup](/docs/guides/project-setup)                             |
 | look up an option          | [API reference](/docs/api/use-filters)                                  |

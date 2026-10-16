@@ -1,54 +1,54 @@
 ---
 title: Values & commits
-description: 'The value lifecycle and when a change reaches the URL: instant, debounced, or manual.'
+description: 'When a change reaches the URL: right away, after a pause, or when you call apply().'
 ---
 
 import { CommitModesDemo } from '@/components/demos/commit-modes';
 
-By default, changing a filter writes to the URL immediately. That's right for a
-`select`, but wasteful for a search box (a request per keystroke) and wrong for a
-mobile sheet where nothing should move until the user taps **Apply**. The `commit`
-mode controls this, and it's the one genuinely subtle concept in the library.
+By default a filter change is written to the URL immediately. That's right for a
+select. For a search box it means a request per keystroke, and in a mobile sheet
+nothing should change until the user taps Apply. The `commit` option controls
+when a change is written. It's the one part of the library that takes a moment to
+get used to.
 
 ## The three modes
 
-Set `commit` per filter:
+Set `commit` on each filter:
 
-| `commit`              | The control updates… | …and `params` / the URL update…           |
-| --------------------- | -------------------- | ----------------------------------------- |
-| `'instant'` (default) | immediately          | immediately                               |
-| `{ debounce: ms }`    | immediately          | `ms` after the last change (timer resets) |
-| `'manual'`            | immediately          | only when you call `apply()`              |
+| `commit`              | The control updates | `params` and the URL update                     |
+| --------------------- | ------------------- | ----------------------------------------------- |
+| `'instant'` (default) | immediately         | immediately                                     |
+| `{ debounce: ms }`    | immediately         | `ms` after the last change (the timer restarts) |
+| `'manual'`            | immediately         | when you call `apply()`                         |
 
-In every mode the **control stays responsive**: `useFilters` keeps a local draft
-so the input reflects typing instantly. What changes is when that draft is
-**committed** to the URL and `params`.
+The control always responds straight away. `useFilters` keeps a local draft, so
+an input shows what you type even when nothing has been written yet. The mode only
+decides when that draft is committed to the URL and `params`.
 
-## Draft vs committed
+## Draft and committed values
 
-This is why a filter has both `value` and `committedValue`
-([One value, three views](/docs/concepts/how-it-works#one-value-three-views)):
+That's why each filter has both `value` and `committedValue`
+([see How it works](/docs/concepts/how-it-works#one-value-three-places-to-read-it)):
 
-- **`value`**: the draft; what the control shows right now.
-- **`committedValue`**: what's actually applied and in `params` / the URL.
+- `value` is the draft, what the control shows now.
+- `committedValue` is what has been applied, and what `params` and the URL hold.
 
-They're equal for instant filters. For a debounced or manual filter they diverge
-while a change is pending. In the demo below, the search is **debounced** and the
-status is **manual**. Watch the drafts change instantly, but `params` (and the URL)
-only catch up after the debounce settles or you press **Apply**:
+They're the same for instant filters and only differ while a change is waiting.
+In the demo below the search is debounced and the status is manual. The drafts
+update as you type, but `params` and the URL only follow once the debounce
+finishes or you press Apply:
 
 <CommitModesDemo />
 
-## Whole-set state and actions
+## Applying or discarding everything
 
-When any filter has an uncommitted change, the hook reports it and gives you
-actions to resolve all of them at once:
+When any filter has a change waiting, the hook tells you and gives you two actions
+that act on all of them:
 
-- **`isDirty`**: `true` while any filter has a pending change. Always `false` when
-  every filter is instant.
-- **`apply()`**: commit every pending change now (including ones mid-debounce).
-- **`cancel()`**: discard every pending change; filters snap back to
-  `committedValue`.
+- `isDirty` is `true` while any change is waiting. It's always `false` if every
+  filter is instant.
+- `apply()` commits every waiting change now, including ones still mid-debounce.
+- `cancel()` throws them away, and each filter goes back to its `committedValue`.
 
 ```tsx
 const { isDirty, apply, cancel } = useFilters(configs);
@@ -57,39 +57,43 @@ const { isDirty, apply, cancel } = useFilters(configs);
 <button disabled={!isDirty} onClick={cancel}>Cancel</button>
 ```
 
-Because `params` only ever reflects committed values, it's always safe to use
-directly as a fetch key: a half-typed search never triggers a request. Building a
-full Apply/Cancel panel is covered in [Apply panel](/docs/guides/apply-panel).
+`params` only ever holds committed values, so you can fetch with it directly. A
+half-typed search never sends a request. [Apply panel](/docs/guides/apply-panel)
+builds a full Apply/Cancel panel.
+
+To clear everything, `reset()` sets every filter back to its default and still
+waits for Apply on manual filters. `instantReset()` clears them and writes the URL
+in one go, which is usually what a "Clear all" button wants.
 
 ## Per-filter actions
 
-Each resolved filter also carries its **own** `isDirty` / `apply()` / `cancel()`,
-the same trio scoped to one filter, for a per-row "apply this" or "undo"
-affordance. It also has `reset()` (back to default, respecting `commit`) and
-`instantReset()` (back to default, bypassing `commit`).
+Each resolved filter has its own `isDirty`, `apply()` and `cancel()` for just that
+filter, handy for a per-row "apply" or "undo". It also has `reset()`, which goes
+back to the default and respects `commit`, and `instantReset()`, which ignores it.
 
 ## Setting a default mode
 
-Rather than repeating `commit`, set a default at the call or factory level.
-Precedence, most specific first:
+Instead of repeating `commit` on every filter, set a default for a call or for the
+whole app. The most specific setting wins:
 
-**per-filter `commit`** → **`useFilters({ defaultCommit })`** → **`createFilters({ defaultCommit })`** → `'instant'`
+per-filter `commit` → `useFilters(…, { defaultCommit })` → `createFilters({ defaultCommit })` → `'instant'`
 
 ```tsx
-// Whole app defaults to manual ("Apply" UX)…
+// the whole app waits for Apply
 export const { useFilters, f } = createFilters({ defaultCommit: 'manual' });
 
-// …overridden for one screen, and again for one filter:
+// one screen goes back to instant, and its search is debounced
 useFilters(
   {
-    q: f.text({ label: 'Search', commit: { debounce: 400 } }), // this filter: debounced
-    status: f.select({ label: 'Status', valueType: 'string', options }) // inherits the call default…
+    q: f.text({ label: 'Search', commit: { debounce: 400 } }),
+    status: f.select({ label: 'Status', valueType: 'string', options }) // instant
   },
-  { defaultCommit: 'instant' } // …instant here (overriding the factory)
+  { defaultCommit: 'instant' }
 );
 ```
 
 <Callout>
-  `commit` is unrelated to nuqs's `limitUrlUpdates: debounce(ms)`, which throttles the browser
-  history write **after** a value is committed. `commit` controls whether it's committed at all.
+  `commit` is not the same as nuqs's `limitUrlUpdates: debounce(ms)`. That one throttles how often
+  the browser history is written after a value has been committed. `commit` decides whether the
+  value is committed in the first place.
 </Callout>
